@@ -65,7 +65,7 @@ func TestGetSLIValue(t *testing.T) {
 
 	assert.EqualValues(t, nil, err)
 
-	assert.EqualValues(t, 789, value)
+	assert.EqualValues(t, 0.789, value)
 }
 
 // Tests GetSLIValue without a dynatrace entity name

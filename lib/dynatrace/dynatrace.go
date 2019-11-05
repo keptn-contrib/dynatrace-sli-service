@@ -51,14 +51,15 @@ type dynatraceResult struct {
 
 // Handler interacts with a dynatrace API endpoint
 type Handler struct {
-	ApiURL     string
-	Username   string
-	Password   string
-	Project    string
-	Stage      string
-	Service    string
-	HTTPClient *http.Client
-	Headers    map[string]string
+	ApiURL        string
+	Username      string
+	Password      string
+	Project       string
+	Stage         string
+	Service       string
+	HTTPClient    *http.Client
+	Headers       map[string]string
+	CustomQueries map[string]string
 }
 
 // NewDynatraceHandler returns a new dynatrace handler that interacts with the Dynatrace REST API
@@ -92,6 +93,20 @@ func parseCustomFilters(customFilters []*events.SLIFilter) (string, string) {
 	// foo
 }
 
+// return tags based on the timeseries id
+// e.g., dynatrace builtin service metrics have tags for environment and service
+func (ph *Handler) GetTagsBasedOnTimeseriesId(timeseriesId string) []string {
+	if strings.HasPrefix(timeseriesId, "com.dynatrace.builtin:service.") {
+		return []string{
+			// "application:" + ph.Project,
+			"environment:" + ph.Project + "-" + ph.Stage,
+			"service:" + ph.Service,
+		}
+	}
+
+	return nil
+}
+
 func (ph *Handler) GetSLIValue(metric string, start string, end string, customFilters []*events.SLIFilter) (float64, error) {
 	// disable SSL verification (probably not a good idea for dynatrace)
 	// http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -108,26 +123,32 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	// parse start and end (which are datetime strings) and convert them into unix timestamps
 	startUnix, err := parseUnixTimestamp(start)
 	if err != nil {
-		return 0, err
+		return 0, errors.New("Error parsing start date: " + err.Error())
 	}
 	endUnix, _ := parseUnixTimestamp(end)
 	if err != nil {
-		return 0, err
+		return 0, errors.New("Error parsing end date: " + err.Error())
 	}
 
-	timeseriesIdentifier, timeseriesAggregationType, percentile, err := ph.getTimeseries(metric, startUnix, endUnix)
+	fmt.Printf("Getting timeseries config for metric %s\n", metric)
+
+	timeseriesIdentifier, timeseriesAggregationType, percentile, err := ph.getTimeseriesConfig(metric, startUnix, endUnix)
 
 	if err != nil {
+		fmt.Printf("Error happened: %s\n", err.Error())
 		return 0, err
 	}
 
 	url := ph.ApiURL + fmt.Sprintf("/api/v1/timeseries/%s/", timeseriesIdentifier)
 
-	// set initial tag list with application, environment and service
-	tags := []string{
-		// "application:" + ph.Project,
-		"environment:" + ph.Project + "-" + ph.Stage,
-		"service:" + ph.Service,
+	// set initial tag list with application, environment and service based on the timeseries identifier
+	// (e.g., environment and service)
+	tags := ph.GetTagsBasedOnTimeseriesId(timeseriesIdentifier)
+
+	if tags == nil {
+		// no tags found (yet) --> unsupported metric
+		return 0, errors.New(fmt.Sprintf("Could not automatically generate tags for timeseries identifier %s",
+			timeseriesIdentifier))
 	}
 
 	// append additional tags for dynatrace
@@ -206,13 +227,42 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	// finally iterate over result.Result.DataPoints and choose the one with the key lookForEntityId
 	resultData := result.Result.DataPoints[lookForEntityId]
 
-	fmt.Println(resultData)
+	return scaleData(timeseriesIdentifier, timeseriesAggregationType, resultData[0][1]), nil
+}
 
-	return resultData[0][1], nil
+// scales data based on the timeseries identifier (e.g., service.responsetime needs to be scaled from microseconds
+// to milliseocnds)
+func scaleData(timeseriesIdentifier string, timeseriesAggregationType string, value float64) float64 {
+	if timeseriesIdentifier == "com.dynatrace.builtin:service.responsetime" {
+		// scale service.responsetime from microseconds to milliseconds
+		return value / 1000.0
+	}
+	// default:
+	return value
 }
 
 // based on the requested metric a dynatrace timeseries with its aggregation type is returned
-func (ph *Handler) getTimeseries(metric string, start time.Time, end time.Time) (string, string, int, error) {
+func (ph *Handler) getTimeseriesConfig(metric string, start time.Time, end time.Time) (string, string, int, error) {
+	if val, ok := ph.CustomQueries[metric]; ok {
+		data := strings.Split(val, ",")
+
+		if len(data) != 3 {
+			return "", "", 0, errors.New(fmt.Sprintf("Metric %s custom query config has wrong length of %d", metric, len(data)))
+		}
+
+		percentage, err := strconv.Atoi(data[2])
+
+		if err != nil {
+			return "", "", 0, err
+		}
+
+		fmt.Printf("Returning custom metric %s with the following config: %s,%s,%d\n", metric, data[0], data[1], percentage)
+
+		return data[0], data[1], percentage, nil
+	}
+
+	// default config
+
 	switch metric {
 	case Throughput:
 		return "com.dynatrace.builtin:service.requests", "count", 0, nil
@@ -225,7 +275,8 @@ func (ph *Handler) getTimeseries(metric string, start time.Time, end time.Time) 
 	case RequestLatencyP95:
 		return "com.dynatrace.builtin:service.responsetime", "percentile", 95, nil
 	default:
-		return "", "", 0, errors.New("unsupported SLI")
+		fmt.Sprintf("Unknown metric %s\n", metric)
+		return "", "", 0, errors.New(fmt.Sprintf("unsupported SLI metric %s", metric))
 	}
 }
 

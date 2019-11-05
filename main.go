@@ -114,6 +114,43 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	log.Println("API URL=" + dynatraceAPIUrl)
 
+	// get custom metrics for Keptn installation
+	customQueries, err := getGlobalCustomQueries(kubeClient, stdLogger)
+
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	// get custom metrics for project
+	projectCustomQueries, err := getCustomQueriesForProject(eventData.Project, kubeClient, stdLogger)
+
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	log.Printf("Custom Query Config\n")
+
+	// make sure custom queries exists
+	if customQueries == nil {
+		customQueries = make(map[string]string)
+	} else {
+		for k, v := range customQueries {
+			log.Printf("\tFound custom query %s with value %s\n", k, v)
+		}
+	}
+
+	if projectCustomQueries != nil {
+		log.Println("Merging custom queries with projectCustomQueries")
+		// merge global custom queries and project custom queries
+		for k, v := range projectCustomQueries {
+			// overwrite / append project custom query on global custom queries
+			customQueries[k] = v
+			log.Printf("\tOverwriting custom query %s with value %s\n", k, v)
+		}
+	}
+
 	dynatraceHandler := dynatrace.NewDynatraceHandler(
 		dynatraceAPIUrl,
 		eventData.Project,
@@ -123,6 +160,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 			"Authorization": "Api-Token " + apiToken,
 		},
 	)
+
+	dynatraceHandler.CustomQueries = customQueries
 
 	if err != nil {
 		return err
@@ -157,7 +196,55 @@ func retrieveMetrics(event cloudevents.Event) error {
 			})
 		}
 	}
-	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage, sliResults)
+
+	log.Println("Finished fetching metrics; Sending event now...")
+
+	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
+		sliResults, eventData.Start, eventData.End, eventData.TestStrategy)
+}
+
+const keptnDynatraceSliConfigMapName = "dynatrace-sli-service-config"
+
+// Return Custom Queries for Keptn Installation
+func getGlobalCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
+	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnDynatraceSliConfigMapName))
+
+	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnDynatraceSliConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		logger.Info("No global custom queries defined")
+		return nil, nil
+	}
+
+	customQueries := make(map[string]string)
+	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), &customQueries)
+
+	if err != nil {
+		logger.Info("Global custom queries found, but could not parse them: " + err.Error())
+		return nil, err
+	}
+	logger.Info("Global custom queries found and parsed")
+	return customQueries, nil
+}
+
+// Return Custom Queries for Keptn Installation
+func getCustomQueriesForProject(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
+	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnDynatraceSliConfigMapName))
+
+	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnDynatraceSliConfigMapName+"-"+project, metav1.GetOptions{})
+	if err != nil {
+		logger.Info("No custom queries defined for project " + project)
+		return nil, nil
+	}
+
+	customQueries := make(map[string]string)
+	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), &customQueries)
+
+	if err != nil {
+		logger.Info("Project custom queries found, but could not parse them: " + err.Error())
+		return nil, err
+	}
+	logger.Info("Project custom queries found and parsed")
+	return customQueries, nil
 }
 
 func getDynatraceAPIUrl(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (string, string, error) {
@@ -259,7 +346,7 @@ func fakeSendGetSLIEvent(previousEvent cloudevents.Event) error {
 }
 
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
-	service string, stage string, indicatorValues []*keptnevents.SLIResult) error {
+	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string, teststrategy string) error {
 
 	source, _ := url.Parse("dynatrace-sli-service")
 	contentType := "application/json"
@@ -269,6 +356,9 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		Service:         service,
 		Stage:           stage,
 		IndicatorValues: indicatorValues,
+		Start:           start,
+		End:             end,
+		TestStrategy:    teststrategy,
 	}
 	event := cloudevents.Event{
 		Context: cloudevents.EventContextV02{

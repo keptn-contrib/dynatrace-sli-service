@@ -12,12 +12,14 @@ where `${PROJECTNAME}` is the name of the project as specified within the `keptn
 
 ## Tags
 
-The following tags are expected to be set on the monitored services within Dynatrace:
+The following tags are expected to be set on the monitored **services** within Dynatrace:
 
 * `environment` - maps to the stage within Keptn (basically the Kubernetes namespace, e.g., `sockshop-dev`, `sockshop-staging` or `sockshop-production`)
 * `service` - maps to the name of the service within Keptn (e.g., `carts`)
 
 ![alt text](assets/dynatrace_service_tags.png)
+
+At the moment only timeseries starting with a prefix of `com.dynatrace.builtin:service.` are supported.
 
 ## Timeseries Mapping
 
@@ -32,16 +34,18 @@ The following metrics are supported by Keptn
 
 and mapped to Dynatrace timeseries data as follows:
 
-| Name               | TimeseriesIdentifier                         | AggregationType               |
-|--------------------|----------------------------------------------|-------------------------------|
-| Throughput         | com.dynatrace.builtin:service.requestspermin | count                         | 
-| ErrorRate          | com.dynatrace.builtin:service.failurerate    | avg                           |
-| RequestLatencyP50  | com.dynatrace.builtin:service.responsetime   | percentile (`percentile=50`)  |
-| RequestLatencyP90  | com.dynatrace.builtin:service.responsetime   | percentile (`percentile=90`)  |
-| RequestLatencyP95  | com.dynatrace.builtin:service.responsetime   | percentile (`percentile=95`)  |
+| Name               | TimeseriesIdentifier                            | AggregationType               |
+|--------------------|-------------------------------------------------|-------------------------------|
+| Throughput         | com.dynatrace.builtin:service.requestspermin    | count                         | 
+| ErrorRate          | com.dynatrace.builtin:service.failurerate       | avg                           |
+| RequestLatencyP50  | com.dynatrace.builtin:service.responsetime[^1]  | percentile (`percentile=50`)  |
+| RequestLatencyP90  | com.dynatrace.builtin:service.responsetime[^1]  | percentile (`percentile=90`)  |
+| RequestLatencyP95  | com.dynatrace.builtin:service.responsetime[^1]  | percentile (`percentile=95`)  |
 
 More information about timeseries and available metrics can be found 
 [here](https://www.dynatrace.com/support/help/shortlink/api-metrics#services).
+
+[^1] service.responsetime is returned in microseconds by Dynatrace, and converted to milliseconds by this service.
 
 ## Result Data
 
@@ -86,3 +90,4 @@ By iterating over `entities` in the response, the service identifier `SERVICE-ID
 If performance tests are triggered within Keptn, an additional tag is automatically set within Dynatrace: 
  `test-subject:true`. This enables us to separate services that have only been created for testing (e.g., new artifacts) 
  from services that have been deployed before.
+ 
