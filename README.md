@@ -59,6 +59,42 @@ To fetch data this service queries ``https://{DT_TENANT_ID}/api/v1/timeseries/{t
 * `com.dynatrace.builtin:app.custom.webrequest.errorcount` for error count
 * `com.dynatrace.builtin:service.responsetime` for request latency (p50, p90 and p95)
 
+## Custom Metrics/Timeseries Identifier
+
+You can overwrite each metric/timeseries identifier as well as the aggregation method using Kubernetes Config Maps on
+ for the whole Keptn installation as well as per project. You can also add new metrics.
+
+
+### Global
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dynatrace-sli-service-config
+  namespace: keptn
+data:
+  custom-queries: |
+    throughput: "com.dynatrace.builtin:service.requests,count,0"
+    errorRate: "com.dynatrace.builtin:service.failurerate,avg,0"
+    myMetric: "whatever.io.metrics:foo.bar,..."
+```
+
+
+### Per Project
+
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dynatrace-sli-service-config-${PROJECT_NAME}
+  namespace: keptn
+data:
+  custom-queries: |
+    throughput: "com.dynatrace.builtin:foo.bar,avg,0"
+    myMetric: "whatever.io.metrics:foo.bar,..."
+```
+where `${PROJECT_NAME}` is the name of the project (e.g., `sockshop`). 
+
 ## Integration with Dynatrace
 
 We expect each service to have the following tags within Dynatrace:
@@ -70,4 +106,6 @@ E.g., the service `carts` in the stage `dev` within project `sockshop` would hav
 
 * ``service:carts``
 * ``environment:sockshop-dev`` (this is essentially the kubernetes namespace)
+
+See [docs/DynatraceIntegration.md](docs/DynatraceIntegration.md) for more details.
 

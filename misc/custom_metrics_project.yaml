@@ -1,0 +1,11 @@
+# add using kubectl apply -n "keptn" -f custom_metrics_project.yaml
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dynatrace-sli-service-config-sockshop
+  namespace: keptn
+data:
+  custom-queries: |
+    throughput: "com.dynatrace.builtin:foo.bar,avg,0"
+    myMetric: "whatever.io.metrics:foo.bar,count,0"

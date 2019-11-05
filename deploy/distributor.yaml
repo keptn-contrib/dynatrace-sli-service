@@ -34,21 +34,3 @@ spec:
               value: 'sh.keptn.internal.event.get-sli'
             - name: PUBSUB_RECIPIENT
               value: 'dynatrace-sli-service'
-        - name: distributor-test
-          image: keptn/distributor:latest
-          ports:
-            - containerPort: 8080
-          resources:
-            requests:
-              memory: "32Mi"
-              cpu: "50m"
-            limits:
-              memory: "128Mi"
-              cpu: "500m"
-          env:
-            - name: PUBSUB_URL
-              value: 'nats://keptn-nats-cluster'
-            - name: PUBSUB_TOPIC
-              value: 'sh.keptn.events.tests-finished'
-            - name: PUBSUB_RECIPIENT
-              value: 'dynatrace-sli-service'

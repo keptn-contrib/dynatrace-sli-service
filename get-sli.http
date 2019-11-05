@@ -6,7 +6,7 @@
 # * 'ptr' and 'ptrp' create a POST request with a simple or parameter-like body;
 # * 'mptr' and 'fptr' create a POST request to submit a form with a text or file field (multipart/form-data);
 
-POST http://localhost:8081/
+POST http://localhost:8080/
 Accept: application/json
 Cache-Control: no-cache
 Content-Type: application/cloudevents+json
@@ -20,7 +20,7 @@ Content-Type: application/cloudevents+json
     "stage": "dev",
     "start": "2019-10-28T15:44:27.152330783Z",
     "end": "2019-10-28T15:54:27.152330783Z",
-    "indicators": ["throughput", "error_rate", "request_latency_p50", "request_latency_p90", "request_latency_p95"],
+    "indicators": ["throughput", "error_rate", "request_latency_p95"],
     "customFilters": [
       { "key" : "dynatraceEntityName", "value": "HealthCheckController" },
       { "key" : "tags", "value": "test-subject:true" }
@@ -31,6 +31,6 @@ Content-Type: application/cloudevents+json
   "specversion": "0.2",
   "time": "2019-10-14T08:00:09.416Z",
   "type": "sh.keptn.internal.event.get-sli",
-  "shkeptncontext": "b0704d01-e936-40ff-b6e3-6fb29790b9ef"
+  "shkeptncontext": "a5c859a7-4f70-4cee-b7b9-fe700c1a6207"
 }
 ###

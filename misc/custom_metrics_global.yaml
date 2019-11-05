@@ -1,0 +1,10 @@
+# add using kubectl apply -f custom_metrics_global.yaml
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dynatrace-sli-service-config
+  namespace: keptn
+data:
+  custom-queries: |
+    throughput: "com.dynatrace.builtin:foo.bar,avg,0"

@@ -98,22 +98,24 @@ func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
 		},
 	)
 
-	got_a, got_b, _, err := dh.getTimeseries("foobar", time.Now(), time.Now())
+	got_a, got_b, _, err := dh.getTimeseriesConfig("foobar", time.Now(), time.Now())
 
 	if got_a != "" || got_b != "" {
-		t.Errorf("dh.getTimeseries() returned (\"%s\",\"%s\"), expected(\"\",\"\")", got_a, got_b)
+		t.Errorf("dh.getTimeseriesConfig() returned (\"%s\",\"%s\"), expected(\"\",\"\")", got_a, got_b)
 	}
 
+	expected := "unsupported SLI metric foobar"
+
 	if err == nil {
-		t.Errorf("dh.getTimeseries() did not return an error")
+		t.Errorf("dh.getTimeseriesConfig() did not return an error")
 	} else {
-		if err.Error() != "unsupported SLI" {
-			t.Errorf("dh.getTimeseries() returned error %s, expected unsupported SLI", err.Error())
+		if err.Error() != expected {
+			t.Errorf("dh.getTimeseriesConfig() returned error %s, expected %s", err.Error(), expected)
 		}
 	}
 }
 
-// Tests the result of getTimeseries for Throughput
+// Tests the result of getTimeseriesConfig for Throughput
 func TestGetTimeseriesThroughput(t *testing.T) {
 	dh := NewDynatraceHandler(
 		"dynatrace",
@@ -125,22 +127,22 @@ func TestGetTimeseriesThroughput(t *testing.T) {
 		},
 	)
 
-	timeseries, aggregation, percentile, err := dh.getTimeseries(Throughput, time.Now(), time.Now())
+	timeseries, aggregation, percentile, err := dh.getTimeseriesConfig(Throughput, time.Now(), time.Now())
 
 	if timeseries != "com.dynatrace.builtin:service.requests" {
-		t.Errorf("dh.getTimeseries() returned timeseries %s, expected com.dynatrace.builtin:service.requests", timeseries)
+		t.Errorf("dh.getTimeseriesConfig() returned timeseries %s, expected com.dynatrace.builtin:service.requests", timeseries)
 	}
 
 	if aggregation != "count" {
-		t.Errorf("dh.getTimeseries() returned aggregation %s, expected count", aggregation)
+		t.Errorf("dh.getTimeseriesConfig() returned aggregation %s, expected count", aggregation)
 	}
 
 	if percentile != 0 {
-		t.Errorf("dh.getTimeseries() returned percentile %d, expected 0", percentile)
+		t.Errorf("dh.getTimeseriesConfig() returned percentile %d, expected 0", percentile)
 	}
 
 	if err != nil {
-		t.Errorf("dh.getTimeseries() returned an error %s", err.Error())
+		t.Errorf("dh.getTimeseriesConfig() returned an error %s", err.Error())
 	}
 }
 
@@ -155,22 +157,22 @@ func TestGetTimeseriesRequestLatencyP90(t *testing.T) {
 		},
 	)
 
-	timeseries, aggregation, percentile, err := dh.getTimeseries(RequestLatencyP90, time.Now(), time.Now())
+	timeseries, aggregation, percentile, err := dh.getTimeseriesConfig(RequestLatencyP90, time.Now(), time.Now())
 
 	if timeseries != "com.dynatrace.builtin:service.responsetime" {
-		t.Errorf("dh.getTimeseries() returned timeseries %s, expected com.dynatrace.builtin:service.responsetime", timeseries)
+		t.Errorf("dh.getTimeseriesConfig() returned timeseries %s, expected com.dynatrace.builtin:service.responsetime", timeseries)
 	}
 
 	if aggregation != "percentile" {
-		t.Errorf("dh.getTimeseries() returned aggregation %s, expected percentile", aggregation)
+		t.Errorf("dh.getTimeseriesConfig() returned aggregation %s, expected percentile", aggregation)
 	}
 
 	if percentile != 90 {
-		t.Errorf("dh.getTimeseries() returned percentile %d, expected 90", percentile)
+		t.Errorf("dh.getTimeseriesConfig() returned percentile %d, expected 90", percentile)
 	}
 
 	if err != nil {
-		t.Errorf("dh.getTimeseries() returned an error %s", err.Error())
+		t.Errorf("dh.getTimeseriesConfig() returned an error %s", err.Error())
 	}
 }
 
