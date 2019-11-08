@@ -57,7 +57,7 @@ To fetch data this service queries ``https://{DT_TENANT_ID}/api/v1/timeseries/{t
 
 * `com.dynatrace.builtin:dcrum.service.serverthroughput` for throughput
 * `com.dynatrace.builtin:app.custom.webrequest.errorcount` for error count
-* `com.dynatrace.builtin:service.responsetime` for request latency (p50, p90 and p95)
+* `com.dynatrace.builtin:service.responsetime` for response time (p50, p90 and p95)
 
 ## Custom Metrics/Timeseries Identifier
 
