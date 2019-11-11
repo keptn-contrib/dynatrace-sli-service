@@ -48,7 +48,8 @@ Add the credential in the **keptn namespace** using
 ```console
 kubectl create secret generic dynatrace-credentials-${PROJECTNAME} -n "keptn" --from-file=dynatrace-credentials=your_credential_file.yaml
 ```
-where `${PROJECTNAME}` is the name of the project (e.g., `sockshop`).
+where `${PROJECTNAME}` is the name of the project (e.g., `sockshop`). An example credentials file is available in 
+ [misc/dynatrace-credentials.yaml](misc/dynatrace-credentials.yaml).
 
 ## How does this service work internally
 
@@ -99,9 +100,12 @@ where `${PROJECT_NAME}` is the name of the project (e.g., `sockshop`).
 
 You can overwrite each metric/timeseries identifier as well as the aggregation method using Kubernetes Config Maps on
  for the whole Keptn installation as well as per project. You can also add new metrics.
+ 
 
-
-### Global
+### Default Configuration
+The following is the default configuration (which is currently handled within the code, you don't need to apply it). 
+ This only serves demonstration purpose and can be used to extend metrics easily.
+ 
 ```yaml
 kind: ConfigMap
 apiVersion: v1
@@ -110,14 +114,34 @@ metadata:
   namespace: keptn
 data:
   custom-queries: |
-    throughput: "com.dynatrace.builtin:service.requests,count,0"
-    errorRate: "com.dynatrace.builtin:service.failurerate,avg,0"
-    myMetric: "whatever.io.metrics:foo.bar,..."
+    throughput: "com.dynatrace.builtin:service.requestspermin,count,0"
+    error_rate: "com.dynatrace.builtin:service.failurerate,avg,0"
+    response_time_P50: "com.dynatrace.builtin:service.responsetime,percentile,50"
+    response_time_P90: "com.dynatrace.builtin:service.responsetime,percentile,90"
+    response_time_P95: "com.dynatrace.builtin:service.responsetime,percentile,95"
+```
+
+Please see [docs/DynatraceIntegration.md](docs/DynatraceIntegration.md) for more details about the metrics used.
+
+### Global
+For example, we re-define throughput and add two new metrics `errorCount4xx` and `errorCount5xx`:
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dynatrace-sli-service-config
+  namespace: keptn
+data:
+  custom-queries: |
+    throughput: "com.dynatrace.builtin:service.requestspermin,count,0"
+    error_count_4xx: "com.dynatrace.builtin:service.errorcounthttp4xx,,0"
+    error_count_5xx: "com.dynatrace.builtin:service.errorcounthttp5xx,,0"
 ```
 
 
 ### Per Project
-
+Here we overwrite the `response_time_p50` metric to not use median (p50), but average, and we introduce a new (made up)
+ metric `my_metric`.
 ```yaml
 kind: ConfigMap
 apiVersion: v1
@@ -126,8 +150,8 @@ metadata:
   namespace: keptn
 data:
   custom-queries: |
-    throughput: "com.dynatrace.builtin:foo.bar,avg,0"
-    myMetric: "whatever.io.metrics:foo.bar,..."
+    response_time_p50: "com.dynatrace.builtin:service.responsetime,avg,0"
+    my_metric: "whatever.io.metrics:foo.bar,..."
 ```
 where `${PROJECT_NAME}` is the name of the project (e.g., `sockshop`). 
 

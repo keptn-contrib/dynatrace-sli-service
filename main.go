@@ -25,8 +25,8 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-const configservice = "CONFIGURATION_SERVICE"
 const eventbroker = "EVENTBROKER"
+const keptnDynatraceSliConfigMapName = "dynatrace-sli-service-config"
 
 type envConfig struct {
 	// Port on which to listen for cloudevents
@@ -74,9 +74,6 @@ func gotEvent(ctx context.Context, event cloudevents.Event) error {
 	switch event.Type() {
 	case keptnevents.InternalGetSLIEventType:
 		return retrieveMetrics(event)
-	case keptnevents.TestsFinishedEventType:
-		// fake the get sli event
-		return fakeSendGetSLIEvent(event)
 	default:
 		return errors.New("received unknown event type")
 	}
@@ -204,8 +201,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy)
 }
 
-const keptnDynatraceSliConfigMapName = "dynatrace-sli-service-config"
-
 // Return Custom Queries for Keptn Installation
 func getGlobalCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
 	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnDynatraceSliConfigMapName))
@@ -295,55 +290,6 @@ func getDynatraceAPIUrl(project string, kubeClient v1.CoreV1Interface, logger *k
 	}
 
 	return dynatraceURL, dtCreds.APIToken, nil
-}
-
-// fake the get sli event: this parses the tests finished event and sends a getSli event
-func fakeSendGetSLIEvent(previousEvent cloudevents.Event) error {
-	var shkeptncontext string
-	var starttime string
-	var endtime string
-	previousEvent.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
-	previousEvent.Context.ExtensionAs("time", &endtime)
-	previousEvent.Context.ExtensionAs("data.startedat", &starttime)
-	eventData := &keptnevents.TestsFinishedEventData{}
-	err := previousEvent.DataAs(eventData)
-
-	log.Printf("shekptncontext=%s, starttime=%s, endtime=%s\n", shkeptncontext, starttime, endtime)
-
-	if err != nil {
-		return err
-	}
-
-	source, _ := url.Parse("lighthouse-service")
-	contentType := "application/json"
-
-	getSLIEvent := keptnevents.InternalGetSLIEventData{
-		SLIProvider: "dynatrace",
-		Project:     eventData.Project,
-		Service:     eventData.Service,
-		Stage:       eventData.Stage,
-		Start:       starttime,
-		End:         endtime,
-		Indicators:  []string{"throughput", "error_rate", "request_latency_p50", "request_latency_p90", "request_latency_p95"},
-		CustomFilters: []*keptnevents.SLIFilter{
-			{Key: "dynatraceEntityName", Value: "ItemsController"},
-			{Key: "tags", Value: "test-subject:true"},
-		},
-	}
-
-	event := cloudevents.Event{
-		Context: cloudevents.EventContextV02{
-			ID:          uuid.New().String(),
-			Time:        &types.Timestamp{Time: time.Now()},
-			Type:        keptnevents.InternalGetSLIEventType,
-			Source:      types.URLRef{URL: *source},
-			ContentType: &contentType,
-			Extensions:  map[string]interface{}{"shkeptncontext": shkeptncontext},
-		}.AsV02(),
-		Data: getSLIEvent,
-	}
-
-	return sendEvent(event)
 }
 
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,

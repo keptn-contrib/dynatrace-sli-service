@@ -1,4 +1,4 @@
-# add using kubectl apply -n "keptn" -f custom_metrics_project.yaml
+# add for project "sockshop" using kubectl apply -n "keptn" -f custom_metrics_project.yaml
 
 kind: ConfigMap
 apiVersion: v1
@@ -7,5 +7,4 @@ metadata:
   namespace: keptn
 data:
   custom-queries: |
-    throughput: "com.dynatrace.builtin:foo.bar,avg,0"
-    myMetric: "whatever.io.metrics:foo.bar,count,0"
+    responseTimeP50: "com.dynatrace.builtin:service.responsetime,avg,0"
