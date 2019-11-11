@@ -61,7 +61,7 @@ func TestGetSLIValue(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, err := dh.GetSLIValue(RequestLatencyP50, start, end, []*events.SLIFilter{{Key: "dynatraceEntityName", Value: "MyService"}})
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{{Key: "dynatraceEntityName", Value: "MyService"}})
 
 	assert.EqualValues(t, nil, err)
 
@@ -76,7 +76,7 @@ func TestGetSLIValueWithoutDynatraceEntityName(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, err := dh.GetSLIValue(RequestLatencyP50, start, end, []*events.SLIFilter{})
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{})
 
 	assert.EqualValues(t, 0.0, value)
 
@@ -108,7 +108,7 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, err := dh.GetSLIValue(RequestLatencyP50, start, end, []*events.SLIFilter{{Key: "dynatraceEntityName", Value: "MyService"}})
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{{Key: "dynatraceEntityName", Value: "MyService"}})
 
 	assert.EqualValues(t, errors.New("Dynatrace API returned no DataPoints"), err)
 
@@ -144,7 +144,7 @@ func TestGetSLIValueWithoutExpectedEntityId(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, err := dh.GetSLIValue(RequestLatencyP50, start, end, []*events.SLIFilter{{Key: "dynatraceEntityName", Value: "MyService"}})
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{{Key: "dynatraceEntityName", Value: "MyService"}})
 
 	assert.EqualValues(t, errors.New("could not find entity with name 'MyService' in result"), err)
 

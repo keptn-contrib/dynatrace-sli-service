@@ -1,10 +1,11 @@
 package dynatrace
 
 import (
-	keptnevents "github.com/keptn/go-utils/pkg/events"
 	"strconv"
 	"testing"
 	"time"
+
+	keptnevents "github.com/keptn/go-utils/pkg/events"
 )
 
 // Tests parsing custom filters array returns two empty strings
@@ -146,7 +147,7 @@ func TestGetTimeseriesThroughput(t *testing.T) {
 	}
 }
 
-func TestGetTimeseriesRequestLatencyP90(t *testing.T) {
+func TestGetTimeseriesResponseTimeP90(t *testing.T) {
 	dh := NewDynatraceHandler(
 		"dynatrace",
 		"sockshop",
@@ -157,7 +158,7 @@ func TestGetTimeseriesRequestLatencyP90(t *testing.T) {
 		},
 	)
 
-	timeseries, aggregation, percentile, err := dh.getTimeseriesConfig(RequestLatencyP90, time.Now(), time.Now())
+	timeseries, aggregation, percentile, err := dh.getTimeseriesConfig(ResponseTimeP90, time.Now(), time.Now())
 
 	if timeseries != "com.dynatrace.builtin:service.responsetime" {
 		t.Errorf("dh.getTimeseriesConfig() returned timeseries %s, expected com.dynatrace.builtin:service.responsetime", timeseries)

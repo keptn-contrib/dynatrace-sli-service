@@ -15,9 +15,9 @@ import (
 
 const Throughput = "throughput"
 const ErrorRate = "error_rate"
-const RequestLatencyP50 = "request_latency_p50"
-const RequestLatencyP90 = "request_latency_p90"
-const RequestLatencyP95 = "request_latency_p95"
+const ResponseTimeP50 = "request_latency_p50"
+const ResponseTimeP90 = "request_latency_p90"
+const ResponseTimeP95 = "request_latency_p95"
 
 type resultNumbers [][]float64
 
@@ -268,11 +268,11 @@ func (ph *Handler) getTimeseriesConfig(metric string, start time.Time, end time.
 		return "com.dynatrace.builtin:service.requests", "count", 0, nil
 	case ErrorRate:
 		return "com.dynatrace.builtin:service.failurerate", "avg", 0, nil
-	case RequestLatencyP50:
+	case ResponseTimeP50:
 		return "com.dynatrace.builtin:service.responsetime", "percentile", 50, nil
-	case RequestLatencyP90:
+	case ResponseTimeP90:
 		return "com.dynatrace.builtin:service.responsetime", "percentile", 90, nil
-	case RequestLatencyP95:
+	case ResponseTimeP95:
 		return "com.dynatrace.builtin:service.responsetime", "percentile", 95, nil
 	default:
 		fmt.Sprintf("Unknown metric %s\n", metric)

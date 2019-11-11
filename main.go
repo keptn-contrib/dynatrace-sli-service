@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/keptn-contrib/dynatrace-sli-service/lib/dynatrace"
-	"gopkg.in/yaml.v2"
 	"log"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/keptn-contrib/dynatrace-sli-service/lib/dynatrace"
+	"gopkg.in/yaml.v2"
 
 	"github.com/cloudevents/sdk-go/pkg/cloudevents"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/client"
@@ -73,7 +74,7 @@ func gotEvent(ctx context.Context, event cloudevents.Event) error {
 	switch event.Type() {
 	case keptnevents.InternalGetSLIEventType:
 		return retrieveMetrics(event)
-	case keptnevents.TestFinishedEventType_0_5_0_Compatible: // backwards compatibility to Keptn versions <= 0.5.x
+	case keptnevents.TestsFinishedEventType:
 		// fake the get sli event
 		return fakeSendGetSLIEvent(event)
 	default:

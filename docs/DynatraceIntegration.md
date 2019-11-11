@@ -27,10 +27,10 @@ The following metrics are supported by Keptn
 
 * Throughput (number of requests per second that have been processed)
 * ErrorRate (fraction of all received requests that produced an error)
-* RequestLatency (how long it takes to return a response to a request)
-    * RequestLatencyP50 
-    * RequestLatencyP90
-    * RequestLatencyP95
+* ResponseTime (how long it takes to return a response to a request)
+    * ResponseTimeP50 
+    * ResponseTimeP90
+    * ResponseTimeP95
 
 and mapped to Dynatrace timeseries data as follows:
 
@@ -38,9 +38,9 @@ and mapped to Dynatrace timeseries data as follows:
 |--------------------|-------------------------------------------------|-------------------------------|
 | Throughput         | com.dynatrace.builtin:service.requestspermin    | count                         | 
 | ErrorRate          | com.dynatrace.builtin:service.failurerate       | avg                           |
-| RequestLatencyP50  | com.dynatrace.builtin:service.responsetime[^1]  | percentile (`percentile=50`)  |
-| RequestLatencyP90  | com.dynatrace.builtin:service.responsetime[^1]  | percentile (`percentile=90`)  |
-| RequestLatencyP95  | com.dynatrace.builtin:service.responsetime[^1]  | percentile (`percentile=95`)  |
+| ResponseTimeP50  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=50`)  |
+| ResponseTimeP90  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=90`)  |
+| ResponseTimeP95  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=95`)  |
 
 More information about timeseries and available metrics can be found 
 [here](https://www.dynatrace.com/support/help/shortlink/api-metrics#services).
