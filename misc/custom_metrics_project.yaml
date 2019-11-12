@@ -1,0 +1,10 @@
+# add for project "sockshop" using kubectl apply -n "keptn" -f custom_metrics_project.yaml
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dynatrace-sli-service-config-sockshop
+  namespace: keptn
+data:
+  custom-queries: |
+    responseTimeP50: "com.dynatrace.builtin:service.responsetime,avg,0"
