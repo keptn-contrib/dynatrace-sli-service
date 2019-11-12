@@ -27,11 +27,6 @@ kubectl delete -f deploy/service.yaml
 kubectl delete -f deploy/distributor.yaml
 ```
 
-## Go Utils - different branch at the moment
-```bash
-go get github.com/keptn/go-utils@feature/950/evaluation-events
-```
-
 ## Settings / Secrets
 
 The following settings are needed in the form as a credentials file:
