@@ -198,7 +198,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	log.Println("Finished fetching metrics; Sending event now...")
 
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
-		sliResults, eventData.Start, eventData.End, eventData.TestStrategy)
+		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy)
 }
 
 // Return Custom Queries for Keptn Installation
@@ -293,19 +293,21 @@ func getDynatraceAPIUrl(project string, kubeClient v1.CoreV1Interface, logger *k
 }
 
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
-	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string, teststrategy string) error {
+	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string,
+	teststrategy string, deploymentStrategy string) error {
 
 	source, _ := url.Parse("dynatrace-sli-service")
 	contentType := "application/json"
 
 	getSLIEvent := keptnevents.InternalGetSLIDoneEventData{
-		Project:         project,
-		Service:         service,
-		Stage:           stage,
-		IndicatorValues: indicatorValues,
-		Start:           start,
-		End:             end,
-		TestStrategy:    teststrategy,
+		Project:            project,
+		Service:            service,
+		Stage:              stage,
+		IndicatorValues:    indicatorValues,
+		Start:              start,
+		End:                end,
+		TestStrategy:       teststrategy,
+		DeploymentStrategy: deploymentStrategy,
 	}
 	event := cloudevents.Event{
 		Context: cloudevents.EventContextV02{
