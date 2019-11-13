@@ -6,7 +6,7 @@
 # * 'ptr' and 'ptrp' create a POST request with a simple or parameter-like body;
 # * 'mptr' and 'fptr' create a POST request to submit a form with a text or file field (multipart/form-data);
 
-POST http://localhost:8080/
+POST http://localhost:8083/
 Accept: application/json
 Cache-Control: no-cache
 Content-Type: application/cloudevents+json
@@ -18,19 +18,17 @@ Content-Type: application/cloudevents+json
     "project": "sockshop",
     "service": "carts",
     "stage": "dev",
-    "start": "2019-10-28T15:44:27.152330783Z",
-    "end": "2019-10-28T15:54:27.152330783Z",
-    "indicators": ["throughput", "error_rate", "request_latency_p95"],
-    "customFilters": [
-      { "key" : "dynatraceEntityName", "value": "HealthCheckController" },
-      { "key" : "tags", "value": "test-subject:true" }
-    ]
+    "start": "2019-11-15T08:44:00.000Z",
+    "end": "2019-11-15T08:55:00.000Z",
+    "indicators": ["throughput", "error_rate", "response_time_p50", "response_time_p95"],
+    "teststrategy": "",
+    "deploymentstrategy": ""
   },
   "id": "b3c3c357-eb3d-4f90-b26e-9ebfedfb8dbf",
   "source": "lighthouse-service",
   "specversion": "0.2",
   "time": "2019-10-14T08:00:09.416Z",
   "type": "sh.keptn.internal.event.get-sli",
-  "shkeptncontext": "a5c859a7-4f70-4cee-b7b9-fe700c1a6207"
+  "shkeptncontext": "8d22877b-8207-470e-ac00-1b2c5e4d8f6b"
 }
 ###

@@ -34,13 +34,13 @@ The following metrics are supported by Keptn
 
 and mapped to Dynatrace timeseries data as follows:
 
-| Name               | TimeseriesIdentifier                            | AggregationType               |
-|--------------------|-------------------------------------------------|-------------------------------|
-| Throughput         | com.dynatrace.builtin:service.requestspermin    | count                         | 
-| ErrorRate          | com.dynatrace.builtin:service.failurerate       | avg                           |
-| ResponseTimeP50  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=50`)  |
-| ResponseTimeP90  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=90`)  |
-| ResponseTimeP95  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=95`)  |
+| Name               | TimeseriesIdentifier                            | AggregationType               | Metric Identifier (new API)           |
+|--------------------|-------------------------------------------------|-------------------------------|----------------------------------------
+| Throughput         | com.dynatrace.builtin:service.requestspermin    | count                         | builtin:service.requestCount.server or builtin:service.requestCount.client or builtin:service.requestCount.total ? |
+| ErrorRate          | com.dynatrace.builtin:service.failurerate       | avg                           | builtin:service.errors.total.count or builtin:service.errors.server.count ? |
+| ResponseTimeP50  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=50`)  | builtin:service.response.time         |
+| ResponseTimeP90  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=90`)  | builtin:service.response.time         |
+| ResponseTimeP95  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=95`)  | builtin:service.response.time         |
 
 More information about timeseries and available metrics can be found 
 [here](https://www.dynatrace.com/support/help/shortlink/api-metrics#services).

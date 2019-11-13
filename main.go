@@ -157,6 +157,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		map[string]string{
 			"Authorization": "Api-Token " + apiToken,
 		},
+		eventData.CustomFilters,
 	)
 
 	dynatraceHandler.CustomQueries = customQueries
