@@ -26,7 +26,7 @@ import (
 )
 
 const eventbroker = "EVENTBROKER"
-const keptnDynatraceSliConfigMapName = "dynatrace-sli-service-config"
+const keptnDynatraceSliConfigMapName = "dynatrace-sli-config"
 
 type envConfig struct {
 	// Port on which to listen for cloudevents

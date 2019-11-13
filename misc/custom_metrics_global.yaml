@@ -3,10 +3,10 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: dynatrace-sli-service-config
+  name: dynatrace-sli-config
   namespace: keptn
 data:
   custom-queries: |
     throughput: "com.dynatrace.builtin:service.requestspermin,count,0"
-    errorCount4xx: "com.dynatrace.builtin:service.errorcounthttp4xx,,0"
-    errorCount5xx: "com.dynatrace.builtin:service.errorcounthttp5xx,,0"
+    error_count_4xx: "com.dynatrace.builtin:service.errorcounthttp4xx,,0"
+    error_count_5xx: "com.dynatrace.builtin:service.errorcounthttp5xx,,0"

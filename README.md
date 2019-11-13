@@ -66,7 +66,7 @@ You can overwrite each metric/timeseries identifier as well as the aggregation m
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: dynatrace-sli-service-config
+  name: dynatrace-sli-config
   namespace: keptn
 data:
   custom-queries: |
@@ -82,7 +82,7 @@ data:
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: dynatrace-sli-service-config-${PROJECT_NAME}
+  name: dynatrace-sli-config-${PROJECT_NAME}
   namespace: keptn
 data:
   custom-queries: |
@@ -105,7 +105,7 @@ The following is the default configuration (which is currently handled within th
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: dynatrace-sli-service-config
+  name: dynatrace-sli-config
   namespace: keptn
 data:
   custom-queries: |
@@ -124,7 +124,7 @@ For example, we re-define throughput and add two new metrics `errorCount4xx` and
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: dynatrace-sli-service-config
+  name: dynatrace-sli-config
   namespace: keptn
 data:
   custom-queries: |
@@ -141,7 +141,7 @@ Here we overwrite the `response_time_p50` metric to not use median (p50), but av
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: dynatrace-sli-service-config-${PROJECT_NAME}
+  name: dynatrace-sli-config-${PROJECT_NAME}
   namespace: keptn
 data:
   custom-queries: |
