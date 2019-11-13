@@ -3,8 +3,8 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: dynatrace-sli-service-config-sockshop
+  name: dynatrace-sli-config-sockshop
   namespace: keptn
 data:
   custom-queries: |
-    responseTimeP50: "com.dynatrace.builtin:service.responsetime,avg,0"
+    response_time_P50: "com.dynatrace.builtin:service.responsetime,avg,0"
