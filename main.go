@@ -35,8 +35,8 @@ type envConfig struct {
 }
 
 type dynatraceCredentials struct {
-	Tenant   string `json:"tenant" yaml:"tenant"`
-	APIToken string `json:"apiToken" yaml:"apiToken"`
+	Tenant   string `json:"DT_TENANT" yaml:"tenant"`
+	APIToken string `json:"DT_API_TOKEN" yaml:"apiToken"`
 }
 
 func main() {
@@ -103,11 +103,17 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return errors.New("could not create kube client")
 	}
 
-	dynatraceAPIUrl, apiToken, err := getDynatraceAPIUrl(eventData.Project, kubeClient, stdLogger)
+	// fetch project specific dynatrace credentials
+	dynatraceAPIUrl, apiToken, err := getProjectDynatraceCredentials(kubeClient, stdLogger, eventData.Project)
 
 	if err != nil {
-		log.Fatal(err)
-		return err
+		// fallback to global dynatrace credentials (e.g., installed for dynatrace service)
+		dynatraceAPIUrl, apiToken, err = getGlobalDynatraceCredentials(kubeClient, stdLogger)
+
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
 	}
 
 	log.Println("API URL=" + dynatraceAPIUrl)
@@ -179,6 +185,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		stdLogger.Info("Fetching indicator: " + indicator)
 		sliValue, err := dynatraceHandler.GetSLIValue(indicator, eventData.Start, eventData.End, eventData.CustomFilters)
 		if err != nil {
+			stdLogger.Error(err.Error())
 			// failed to fetch metric
 			sliResults = append(sliResults, &keptnevents.SLIResult{
 				Metric:  indicator,
@@ -244,15 +251,48 @@ func getCustomQueriesForProject(project string, kubeClient v1.CoreV1Interface, l
 	return customQueries, nil
 }
 
-func getDynatraceAPIUrl(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (string, string, error) {
-	secretName := fmt.Sprintf("dynatrace-credentials-%s", project)
-	// check if secret 'dynatrace-credentials-<project> exists
-
+// get global dynatrace credentials
+func getGlobalDynatraceCredentials(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (string, string, error) {
+	secretName := "dynatrace"
+	// check if secret exists
 	secret, err := kubeClient.Secrets("keptn").Get(secretName, metav1.GetOptions{})
 
 	// return cluster-internal dynatrace URL if no secret has been found
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return "", "", errors.New(fmt.Sprintf("Could not find secret '%s' in namespace keptn.", secretName))
+	}
+
+	tenant, found := secret.Data["DT_TENANT"]
+
+	if !found {
+		return "", "", errors.New(fmt.Sprintf("Credentials %s does not contain a field 'DT_TENANT'", secretName))
+	}
+
+	api_token, found := secret.Data["DT_API_TOKEN"]
+
+	if !found {
+		return "", "", errors.New(fmt.Sprintf("Credentials %s does not contain a field 'DT_API_TOKEN'", secretName))
+	}
+
+	tenantStr := string(tenant)
+
+	if !strings.HasPrefix(tenantStr, "http://") && !strings.HasPrefix(tenantStr, "https://") {
+		tenantStr = "https://" + tenantStr
+	}
+
+	return tenantStr, string(api_token), nil
+}
+
+// get project specific dynatrace credentials
+func getProjectDynatraceCredentials(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger, project string) (string, string, error) {
+	secretName := fmt.Sprintf("dynatrace-credentials-%s", project)
+	// check if secret 'dynatrace-credentials-<project> exists
+	secret, err := kubeClient.Secrets("keptn").Get(secretName, metav1.GetOptions{})
+
+	// return cluster-internal dynatrace URL if no secret has been found
+	if err != nil {
+		log.Println(err)
 		return "", "", errors.New(fmt.Sprintf("Could not find secret '%s' in namespace keptn.", secretName))
 	}
 

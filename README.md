@@ -36,8 +36,8 @@ The following settings are needed in the form as a credentials file:
 
 E.g.:
 ```yaml
-tenant: your_tenant_id.live.dynatracelabs.com
-apiToken: XYZ123456789
+DT_TENANT: your_tenant_id.live.dynatracelabs.com
+DT_API_TOKEN: XYZ123456789
 ```
 Add the credential in the **keptn namespace** using
 ```console
