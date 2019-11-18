@@ -107,6 +107,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	dynatraceAPIUrl, apiToken, err := getProjectDynatraceCredentials(kubeClient, stdLogger, eventData.Project)
 
 	if err != nil {
+		log.Println("Failed to fetch dynatrace credentials for project, falling back to global credentials...")
 		// fallback to global dynatrace credentials (e.g., installed for dynatrace service)
 		dynatraceAPIUrl, apiToken, err = getGlobalDynatraceCredentials(kubeClient, stdLogger)
 
@@ -116,12 +117,13 @@ func retrieveMetrics(event cloudevents.Event) error {
 		}
 	}
 
-	log.Println("API URL=" + dynatraceAPIUrl)
+	log.Println("Dynatrace Credentials (Tenant, Token) received. Getting global custom queries...")
 
 	// get custom metrics for Keptn installation
 	customQueries, err := getGlobalCustomQueries(kubeClient, stdLogger)
 
 	if err != nil {
+		log.Println("Error fetching custom queries")
 		log.Fatal(err)
 		return err
 	}

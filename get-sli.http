@@ -6,7 +6,7 @@
 # * 'ptr' and 'ptrp' create a POST request with a simple or parameter-like body;
 # * 'mptr' and 'fptr' create a POST request to submit a form with a text or file field (multipart/form-data);
 
-POST http://localhost:8083/
+POST http://localhost:8081/
 Accept: application/json
 Cache-Control: no-cache
 Content-Type: application/cloudevents+json
@@ -14,21 +14,25 @@ Content-Type: application/cloudevents+json
 {
   "contenttype": "application/json",
   "data": {
-    "sliProvider": "dynatrace",
+    "customFilters": [
+    ],
+    "deploymentstrategy": "blue_green_service",
+    "end": "2019-11-19T09:26:53Z",
+    "indicators": [
+      "response_time_p95"
+    ],
     "project": "sockshop",
     "service": "carts",
-    "stage": "dev",
-    "start": "2019-11-15T08:44:00.000Z",
-    "end": "2019-11-15T08:55:00.000Z",
-    "indicators": ["throughput", "error_rate", "response_time_p50", "response_time_p95"],
-    "teststrategy": "",
-    "deploymentstrategy": ""
+    "sliProvider": "dynatrace",
+    "stage": "staging",
+    "start": "2019-11-19T09:18:14Z",
+    "teststrategy": "performance"
   },
-  "id": "b3c3c357-eb3d-4f90-b26e-9ebfedfb8dbf",
+  "id": "432b41e2-e50e-4d55-a4ca-0076df5b0b29",
   "source": "lighthouse-service",
   "specversion": "0.2",
-  "time": "2019-10-14T08:00:09.416Z",
+  "time": "2019-11-19T09:26:54.282Z",
   "type": "sh.keptn.internal.event.get-sli",
-  "shkeptncontext": "8d22877b-8207-470e-ac00-1b2c5e4d8f6b"
+  "shkeptncontext": "cc42042e-9d25-48cb-a0df-ad8c2e30b6d7"
 }
 ###

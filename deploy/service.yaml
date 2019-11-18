@@ -24,7 +24,7 @@ spec:
               memory: "32Mi"
               cpu: "50m"
             limits:
-              memory: "128Mi"
+              memory: "256Mi"
               cpu: "500m"
           env:
             - name: CONFIGURATION_SERVICE

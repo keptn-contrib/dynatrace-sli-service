@@ -32,22 +32,20 @@ func testingHTTPClient(handler http.Handler) (*http.Client, func()) {
 func TestGetSLIValue(t *testing.T) {
 
 	okResponse := `{
-		    "result": {
-		        "unit": "MicroSeconds (µs)",
-		        "dataPoints": {
-					"ENTITY-123": [[ 123, 456 ]],
-					"ENTITY-456": [[ 123, 789 ]],
-					"ENTITY-789": [[ 123, 999 ]]
-				},
-				"aggregationType": "PERCENTILE",
-				"entities": {
-					"ENTITY-123": "NotMyService",
-					"ENTITY-456": "MyService",
-					"ENTITY-789": "AlsoNotMyService"
-				},
-				"timeseriesId": "com.dynatrace.builtin:service.responsetime"
-		    }
-		}`
+		"totalCount": 3,
+		"nextPageKey": null,
+		"metrics": {
+			"builtin:service.response.time:merge(0):percentile(50)": {
+				"values": [
+					{
+						"dimensions": [],
+						"timestamp": 1573808100000,
+						"value": 8433.40
+					}
+				]
+			}
+		}
+	}`
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(okResponse))
@@ -56,45 +54,31 @@ func TestGetSLIValue(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil)
+	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
 	dh.HTTPClient = httpClient
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{{Key: "dynatraceEntityName", Value: "MyService"}})
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
 	assert.EqualValues(t, nil, err)
 
-	assert.EqualValues(t, 0.789, value)
-}
-
-// Tests GetSLIValue without a dynatrace entity name
-func TestGetSLIValueWithoutDynatraceEntityName(t *testing.T) {
-	expected := "dynatraceEntityName is either empty or undefined. Please define it using customFilters."
-
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil)
-
-	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
-	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{})
-
-	assert.EqualValues(t, 0.0, value)
-
-	assert.EqualError(t, err, expected)
+	assert.InDelta(t, 8.43340, value, 0.001)
 }
 
 // Tests GetSLIValue with an empty result (no datapoints)
 func TestGetSLIValueWithEmptyResult(t *testing.T) {
 
 	okResponse := `{
-		    "result": {
-		        "unit": "MicroSeconds (µs)",
-		        "dataPoints": {},
-				"aggregationType": "PERCENTILE",
-				"entities": {},
-				"timeseriesId": "com.dynatrace.builtin:service.responsetime"
-		    }
-		}`
+    "totalCount": 4,
+    "nextPageKey": null,
+    "metrics": {
+        "builtin:service.response.time:merge(0):percentile(50)": {
+            "values": [
+            ]
+        }
+    }
+}`
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(okResponse))
@@ -103,34 +87,36 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil)
+	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
 	dh.HTTPClient = httpClient
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{{Key: "dynatraceEntityName", Value: "MyService"}})
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
-	assert.EqualValues(t, errors.New("Dynatrace API returned no DataPoints"), err)
+	assert.EqualValues(t, errors.New("Dynatrace Metrics API returned 0 result values, expected 1"), err)
 
 	assert.EqualValues(t, 0.0, value)
 }
 
-// Tests GetSLIValue without the expected entity id
-func TestGetSLIValueWithoutExpectedEntityId(t *testing.T) {
+// Tests GetSLIValue without the expected metric in it
+func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 
 	okResponse := `{
-		    "result": {
-		        "unit": "MicroSeconds (µs)",
-		        "dataPoints": {
-					"ENTITY-123": [[ 123, 456 ]]
-				},
-				"aggregationType": "PERCENTILE",
-				"entities": {
-					"ENTITY-123": "NotMyService"
-				},
-				"timeseriesId": "com.dynatrace.builtin:service.responsetime"
-		    }
-		}`
+		"totalCount": 4,
+		"nextPageKey": null,
+		"metrics": {
+			"something_else": {
+				"values": [
+					{
+						"dimensions": [],
+						"timestamp": 1574092860000,
+						"value": 1364.0454545454545
+					}
+				]
+			}
+		}
+	}`
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(okResponse))
@@ -139,14 +125,14 @@ func TestGetSLIValueWithoutExpectedEntityId(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil)
+	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
 	dh.HTTPClient = httpClient
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{{Key: "dynatraceEntityName", Value: "MyService"}})
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
-	assert.EqualValues(t, errors.New("could not find entity with name 'MyService' in result"), err)
+	assert.EqualValues(t, errors.New("Dynatrace Metrics API result does not contain identifier builtin:service.response.time:merge(0):percentile(50)"), err)
 
 	assert.EqualValues(t, 0.0, value)
 }
@@ -161,7 +147,7 @@ func TestGetSLIValueWithErrorResponse(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil)
+	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
 	dh.HTTPClient = httpClient
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)

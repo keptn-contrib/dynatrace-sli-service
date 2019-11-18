@@ -149,6 +149,8 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	}
 	defer resp.Body.Close()
 
+	fmt.Println("Request finished, parsing body...")
+
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	var result dynatraceResult
