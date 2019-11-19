@@ -4,60 +4,7 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
-	keptnevents "github.com/keptn/go-utils/pkg/events"
 )
-
-// Tests parsing custom filters array returns two empty strings
-func TestParseCustomFiltersEmptyResults(t *testing.T) {
-	customFilters := []*keptnevents.SLIFilter{}
-
-	got_a, got_b := parseCustomFilters(customFilters)
-
-	// empty slice should return two empty strings
-	if got_a != "" || got_b != "" {
-		t.Errorf("parseCustomFilters returned (\"%s\", \"%s\"), expected (\"\", \"\")", got_a, got_b)
-	}
-
-	// using a value with a key that is not recognized should return two empty strings
-	customFilters = []*keptnevents.SLIFilter{
-		{Key: "something", Value: "Something else"},
-	}
-
-	got_a, got_b = parseCustomFilters(customFilters)
-
-	if got_a != "" || got_b != "" {
-		t.Errorf("parseCustomFilters returned (\"%s\", \"%s\"), expected (\"\", \"\")", got_a, got_b)
-	}
-}
-
-// Tests parsing custom filters returns the dynatrace entity name
-func TestParseCustomFiltersDynatraceEntityName(t *testing.T) {
-
-	customFilters := []*keptnevents.SLIFilter{
-		{Key: "dynatraceEntityName", Value: "MyService"},
-	}
-
-	got_a, got_b := parseCustomFilters(customFilters)
-
-	if got_a != "MyService" || got_b != "" {
-		t.Errorf("parseCustomFilters returned (\"%s\", \"%s\"), expected (\"MyService\", \"\")", got_a, got_b)
-	}
-}
-
-// Tests parsing custom filters returns tags
-func TestParseCustomFiltersTags(t *testing.T) {
-
-	customFilters := []*keptnevents.SLIFilter{
-		{Key: "tags", Value: "tag1,tag2"},
-	}
-
-	got_a, got_b := parseCustomFilters(customFilters)
-
-	if got_a != "" || got_b != "tag1,tag2" {
-		t.Errorf("parseCustomFilters returned (\"%s\", \"%s\"), expected (\"\", \"tag1,tag2\")", got_a, got_b)
-	}
-}
 
 func TestCreateNewDynatraceHandler(t *testing.T) {
 	dh := NewDynatraceHandler(
@@ -68,6 +15,7 @@ func TestCreateNewDynatraceHandler(t *testing.T) {
 		map[string]string{
 			"Authorization": "Api-Token " + "test",
 		},
+		nil,
 	)
 
 	if dh.ApiURL != "dynatrace" {
@@ -97,12 +45,13 @@ func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
 		map[string]string{
 			"Authorization": "Api-Token " + "test",
 		},
+		nil,
 	)
 
-	got_a, got_b, _, err := dh.getTimeseriesConfig("foobar", time.Now(), time.Now())
+	got, err := dh.getTimeseriesConfig("foobar")
 
-	if got_a != "" || got_b != "" {
-		t.Errorf("dh.getTimeseriesConfig() returned (\"%s\",\"%s\"), expected(\"\",\"\")", got_a, got_b)
+	if got != "" {
+		t.Errorf("dh.getTimeseriesConfig() returned (\"%s\"), expected(\"\")", got)
 	}
 
 	expected := "unsupported SLI metric foobar"
@@ -113,67 +62,6 @@ func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
 		if err.Error() != expected {
 			t.Errorf("dh.getTimeseriesConfig() returned error %s, expected %s", err.Error(), expected)
 		}
-	}
-}
-
-// Tests the result of getTimeseriesConfig for Throughput
-func TestGetTimeseriesThroughput(t *testing.T) {
-	dh := NewDynatraceHandler(
-		"dynatrace",
-		"sockshop",
-		"dev",
-		"carts",
-		map[string]string{
-			"Authorization": "Api-Token " + "test",
-		},
-	)
-
-	timeseries, aggregation, percentile, err := dh.getTimeseriesConfig(Throughput, time.Now(), time.Now())
-
-	if timeseries != "com.dynatrace.builtin:service.requests" {
-		t.Errorf("dh.getTimeseriesConfig() returned timeseries %s, expected com.dynatrace.builtin:service.requests", timeseries)
-	}
-
-	if aggregation != "count" {
-		t.Errorf("dh.getTimeseriesConfig() returned aggregation %s, expected count", aggregation)
-	}
-
-	if percentile != 0 {
-		t.Errorf("dh.getTimeseriesConfig() returned percentile %d, expected 0", percentile)
-	}
-
-	if err != nil {
-		t.Errorf("dh.getTimeseriesConfig() returned an error %s", err.Error())
-	}
-}
-
-func TestGetTimeseriesResponseTimeP90(t *testing.T) {
-	dh := NewDynatraceHandler(
-		"dynatrace",
-		"sockshop",
-		"dev",
-		"carts",
-		map[string]string{
-			"Authorization": "Api-Token " + "test",
-		},
-	)
-
-	timeseries, aggregation, percentile, err := dh.getTimeseriesConfig(ResponseTimeP90, time.Now(), time.Now())
-
-	if timeseries != "com.dynatrace.builtin:service.responsetime" {
-		t.Errorf("dh.getTimeseriesConfig() returned timeseries %s, expected com.dynatrace.builtin:service.responsetime", timeseries)
-	}
-
-	if aggregation != "percentile" {
-		t.Errorf("dh.getTimeseriesConfig() returned aggregation %s, expected percentile", aggregation)
-	}
-
-	if percentile != 90 {
-		t.Errorf("dh.getTimeseriesConfig() returned percentile %d, expected 90", percentile)
-	}
-
-	if err != nil {
-		t.Errorf("dh.getTimeseriesConfig() returned an error %s", err.Error())
 	}
 }
 

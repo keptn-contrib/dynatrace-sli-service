@@ -34,18 +34,18 @@ The following metrics are supported by Keptn
 
 and mapped to Dynatrace timeseries data as follows:
 
-| Name               | TimeseriesIdentifier                            | AggregationType               |
+| Name               | Metric                                          | AggregationType               |
 |--------------------|-------------------------------------------------|-------------------------------|
-| Throughput         | com.dynatrace.builtin:service.requestspermin    | count                         | 
-| ErrorRate          | com.dynatrace.builtin:service.failurerate       | avg                           |
-| ResponseTimeP50  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=50`)  |
-| ResponseTimeP90  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=90`)  |
-| ResponseTimeP95  | com.dynatrace.builtin:service.responsetime[^1]    | percentile (`percentile=95`)  |
+| Throughput         | builtin:service.requestCount.total              | count                         |
+| ErrorRate          | builtin:service.errors.total.count              | avg                           |
+| ResponseTimeP50    | builtin:service.response.time[^1]               | percentile (`percentile=50`)  |
+| ResponseTimeP90    | builtin:service.response.time[^1]               | percentile (`percentile=90`)  |
+| ResponseTimeP95    | builtin:service.response.time[^1]               | percentile (`percentile=95`)  |
 
 More information about timeseries and available metrics can be found 
-[here](https://www.dynatrace.com/support/help/shortlink/api-metrics#services).
+[here](https://www.dynatrace.com/support/help/extend-dynatrace/dynatrace-api/environment-api/metric/).
 
-[^1] service.responsetime is returned in microseconds by Dynatrace, and converted to milliseconds by this service.
+[^1] service.response.time is returned in microseconds by Dynatrace API, and converted to milliseconds within this service.
 
 ## Result Data
 
@@ -53,37 +53,21 @@ A result looks as follows:
 
 ```json
 {
-    "result": {
-        "dataPoints": {
-            "SERVICE-IDENTIFIER-123": [ [ TIMESTAMP1, VALUE1 ] ],
-            "SERVICE-IDENTIFIER-ABC": [ [ TIMESTAMP2, VALUE2 ] ],
-            "SERVICE-IDENTIFIER-XYZ": [ [ TIMESTAMP3, VALUE3 ] ]
-        },
-        "unit": "MicroSecond (µs)",
-        "resolutionInMillisUTC": 21600000,
-        "aggregationType": "AVG",
-        "entities": {
-            "SERVICE-IDENTIFIER-123": "ItemsController",
-            "SERVICE-IDENTIFIER-ABC": "HealthCheckController",
-            "SERVICE-IDENTIFIER-XYZ": "carts"
-        },
-        "timeseriesId": "com.dynatrace.builtin:service.responsetime"
+    "totalCount": 4,
+    "nextPageKey": null,
+    "metrics": {
+        "builtin:service.response.time:merge(0):percentile(50)": {
+            "values": [
+                {
+                    "dimensions": [],
+                    "timestamp": 1574092860000,
+                    "value": 1364.0454545454545
+                }
+            ]
+        }
     }
 }
 ```
-
-The relevant data is stored within `dataPoints` in the list `[ TIMESTAMP, VALUE ]`. However the API might return more
- than one service-identifier. To select the value of a specific service identifier a `customFilters` entry needs to be
- specified, e.g.:
-
-```json
-    "customFilters": [
-      { "key" : "dynatraceEntityName", "value": "HealthCheckController" }
-    ]
-```
-
-By iterating over `entities` in the response, the service identifier `SERVICE-IDENTIFIER-ABC` would be selected,
- which results in `VALUE2` to be selected.
 
 ## Keptn Performance Tests
 
