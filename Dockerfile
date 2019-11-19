@@ -7,6 +7,7 @@ FROM golang:1.12 as builder
 WORKDIR /go/src/github.com/keptn-contrib/dynatrace-sli-service
 
 ENV GO111MODULE=on
+ENV GOPROXY=https://proxy.golang.org
 ENV BUILDFLAGS=""
 
 # Copy `go.mod` for definitions and `go.sum` to invalidate the next layer

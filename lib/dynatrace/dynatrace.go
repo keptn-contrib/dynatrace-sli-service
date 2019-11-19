@@ -228,15 +228,15 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 	// default config
 	switch metric {
 	case Throughput:
-		return "builtin:service.requestCount.total:merge(0):count?scope=tag(environment:$PROJECT-$STAGE),tag(service:$SERVICE)", nil
+		return "builtin:service.requestCount.total:merge(0):count?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
 	case ErrorRate:
-		return "builtin:service.errors.total.count:merge(0):avg?scope=tag(environment:$PROJECT-$STAGE),tag(service:$SERVICE)", nil
+		return "builtin:service.errors.total.count:merge(0):avg?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
 	case ResponseTimeP50:
-		return "builtin:service.response.time:merge(0):percentile(50)?scope=tag(service:$SERVICE),tag(environment:$PROJECT-$STAGE)", nil
+		return "builtin:service.response.time:merge(0):percentile(50)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
 	case ResponseTimeP90:
-		return "builtin:service.response.time:merge(0):percentile(90)?scope=tag(service:$SERVICE),tag(environment:$PROJECT-$STAGE)", nil
+		return "builtin:service.response.time:merge(0):percentile(90)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
 	case ResponseTimeP95:
-		return "builtin:service.response.time:merge(0):percentile(95)?scope=tag(service:$SERVICE),tag(environment:$PROJECT-$STAGE)", nil
+		return "builtin:service.response.time:merge(0):percentile(95)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
 	default:
 		fmt.Sprintf("Unknown metric %s\n", metric)
 		return "", errors.New(fmt.Sprintf("unsupported SLI metric %s", metric))

@@ -5,6 +5,7 @@ services:
 env:
   global:
     - GO111MODULE=on
+    - GOPROXY=https://proxy.golang.org
 before_install:
   - export TZ=Europe/Vienna
   - IMAGE=keptn/dynatrace-sli-service
