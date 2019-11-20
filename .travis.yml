@@ -15,6 +15,8 @@ before_install:
   - GIT_NUM_COMMITS_SINCE_LAST_TAG=$(git rev-list ${GIT_LAST_TAG}..HEAD --count || echo "trunk")
   # get current branch name
   - GIT_BRANCH_NAME=$(git branch | grep \* | cut -d ' ' -f2)
+  - BRANCH=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then echo $TRAVIS_BRANCH; else echo $TRAVIS_PULL_REQUEST_BRANCH; fi)
+  - echo "TRAVIS_BRANCH=$TRAVIS_BRANCH, PR=$PR, BRANCH=$BRANCH"
   - GIT_SHA=$(git rev-parse --short HEAD)
   - GIT_BRANCH_AND_COMMIT=$(git describe --exact-match 2> /dev/null || echo "`git symbolic-ref HEAD 2> /dev/null | cut -b 12-`-`git log --pretty=format:\"%h\" -1`")
   # find out if we are on a tag (= exact match)
@@ -103,8 +105,8 @@ jobs:
       if: branch =~ ^release.*$ AND NOT type = pull_request
       script:
         # remove release- form branch name and overwrite the VERSION based on the branch name
-        - echo $GIT_BRANCH_NAME
-        - export VERSION=${GIT_BRANCH_NAME#"release-"}
+        - echo $BRANCH
+        - export VERSION=${BRANCH#"release-"}
         - echo $TRAVIS_BUILD_STAGE_NAME - $VERSION
         - docker build . -t "${IMAGE}:${GIT_SHA}"
         - docker tag "${IMAGE}:${GIT_SHA}" "${IMAGE}:${VERSION}.${DATE}"
