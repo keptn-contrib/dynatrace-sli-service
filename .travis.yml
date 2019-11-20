@@ -102,6 +102,8 @@ jobs:
       # build docker images for release branches
       if: branch =~ ^release.*$ AND NOT type = pull_request
       script:
+        # remove release- form branch name
+        - export VERSION=${GIT_BRANCH_NAME#"release-"}
         - echo $TRAVIS_BUILD_STAGE_NAME
         - docker build . -t "${IMAGE}:${GIT_SHA}"
         - docker tag "${IMAGE}:${GIT_SHA}" "${IMAGE}:${VERSION}.${DATE}"
