@@ -35,8 +35,8 @@ type envConfig struct {
 }
 
 type dynatraceCredentials struct {
-	Tenant   string `json:"DT_TENANT" yaml:"tenant"`
-	APIToken string `json:"DT_API_TOKEN" yaml:"apiToken"`
+	Tenant   string `json:"DT_TENANT" yaml:"DT_TENANT"`
+	APIToken string `json:"DT_API_TOKEN" yaml:"DT_API_TOKEN"`
 }
 
 func main() {
@@ -107,17 +107,18 @@ func retrieveMetrics(event cloudevents.Event) error {
 	dynatraceAPIUrl, apiToken, err := getProjectDynatraceCredentials(kubeClient, stdLogger, eventData.Project)
 
 	if err != nil {
-		log.Println("Failed to fetch dynatrace credentials for project, falling back to global credentials...")
+		stdLogger.Debug("Failed to fetch dynatrace credentials for project, falling back to global credentials...")
 		// fallback to global dynatrace credentials (e.g., installed for dynatrace service)
 		dynatraceAPIUrl, apiToken, err = getGlobalDynatraceCredentials(kubeClient, stdLogger)
 
 		if err != nil {
+			stdLogger.Debug("Failed to fetch global dynatrace credentials as well... exiting.")
 			log.Fatal(err)
 			return err
 		}
 	}
 
-	log.Println("Dynatrace Credentials (Tenant, Token) received. Getting global custom queries...")
+	stdLogger.Info("Dynatrace Credentials (Tenant, Token) received. Getting global custom queries...")
 
 	// get custom metrics for Keptn installation
 	customQueries, err := getGlobalCustomQueries(kubeClient, stdLogger)
@@ -175,7 +176,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	}
 
 	if dynatraceHandler == nil {
-		log.Println("failed to get dynatrace handler")
+		stdLogger.Error("failed to get dynatrace handler")
 		return nil
 	}
 

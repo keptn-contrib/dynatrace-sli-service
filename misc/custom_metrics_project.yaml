@@ -7,4 +7,4 @@ metadata:
   namespace: keptn
 data:
   custom-queries: |
-    response_time_P50: "com.dynatrace.builtin:service.responsetime,avg,0"
+    foo_bar: "custom.metric:merge(0):percentile(50)?scope=tag(my-service:$SERVICE),tag(my-environment:$PROJECT-$STAGE)"

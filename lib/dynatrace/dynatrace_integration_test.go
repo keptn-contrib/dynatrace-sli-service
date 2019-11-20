@@ -57,8 +57,8 @@ func TestGetSLIValue(t *testing.T) {
 	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
 	dh.HTTPClient = httpClient
 
-	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
-	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
+	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().Unix()*1000, 10)
+	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().Unix()*1000, 10)
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
 	assert.EqualValues(t, nil, err)

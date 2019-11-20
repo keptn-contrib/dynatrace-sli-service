@@ -93,9 +93,16 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	if err != nil {
 		return 0, errors.New("Error parsing start date: " + err.Error())
 	}
-	endUnix, _ := parseUnixTimestamp(end)
+	endUnix, err := parseUnixTimestamp(end)
 	if err != nil {
 		return 0, errors.New("Error parsing end date: " + err.Error())
+	}
+
+	if time.Now().Sub(endUnix).Seconds() < 120 {
+		// sleep 60 seconds if endUnix time is too close to the current time, as dynatrace might not have finished collecting all data
+		// ToDo: this should be done in main.go
+		fmt.Println("Sleeping 60 seconds (wait for Dynatrace Metrics API to have all the data we need)...")
+		time.Sleep(60 * time.Second)
 	}
 
 	fmt.Printf("Getting timeseries config for metric %s\n", metric)
@@ -106,7 +113,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	timeseriesIdentifier := strings.Split(timeseriesQueryString, "?")[0]
 
 	if err != nil {
-		fmt.Printf("Error happened: %s\n", err.Error())
+		fmt.Printf("Error when fetching timeseries config: %s\n", err.Error())
 		return 0, err
 	}
 
