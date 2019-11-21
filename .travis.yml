@@ -120,7 +120,9 @@ jobs:
       # build docker images for tags
       if: tag IS present
       script:
-        - echo $TRAVIS_BUILD_STAGE_NAME
+        - echo $TRAVIS_TAG
+        - export VERSION=$TRAVIS_TAG
+        - echo $TRAVIS_BUILD_STAGE_NAME - $VERSION
         - docker build . -t "${IMAGE}:${VERSION}"
       after_success:
         - echo "$REGISTRY_PASSWORD" | docker login --username $REGISTRY_USER --password-stdin
