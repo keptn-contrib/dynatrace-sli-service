@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -57,8 +56,8 @@ func TestGetSLIValue(t *testing.T) {
 	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
 	dh.HTTPClient = httpClient
 
-	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().Unix()*1000, 10)
-	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().Unix()*1000, 10)
+	start := time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
+	end := time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
 	assert.EqualValues(t, nil, err)
@@ -90,8 +89,8 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
 	dh.HTTPClient = httpClient
 
-	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
-	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
+	start := time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
+	end := time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
 	assert.EqualValues(t, errors.New("Dynatrace Metrics API returned 0 result values, expected 1"), err)
@@ -128,13 +127,78 @@ func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
 	dh.HTTPClient = httpClient
 
-	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
-	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
+	start := time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
+	end := time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
 	assert.EqualValues(t, errors.New("Dynatrace Metrics API result does not contain identifier builtin:service.response.time:merge(0):percentile(50)"), err)
 
 	assert.EqualValues(t, 0.0, value)
+}
+
+// Tests what happens if the end-time is in the future
+func TestGetSLIEndTimeFuture(t *testing.T) {
+	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
+
+	start := time.Now().Format(time.RFC3339)
+	// artificially increase end time to be in the future
+	end := time.Now().Add(1 * time.Minute).Format(time.RFC3339)
+	value, err := dh.GetSLIValue(Throughput, start, end, []*events.SLIFilter{})
+
+	assert.EqualValues(t, 0.0, value)
+	assert.NotNil(t, err, nil)
+	assert.EqualValues(t, "end time must not be in the future", err.Error())
+}
+
+// Tests what happens if start-time is after end-time
+func TestGetSLIStartTimeAfterEndTime(t *testing.T) {
+	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
+
+	start := time.Now().Format(time.RFC3339)
+	// artificially increase end time to be in the future
+	end := time.Now().Add(-1 * time.Minute).Format(time.RFC3339)
+	value, err := dh.GetSLIValue(Throughput, start, end, []*events.SLIFilter{})
+
+	assert.EqualValues(t, 0.0, value)
+	assert.NotNil(t, err, nil)
+	assert.EqualValues(t, "start time needs to be before end time", err.Error())
+}
+
+// Tests what happens when end time is too close to now
+func TestGetSLISleep(t *testing.T) {
+	okResponse := `{
+		"totalCount": 3,
+		"nextPageKey": null,
+		"metrics": {
+			"builtin:service.response.time:merge(0):percentile(50)": {
+				"values": [
+					{
+						"dimensions": [],
+						"timestamp": 1573808100000,
+						"value": 8433.40
+					}
+				]
+			}
+		}
+	}`
+
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(okResponse))
+	})
+
+	httpClient, teardown := testingHTTPClient(h)
+	defer teardown()
+
+	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
+	dh.HTTPClient = httpClient
+
+	start := time.Now().Add(-5 * time.Minute).Format(time.RFC3339)
+	// artificially increase end time to be in the future
+	end := time.Now().Add(-80 * time.Second).Format(time.RFC3339)
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{})
+
+	assert.InDelta(t, 8.43340, value, 0.001)
+	assert.Nil(t, err)
 }
 
 // Tests the behaviour of the GetSLIValue function in case of a HTTP 400 return code
@@ -150,8 +214,8 @@ func TestGetSLIValueWithErrorResponse(t *testing.T) {
 	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil)
 	dh.HTTPClient = httpClient
 
-	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
-	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
+	start := time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
+	end := time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
 	value, err := dh.GetSLIValue(Throughput, start, end, []*events.SLIFilter{})
 
 	assert.EqualValues(t, 0.0, value)
