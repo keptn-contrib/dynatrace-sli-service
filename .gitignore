@@ -1,0 +1,8 @@
+.vscode
+
+.idea/*
+# allow shared run configurations
+!.idea/runConfigurations/
+
+vendor
+

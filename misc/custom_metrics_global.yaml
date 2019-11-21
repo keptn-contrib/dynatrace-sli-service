@@ -1,0 +1,38 @@
+# add using kubectl apply -f custom_metrics_global.yaml
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dynatrace-sli-config
+  namespace: keptn
+data:
+  custom-queries: |
+    throughput: "builtin:service.requestCount.total:merge(0):count?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
+    error_rate: "builtin:service.errors.total.count:merge(0):avg?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
+    response_time_p50: "builtin:service.response.time:merge(0):percentile(50)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
+    response_time_p90: "builtin:service.response.time:merge(0):percentile(90)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
+    response_time_p95: "builtin:service.response.time:merge(0):percentile(95)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
+
+
+
+
+# /api/v2/metrics/series/builtin%3Aservice.response.time:merge(0):avg?scope=tag(environment:sockshop-staging),tag(service:carts)&to=now&from=now-1h&resolution=Inf
+#
+# Format: "{metrics}:{filters}?scope={scopes}"
+# metrics:
+# - builtin:service.requestCount
+# - builtin:service.errors.total.count
+# - builtin:service.response.time
+#
+# filters: (aggregations)
+# - merge(...): merges the selected metrics at the first level (counting starts at 0). first level = service
+# - count,avg,percentile - aggregation methods
+#
+# scopes: (filters)
+# - entity(...) filters by entity name (which can be either the entity ID or the actual name)
+# - tag(...) filters by tags
+# Note: Filters are connected using AND
+#
+# Addtional parameters for API:
+# - to/from (datetime range), e.g.: to=now, from=now-2h
+# - resolution: number of datapoints or time-resolution (e.g., 120, 1m, Inf)
