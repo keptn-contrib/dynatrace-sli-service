@@ -121,9 +121,6 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 
 	timeseriesQueryString, err := ph.getTimeseriesConfig(metric)
 
-	// split query string by first occurance of "?"
-	timeseriesIdentifier := strings.Split(timeseriesQueryString, "?")[0]
-
 	if err != nil {
 		fmt.Printf("Error when fetching timeseries config: %s\n", err.Error())
 		return 0, err
@@ -132,7 +129,16 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	// replace query params
 	timeseriesQueryString = ph.replaceQueryParameters(timeseriesQueryString)
 
-	targetUrl := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/series/%s", url.QueryEscape(timeseriesQueryString))
+	// split query string by first occurance of "?"
+	timeseriesIdentifier := strings.Split(timeseriesQueryString, "?")[0]
+
+	timeseriesIdentifierEncoded := url.QueryEscape(timeseriesIdentifier)
+
+	timeseriesQueryString = strings.Replace(timeseriesQueryString, timeseriesIdentifier, timeseriesIdentifierEncoded, 1)
+
+	fmt.Printf("Old=%s, new=%s\n", timeseriesIdentifier, timeseriesIdentifierEncoded)
+
+	targetUrl := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/series/%s", timeseriesQueryString)
 
 	queryParams := map[string]string{
 		"resolution": "Inf", // resolution=Inf means that we only get 1 datapoint (per service)
