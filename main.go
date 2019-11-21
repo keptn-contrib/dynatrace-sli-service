@@ -106,11 +106,13 @@ func retrieveMetrics(event cloudevents.Event) error {
 	dynatraceAPIUrl, apiToken, err := getProjectDynatraceCredentials(kubeClient, stdLogger, eventData.Project)
 
 	if err != nil {
+		stdLogger.Debug(err.Error())
 		stdLogger.Debug("Failed to fetch dynatrace credentials for project, falling back to global credentials...")
 		// fallback to global dynatrace credentials (e.g., installed for dynatrace service)
 		dynatraceAPIUrl, apiToken, err = getGlobalDynatraceCredentials(kubeClient, stdLogger)
 
 		if err != nil {
+			stdLogger.Debug(err.Error())
 			stdLogger.Debug("Failed to fetch global dynatrace credentials as well... exiting.")
 			return err
 		}

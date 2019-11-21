@@ -98,19 +98,28 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 		return 0, errors.New("Error parsing end date: " + err.Error())
 	}
 
-	if time.Now().Sub(endUnix).Seconds() < 120 {
-		// sleep 60 seconds if endUnix time is too close to the current time, as dynatrace might not have finished collecting all data
+	// ensure end time is not in the future
+	if time.Now().Sub(endUnix).Seconds() < 0 {
+		fmt.Printf("ERROR: Supplied end-time %v is in the future\n", endUnix)
+		return 0, errors.New("end time must not be in the future")
+	}
+
+	// ensure start time is before end time
+	if endUnix.Sub(startUnix).Seconds() < 0 {
+		fmt.Printf("ERROR: Start time needs to be before end time\n")
+		return 0, errors.New("start time needs to be before end time")
+	}
+
+	// make sure the end timestamp is at least 120 seconds in the past such that dynatrace metrics API has processed data
+	for time.Now().Sub(endUnix).Seconds() < 120 {
 		// ToDo: this should be done in main.go
-		fmt.Println("Sleeping 60 seconds (wait for Dynatrace Metrics API to have all the data we need)...")
-		time.Sleep(60 * time.Second)
+		fmt.Printf("Sleeping for %d seconds... (waiting for Dynatrace Metrics API)\n", int(120-time.Now().Sub(endUnix).Seconds()))
+		time.Sleep(10 * time.Second)
 	}
 
 	fmt.Printf("Getting timeseries config for metric %s\n", metric)
 
 	timeseriesQueryString, err := ph.getTimeseriesConfig(metric)
-
-	// split query string by first occurance of "?"
-	timeseriesIdentifier := strings.Split(timeseriesQueryString, "?")[0]
 
 	if err != nil {
 		fmt.Printf("Error when fetching timeseries config: %s\n", err.Error())
@@ -119,6 +128,15 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 
 	// replace query params
 	timeseriesQueryString = ph.replaceQueryParameters(timeseriesQueryString)
+
+	// split query string by first occurance of "?"
+	timeseriesIdentifier := strings.Split(timeseriesQueryString, "?")[0]
+
+	timeseriesIdentifierEncoded := url.QueryEscape(timeseriesIdentifier)
+
+	timeseriesQueryString = strings.Replace(timeseriesQueryString, timeseriesIdentifier, timeseriesIdentifierEncoded, 1)
+
+	fmt.Printf("Old=%s, new=%s\n", timeseriesIdentifier, timeseriesIdentifierEncoded)
 
 	targetUrl := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/series/%s", timeseriesQueryString)
 
