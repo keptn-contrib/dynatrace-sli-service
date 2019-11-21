@@ -98,7 +98,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 	stdLogger.Info("Retrieving dynatrace timeseries metrics")
 	kubeClient, err := keptnutils.GetKubeAPI(true)
 	if err != nil {
-		log.Fatal(err)
 		stdLogger.Error("could not create kube client")
 		return errors.New("could not create kube client")
 	}
@@ -113,7 +112,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 		if err != nil {
 			stdLogger.Debug("Failed to fetch global dynatrace credentials as well... exiting.")
-			log.Fatal(err)
 			return err
 		}
 	}
@@ -124,8 +122,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 	customQueries, err := getGlobalCustomQueries(kubeClient, stdLogger)
 
 	if err != nil {
-		log.Println("Error fetching custom queries")
-		log.Fatal(err)
+		stdLogger.Error("Failed to get global custom queries")
+		stdLogger.Error(err.Error())
 		return err
 	}
 
@@ -133,7 +131,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 	projectCustomQueries, err := getCustomQueriesForProject(eventData.Project, kubeClient, stdLogger)
 
 	if err != nil {
-		log.Fatal(err)
+		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
+		stdLogger.Error(err.Error())
 		return err
 	}
 
