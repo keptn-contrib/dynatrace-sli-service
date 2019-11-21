@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
         - name: dynatrace-sli-service
-          image: keptn/dynatrace-sli-service:latest
+          image: keptn/dynatrace-sli-service:0.1.0
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           resources:

@@ -15,6 +15,8 @@ before_install:
   - GIT_NUM_COMMITS_SINCE_LAST_TAG=$(git rev-list ${GIT_LAST_TAG}..HEAD --count || echo "trunk")
   # get current branch name
   - GIT_BRANCH_NAME=$(git branch | grep \* | cut -d ' ' -f2)
+  - BRANCH=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then echo $TRAVIS_BRANCH; else echo $TRAVIS_PULL_REQUEST_BRANCH; fi)
+  - echo "TRAVIS_BRANCH=$TRAVIS_BRANCH, PR=$PR, BRANCH=$BRANCH"
   - GIT_SHA=$(git rev-parse --short HEAD)
   - GIT_BRANCH_AND_COMMIT=$(git describe --exact-match 2> /dev/null || echo "`git symbolic-ref HEAD 2> /dev/null | cut -b 12-`-`git log --pretty=format:\"%h\" -1`")
   # find out if we are on a tag (= exact match)
@@ -102,21 +104,25 @@ jobs:
       # build docker images for release branches
       if: branch =~ ^release.*$ AND NOT type = pull_request
       script:
-        - echo $TRAVIS_BUILD_STAGE_NAME
+        # remove release- form branch name and overwrite the VERSION based on the branch name
+        - echo $BRANCH
+        - export VERSION=${BRANCH#"release-"}
+        - echo $TRAVIS_BUILD_STAGE_NAME - $VERSION
         - docker build . -t "${IMAGE}:${GIT_SHA}"
         - docker tag "${IMAGE}:${GIT_SHA}" "${IMAGE}:${VERSION}.${DATE}"
         - docker tag "${IMAGE}:${GIT_SHA}" "${IMAGE}:${VERSION}.latest"
       after_success:
         - echo "$REGISTRY_PASSWORD" | docker login --username $REGISTRY_USER --password-stdin
-        - docker push "${IMAGE}:${GIT_SHA}"
-        - docker push "${IMAGE}:${VERSION}.${DATE}"
-        - docker push "${IMAGE}:${VERSION}.latest"
+        - docker images
+        - docker push "${IMAGE}"
 
     - stage: tags
       # build docker images for tags
       if: tag IS present
       script:
-        - echo $TRAVIS_BUILD_STAGE_NAME
+        - echo $TRAVIS_TAG
+        - export VERSION=$TRAVIS_TAG
+        - echo $TRAVIS_BUILD_STAGE_NAME - $VERSION
         - docker build . -t "${IMAGE}:${VERSION}"
       after_success:
         - echo "$REGISTRY_PASSWORD" | docker login --username $REGISTRY_USER --password-stdin

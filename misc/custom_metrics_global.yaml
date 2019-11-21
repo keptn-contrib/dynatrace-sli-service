@@ -16,7 +16,6 @@ data:
 
 
 
-# API bleibt nur bis Ende Q1 bestehen
 # /api/v2/metrics/series/builtin%3Aservice.response.time:merge(0):avg?scope=tag(environment:sockshop-staging),tag(service:carts)&to=now&from=now-1h&resolution=Inf
 #
 # Format: "{metrics}:{filters}?scope={scopes}"
