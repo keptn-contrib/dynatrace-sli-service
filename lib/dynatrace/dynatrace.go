@@ -61,6 +61,7 @@ type Handler struct {
 	Project       string
 	Stage         string
 	Service       string
+	Deployment    string
 	HTTPClient    *http.Client
 	Headers       map[string]string
 	CustomQueries map[string]string
@@ -68,7 +69,7 @@ type Handler struct {
 }
 
 // NewDynatraceHandler returns a new dynatrace handler that interacts with the Dynatrace REST API
-func NewDynatraceHandler(apiURL string, project string, stage string, service string, headers map[string]string, customFilters []*keptnevents.SLIFilter) *Handler {
+func NewDynatraceHandler(apiURL string, project string, stage string, service string, headers map[string]string, customFilters []*keptnevents.SLIFilter, deployment string) *Handler {
 	ph := &Handler{
 		ApiURL:        apiURL,
 		Project:       project,
@@ -77,6 +78,7 @@ func NewDynatraceHandler(apiURL string, project string, stage string, service st
 		HTTPClient:    &http.Client{},
 		Headers:       headers,
 		CustomFilters: customFilters,
+		Deployment:    deployment,
 	}
 
 	return ph
@@ -239,6 +241,7 @@ func (ph *Handler) replaceQueryParameters(query string) string {
 	query = strings.Replace(query, "$PROJECT", ph.Project, -1)
 	query = strings.Replace(query, "$STAGE", ph.Stage, -1)
 	query = strings.Replace(query, "$SERVICE", ph.Service, -1)
+	query = strings.Replace(query, "$DEPLOYMENT", ph.Deployment, -1)
 
 	return query
 }
