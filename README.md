@@ -120,7 +120,7 @@ E.g., the service `carts` in the stage `dev` within project `sockshop` would hav
 
 These tags are used for querying the service in question using the `scope=` parameter of the metrics API, e.g.:
 ```
-scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)
+scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)
 ```
 
 ## Known Limitations
