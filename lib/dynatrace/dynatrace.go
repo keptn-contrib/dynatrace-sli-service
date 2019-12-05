@@ -61,6 +61,7 @@ type Handler struct {
 	Project       string
 	Stage         string
 	Service       string
+	Deployment    string
 	HTTPClient    *http.Client
 	Headers       map[string]string
 	CustomQueries map[string]string
@@ -68,7 +69,7 @@ type Handler struct {
 }
 
 // NewDynatraceHandler returns a new dynatrace handler that interacts with the Dynatrace REST API
-func NewDynatraceHandler(apiURL string, project string, stage string, service string, headers map[string]string, customFilters []*keptnevents.SLIFilter) *Handler {
+func NewDynatraceHandler(apiURL string, project string, stage string, service string, headers map[string]string, customFilters []*keptnevents.SLIFilter, deployment string) *Handler {
 	ph := &Handler{
 		ApiURL:        apiURL,
 		Project:       project,
@@ -77,6 +78,7 @@ func NewDynatraceHandler(apiURL string, project string, stage string, service st
 		HTTPClient:    &http.Client{},
 		Headers:       headers,
 		CustomFilters: customFilters,
+		Deployment:    deployment,
 	}
 
 	return ph
@@ -239,6 +241,7 @@ func (ph *Handler) replaceQueryParameters(query string) string {
 	query = strings.Replace(query, "$PROJECT", ph.Project, -1)
 	query = strings.Replace(query, "$STAGE", ph.Stage, -1)
 	query = strings.Replace(query, "$SERVICE", ph.Service, -1)
+	query = strings.Replace(query, "$DEPLOYMENT", ph.Deployment, -1)
 
 	return query
 }
@@ -253,15 +256,15 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 	// default config
 	switch metric {
 	case Throughput:
-		return "builtin:service.requestCount.total:merge(0):count?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
+		return "builtin:service.requestCount.total:merge(0):count?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ErrorRate:
-		return "builtin:service.errors.total.count:merge(0):avg?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
+		return "builtin:service.errors.total.count:merge(0):avg?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP50:
-		return "builtin:service.response.time:merge(0):percentile(50)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
+		return "builtin:service.response.time:merge(0):percentile(50)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP90:
-		return "builtin:service.response.time:merge(0):percentile(90)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
+		return "builtin:service.response.time:merge(0):percentile(90)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP95:
-		return "builtin:service.response.time:merge(0):percentile(95)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)", nil
+		return "builtin:service.response.time:merge(0):percentile(95)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	default:
 		fmt.Sprintf("Unknown metric %s\n", metric)
 		return "", errors.New(fmt.Sprintf("unsupported SLI metric %s", metric))

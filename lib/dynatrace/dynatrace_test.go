@@ -16,6 +16,7 @@ func TestCreateNewDynatraceHandler(t *testing.T) {
 			"Authorization": "Api-Token " + "test",
 		},
 		nil,
+		"direct",
 	)
 
 	if dh.ApiURL != "dynatrace" {
@@ -33,6 +34,9 @@ func TestCreateNewDynatraceHandler(t *testing.T) {
 	if dh.Service != "carts" {
 		t.Errorf("dh.Service=%s; want carts", dh.Service)
 	}
+	if dh.Deployment != "direct" {
+		t.Errorf("dh.Deployment=%s; want direct", dh.Service)
+	}
 }
 
 // Test that unsupported metrics return an error
@@ -46,6 +50,7 @@ func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
 			"Authorization": "Api-Token " + "test",
 		},
 		nil,
+		"",
 	)
 
 	got, err := dh.getTimeseriesConfig("foobar")
