@@ -68,7 +68,7 @@ jobs:
           organization: "keptn-contrib"
       script:
         - sonar-scanner
-        - go build
+        - go build ./...
         - go test -race -v ./...
 
     - stage: feature/bug/hotfix/patch
