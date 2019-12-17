@@ -1,4 +1,5 @@
-# add using: kubectl apply -f custom_metrics_global.yaml
+# add using:
+# kubectl apply -f custom_metrics_global.yaml
 
 kind: ConfigMap
 apiVersion: v1
