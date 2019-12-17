@@ -1,4 +1,5 @@
-# add using kubectl apply -f custom_metrics_global.yaml
+# add using:
+# kubectl apply -f custom_metrics_global.yaml
 
 kind: ConfigMap
 apiVersion: v1
@@ -12,9 +13,6 @@ data:
     response_time_p50: "builtin:service.response.time:merge(0):percentile(50)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)"
     response_time_p90: "builtin:service.response.time:merge(0):percentile(90)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)"
     response_time_p95: "builtin:service.response.time:merge(0):percentile(95)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)"
-
-
-
 
 # /api/v2/metrics/series/builtin%3Aservice.response.time:merge(0):avg?scope=tag(environment:sockshop-staging),tag(service:carts)&to=now&from=now-1h&resolution=Inf
 #
