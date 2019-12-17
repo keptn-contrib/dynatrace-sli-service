@@ -29,7 +29,7 @@ import (
 )
 
 const eventbroker = "EVENTBROKER"
-const configurationService = "CONFIGURATION_SERVICE"
+const configservice = "CONFIGURATION_SERVICE"
 const keptnDynatraceSliConfigMapName = "dynatrace-sli-config"
 
 type envConfig struct {
@@ -241,7 +241,7 @@ func getDefaultCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.L
 func getCustomQueries(project string, stage string, service string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
 	logger.Info("Checking for custom SLI queries")
 
-	endPoint, err := getServiceEndpoint(configurationService)
+	endPoint, err := getServiceEndpoint(configservice)
 	if err != nil {
 		return nil, errors.New("Failed to retrieve endpoint of configuration-service. %s" + err.Error())
 	}
