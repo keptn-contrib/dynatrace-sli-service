@@ -21,9 +21,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/kelseyhightower/envconfig"
 
+	configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
 	keptnevents "github.com/keptn/go-utils/pkg/events"
 	keptnutils "github.com/keptn/go-utils/pkg/utils"
-	configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -31,6 +31,7 @@ import (
 const eventbroker = "EVENTBROKER"
 const configservice = "CONFIGURATION_SERVICE"
 const keptnDynatraceSliConfigMapName = "dynatrace-sli-config"
+const sliResourceURI = "dynatrace/sli.yaml"
 
 type envConfig struct {
 	// Port on which to listen for cloudevents
@@ -126,18 +127,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	// get custom metrics for Keptn installation
 	customQueries, err := getDefaultCustomQueries(kubeClient, stdLogger)
-
 	if err != nil {
 		stdLogger.Error("Failed to get default custom queries")
-		stdLogger.Error(err.Error())
-		return err
-	}
-
-	// get custom metrics for project
-	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, kubeClient, stdLogger)
-
-	if err != nil {
-		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
 		stdLogger.Error(err.Error())
 		return err
 	}
@@ -150,6 +141,14 @@ func retrieveMetrics(event cloudevents.Event) error {
 		for k, v := range customQueries {
 			log.Printf("\tFound custom query %s with value %s\n", k, v)
 		}
+	}
+
+	// get custom metrics for project
+	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, kubeClient, stdLogger)
+	if err != nil {
+		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
+		stdLogger.Error(err.Error())
+		return err
 	}
 
 	if projectCustomQueries != nil {
@@ -247,7 +246,7 @@ func getCustomQueries(project string, stage string, service string, kubeClient v
 	}
 
 	resourceHandler := configutils.NewResourceHandler(endPoint.String())
-	customQueries, err := resourceHandler.GetSLIConfiguration(project, stage, service, "dynatrace/sli.yaml")
+	customQueries, err := resourceHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
 	if err != nil {
 		return nil, err
 	}
