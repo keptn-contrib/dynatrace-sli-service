@@ -184,6 +184,11 @@ github.com/kelseyhightower/envconfig v1.4.0 h1:Im6hONhd3pLkfDFsbRgu68RDNkGF1r3dv
 github.com/kelseyhightower/envconfig v1.4.0/go.mod h1:cccZRl6mQpaq41TPp5QxidR+Sa3axMbJDNb//FQX6Gg=
 github.com/keptn/go-utils v0.0.0-20191112090613-cf874a31b830 h1:deS2DAKJXujro+0gLOLpCLH1ybVTTXfeOQhMW+rk9ng=
 github.com/keptn/go-utils v0.0.0-20191112090613-cf874a31b830/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
+github.com/keptn/go-utils v0.0.0-20191216153426-fc44e02d1060/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
+github.com/keptn/go-utils v0.0.0-20191216155255-20aa9d1ea542 h1:e9y+fAZJWaeaC3gvd3KFbg3V1Thb/gaHB15cGUZHNuw=
+github.com/keptn/go-utils v0.0.0-20191216155255-20aa9d1ea542/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
+github.com/keptn/go-utils v0.0.0-20191216160027-d97a269c0ba0 h1:hoHElUkHBPMDTFsSaJ2HukJrBnobz4p/zTO3E8Z4JLg=
+github.com/keptn/go-utils v0.0.0-20191216160027-d97a269c0ba0/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
 github.com/keptn/go-utils v0.4.0 h1:rVIXiYr05moKJIyorULbC3F/UcmKK7Yr3uNvh6pb5xQ=
 github.com/keptn/go-utils v0.4.0/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
 github.com/keptn/go-utils v0.4.1-0.20191202115658-0601a485f12a h1:kp6eFsX1bqI6TE48d6zwjjGiIVIQJyQubq9VQky1VZI=

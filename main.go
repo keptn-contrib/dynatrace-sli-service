@@ -17,15 +17,19 @@ import (
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/client"
 	cloudeventshttp "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/types"
+
 	"github.com/google/uuid"
 	"github.com/kelseyhightower/envconfig"
+
 	keptnevents "github.com/keptn/go-utils/pkg/events"
 	keptnutils "github.com/keptn/go-utils/pkg/utils"
+	configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const eventbroker = "EVENTBROKER"
+const configurationService = "CONFIGURATION_SERVICE"
 const keptnDynatraceSliConfigMapName = "dynatrace-sli-config"
 
 type envConfig struct {
@@ -95,11 +99,11 @@ func retrieveMetrics(event cloudevents.Event) error {
 	}
 
 	stdLogger := keptnutils.NewLogger(shkeptncontext, event.Context.GetID(), "dynatrace-sli-service")
-	stdLogger.Info("Retrieving dynatrace timeseries metrics")
+	stdLogger.Info("Retrieving Dynatrace timeseries metrics")
 	kubeClient, err := keptnutils.GetKubeAPI(true)
 	if err != nil {
-		stdLogger.Error("could not create kube client")
-		return errors.New("could not create kube client")
+		stdLogger.Error("could not create Kubernetes client")
+		return errors.New("could not create Kubernetes client")
 	}
 
 	// fetch project specific dynatrace credentials
@@ -107,30 +111,30 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	if err != nil {
 		stdLogger.Debug(err.Error())
-		stdLogger.Debug("Failed to fetch dynatrace credentials for project, falling back to global credentials...")
+		stdLogger.Debug("Failed to fetch Dynatrace credentials for project, falling back to global credentials.")
 		// fallback to global dynatrace credentials (e.g., installed for dynatrace service)
 		dynatraceAPIUrl, apiToken, err = getGlobalDynatraceCredentials(kubeClient, stdLogger)
 
 		if err != nil {
 			stdLogger.Debug(err.Error())
-			stdLogger.Debug("Failed to fetch global dynatrace credentials as well... exiting.")
+			stdLogger.Debug("Failed to fetch global Dynatrace credentials, exiting.")
 			return err
 		}
 	}
 
-	stdLogger.Info("Dynatrace Credentials (Tenant, Token) received. Getting global custom queries...")
+	stdLogger.Info("Dynatrace credentials (Tenant, Token) received. Getting global custom queries ...")
 
 	// get custom metrics for Keptn installation
-	customQueries, err := getGlobalCustomQueries(kubeClient, stdLogger)
+	customQueries, err := getDefaultCustomQueries(kubeClient, stdLogger)
 
 	if err != nil {
-		stdLogger.Error("Failed to get global custom queries")
+		stdLogger.Error("Failed to get default custom queries")
 		stdLogger.Error(err.Error())
 		return err
 	}
 
 	// get custom metrics for project
-	projectCustomQueries, err := getCustomQueriesForProject(eventData.Project, kubeClient, stdLogger)
+	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, kubeClient, stdLogger)
 
 	if err != nil {
 		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
@@ -138,19 +142,18 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return err
 	}
 
-	log.Printf("Custom Query Config\n")
-
 	// make sure custom queries exists
 	if customQueries == nil {
 		customQueries = make(map[string]string)
 	} else {
+		log.Printf("Custom query config:\n")
 		for k, v := range customQueries {
 			log.Printf("\tFound custom query %s with value %s\n", k, v)
 		}
 	}
 
 	if projectCustomQueries != nil {
-		log.Println("Merging custom queries with projectCustomQueries")
+		log.Println("Merging custom queries with project custom queries:")
 		// merge global custom queries and project custom queries
 		for k, v := range projectCustomQueries {
 			// overwrite / append project custom query on global custom queries
@@ -178,7 +181,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	}
 
 	if dynatraceHandler == nil {
-		stdLogger.Error("failed to get dynatrace handler")
+		stdLogger.Error("failed to get Dynatrace handler")
 		return nil
 	}
 
@@ -208,15 +211,15 @@ func retrieveMetrics(event cloudevents.Event) error {
 		}
 	}
 
-	log.Println("Finished fetching metrics; Sending event now...")
+	log.Println("Finished fetching metrics; Sending event now ...")
 
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy, eventData.Deployment)
 }
 
-// Return Custom Queries for Keptn Installation
-func getGlobalCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
-	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnDynatraceSliConfigMapName))
+// getDefaultCustomQueries returns default queries as configured in ConfigMap of the service
+func getDefaultCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
+	logger.Info(fmt.Sprintf("Checking for default SLI queries (querying %s)", keptnDynatraceSliConfigMapName))
 
 	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnDynatraceSliConfigMapName, metav1.GetOptions{})
 	if err != nil {
@@ -226,7 +229,6 @@ func getGlobalCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Lo
 
 	customQueries := make(map[string]string)
 	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), &customQueries)
-
 	if err != nil {
 		logger.Info("Global custom queries found, but could not parse them: " + err.Error())
 		return nil, err
@@ -235,28 +237,25 @@ func getGlobalCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Lo
 	return customQueries, nil
 }
 
-// Return Custom Queries for Keptn Installation
-func getCustomQueriesForProject(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
-	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnDynatraceSliConfigMapName))
+// getCustomQueries returns custom queries as stored in configuration store
+func getCustomQueries(project string, stage string, service string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
+	logger.Info("Checking for custom SLI queries")
 
-	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnDynatraceSliConfigMapName+"-"+project, metav1.GetOptions{})
+	endPoint, err := getServiceEndpoint(configurationService)
 	if err != nil {
-		logger.Info("No custom queries defined for project " + project)
-		return nil, nil
+		return nil, errors.New("Failed to retrieve endpoint of configuration-service. %s" + err.Error())
 	}
 
-	customQueries := make(map[string]string)
-	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), &customQueries)
-
+	resourceHandler := configutils.NewResourceHandler(endPoint.String())
+	customQueries, err := resourceHandler.GetSLIConfiguration(project, stage, service, "dynatrace/sli.yaml")
 	if err != nil {
-		logger.Info("Project custom queries found, but could not parse them: " + err.Error())
 		return nil, err
 	}
-	logger.Info("Project custom queries found and parsed")
+
 	return customQueries, nil
 }
 
-// get global dynatrace credentials
+// getGlobalDynatraceCredentials returns the global Dynatrace credentials
 func getGlobalDynatraceCredentials(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (string, string, error) {
 	secretName := "dynatrace"
 	// check if secret exists
@@ -265,7 +264,7 @@ func getGlobalDynatraceCredentials(kubeClient v1.CoreV1Interface, logger *keptnu
 	// return cluster-internal dynatrace URL if no secret has been found
 	if err != nil {
 		log.Println(err)
-		return "", "", errors.New(fmt.Sprintf("Could not find secret '%s' in namespace keptn.", secretName))
+		return "", "", fmt.Errorf("Could not find secret '%s' in namespace keptn.", secretName)
 	}
 
 	tenant, found := secret.Data["DT_TENANT"]
@@ -289,7 +288,7 @@ func getGlobalDynatraceCredentials(kubeClient v1.CoreV1Interface, logger *keptnu
 	return tenantStr, string(api_token), nil
 }
 
-// get project specific dynatrace credentials
+// getProjectDynatraceCredentials returns project specific Dynatrace credentials
 func getProjectDynatraceCredentials(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger, project string) (string, string, error) {
 	secretName := fmt.Sprintf("dynatrace-credentials-%s", project)
 	// check if secret 'dynatrace-credentials-<project> exists
