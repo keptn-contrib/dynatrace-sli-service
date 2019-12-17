@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/keptn-contrib/dynatrace-sli-service/lib/dynatrace"
+	"github.com/keptn-contrib/dynatrace-sli-service/pkg/lib/dynatrace"
 	"gopkg.in/yaml.v2"
 
 	"github.com/cloudevents/sdk-go/pkg/cloudevents"
