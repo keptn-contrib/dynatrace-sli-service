@@ -191,7 +191,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 
 	// make sure the status code from the API is 200
 	if resp.StatusCode != 200 {
-		return 0, errors.New(fmt.Sprintf("Dynatrace API returned status code %d - Metric could not be received.", resp.StatusCode))
+		return 0, fmt.Errorf("Dynatrace API returned status code %d - Metric could not be received.", resp.StatusCode)
 	}
 
 	if len(result.Metrics) == 0 {
@@ -202,14 +202,14 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	fmt.Println("trying to fetch metric", timeseriesIdentifier)
 
 	if _, ok := result.Metrics[timeseriesIdentifier]; !ok {
-		return 0, errors.New(fmt.Sprintf("Dynatrace Metrics API result does not contain identifier %s", timeseriesIdentifier))
+		return 0, fmt.Errorf("Dynatrace Metrics API result does not contain identifier %s", timeseriesIdentifier)
 	}
 
 	// finally iterate over result.Result.DataPoints and choose the one with the key lookForEntityId
 	resultData := result.Metrics[timeseriesIdentifier].Values
 
 	if len(resultData) != 1 {
-		return 0, errors.New(fmt.Sprintf("Dynatrace Metrics API returned %d result values, expected 1", len(resultData)))
+		return 0, fmt.Errorf("Dynatrace Metrics API returned %d result values, expected 1", len(resultData))
 	}
 
 	return scaleData(timeseriesIdentifier, resultData[0].Value), nil
@@ -249,7 +249,6 @@ func (ph *Handler) replaceQueryParameters(query string) string {
 // based on the requested metric a dynatrace timeseries with its aggregation type is returned
 func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 	if val, ok := ph.CustomQueries[metric]; ok {
-
 		return val, nil
 	}
 
@@ -267,7 +266,7 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 		return "builtin:service.response.time:merge(0):percentile(95)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	default:
 		fmt.Sprintf("Unknown metric %s\n", metric)
-		return "", errors.New(fmt.Sprintf("unsupported SLI metric %s", metric))
+		return "", fmt.Errorf("unsupported SLI metric %s", metric)
 	}
 }
 

@@ -30,7 +30,6 @@ import (
 
 const eventbroker = "EVENTBROKER"
 const configservice = "CONFIGURATION_SERVICE"
-const keptnDynatraceSliConfigMapName = "dynatrace-sli-config"
 const sliResourceURI = "dynatrace/sli.yaml"
 
 type envConfig struct {
@@ -94,13 +93,14 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return err
 	}
 
-	// don't continue if SLIProvider != dynatrace
+	// do not continue if SLIProvider is not dynatrace
 	if eventData.SLIProvider != "dynatrace" {
 		return nil
 	}
 
 	stdLogger := keptnutils.NewLogger(shkeptncontext, event.Context.GetID(), "dynatrace-sli-service")
 	stdLogger.Info("Retrieving Dynatrace timeseries metrics")
+
 	kubeClient, err := keptnutils.GetKubeAPI(true)
 	if err != nil {
 		stdLogger.Error("could not create Kubernetes client")
@@ -125,40 +125,12 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	stdLogger.Info("Dynatrace credentials (Tenant, Token) received. Getting global custom queries ...")
 
-	// get custom metrics for Keptn installation
-	customQueries, err := getDefaultCustomQueries(kubeClient, stdLogger)
-	if err != nil {
-		stdLogger.Error("Failed to get default custom queries")
-		stdLogger.Error(err.Error())
-		return err
-	}
-
-	// make sure custom queries exists
-	if customQueries == nil {
-		customQueries = make(map[string]string)
-	} else {
-		log.Printf("Custom query config:\n")
-		for k, v := range customQueries {
-			log.Printf("\tFound custom query %s with value %s\n", k, v)
-		}
-	}
-
 	// get custom metrics for project
 	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, kubeClient, stdLogger)
 	if err != nil {
 		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
 		stdLogger.Error(err.Error())
 		return err
-	}
-
-	if projectCustomQueries != nil {
-		log.Println("Merging custom queries with project custom queries:")
-		// merge global custom queries and project custom queries
-		for k, v := range projectCustomQueries {
-			// overwrite / append project custom query on global custom queries
-			customQueries[k] = v
-			log.Printf("\tOverwriting custom query %s with value %s\n", k, v)
-		}
 	}
 
 	dynatraceHandler := dynatrace.NewDynatraceHandler(
@@ -173,7 +145,9 @@ func retrieveMetrics(event cloudevents.Event) error {
 		eventData.Deployment,
 	)
 
-	dynatraceHandler.CustomQueries = customQueries
+	if projectCustomQueries != nil {
+		dynatraceHandler.CustomQueries = projectCustomQueries
+	}
 
 	if err != nil {
 		return err
@@ -205,7 +179,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 			sliResults = append(sliResults, &keptnevents.SLIResult{
 				Metric:  indicator,
 				Value:   sliValue,
-				Success: true, // Mark as success
+				Success: true, // mark as success
 			})
 		}
 	}
@@ -214,26 +188,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy, eventData.Deployment)
-}
-
-// getDefaultCustomQueries returns default queries as configured in ConfigMap of the service
-func getDefaultCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
-	logger.Info(fmt.Sprintf("Checking for default SLI queries (querying %s)", keptnDynatraceSliConfigMapName))
-
-	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnDynatraceSliConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		logger.Info("No global custom queries defined")
-		return nil, nil
-	}
-
-	customQueries := make(map[string]string)
-	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), &customQueries)
-	if err != nil {
-		logger.Info("Global custom queries found, but could not parse them: " + err.Error())
-		return nil, err
-	}
-	logger.Info("Global custom queries found and parsed")
-	return customQueries, nil
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
