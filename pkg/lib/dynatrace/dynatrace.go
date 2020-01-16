@@ -30,6 +30,13 @@ type resultValues struct {
 	Values []resultNumbers `json:"values"`
 }
 
+type dtMetricsAPIError struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
 /**
 {
     "totalCount": 3,
@@ -183,7 +190,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	var result dynatraceResult
 
 	// parse json
-	err = json.Unmarshal([]byte(body), &result)
+	err = json.Unmarshal(body, &result)
 
 	if err != nil {
 		return 0, err
@@ -191,6 +198,11 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 
 	// make sure the status code from the API is 200
 	if resp.StatusCode != 200 {
+		dtMetricsErr := &dtMetricsAPIError{}
+		err := json.Unmarshal(body, dtMetricsErr)
+		if err == nil {
+			return 0, fmt.Errorf("Dynatrace API returned status code %d: %s", dtMetricsErr.Error.Code, dtMetricsErr.Error.Message)
+		}
 		return 0, fmt.Errorf("Dynatrace API returned status code %d - Metric could not be received.", resp.StatusCode)
 	}
 
