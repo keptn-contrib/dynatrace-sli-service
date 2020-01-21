@@ -31,19 +31,24 @@ func testingHTTPClient(handler http.Handler) (*http.Client, func()) {
 func TestGetSLIValue(t *testing.T) {
 
 	okResponse := `{
-		"totalCount": 3,
+		"totalCount": 8,
 		"nextPageKey": null,
-		"metrics": {
-			"builtin:service.response.time:merge(0):percentile(50)": {
-				"values": [
+		"result": [
+			{
+				"metricId": "builtin:service.response.time:merge(0):percentile(50)",
+				"data": [
 					{
 						"dimensions": [],
-						"timestamp": 1573808100000,
-						"value": 8433.40
+						"timestamps": [
+							1579097520000
+						],
+						"values": [
+							8433.40
+						]
 					}
 				]
 			}
-		}
+		]
 	}`
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,12 +76,13 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 	okResponse := `{
     "totalCount": 4,
     "nextPageKey": null,
-    "metrics": {
-        "builtin:service.response.time:merge(0):percentile(50)": {
-            "values": [
-            ]
-        }
-    }
+	"result": [
+		{
+			"metricId": "builtin:service.response.time:merge(0):percentile(50)",
+			"data": [
+			]
+		}
+	]
 }`
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -104,17 +110,22 @@ func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 	okResponse := `{
 		"totalCount": 4,
 		"nextPageKey": null,
-		"metrics": {
-			"something_else": {
-				"values": [
+		"result": [
+			{
+				"metricId": "something_else",
+				"data": [
 					{
 						"dimensions": [],
-						"timestamp": 1574092860000,
-						"value": 1364.0454545454545
+						"timestamps": [
+							1579097520000
+						],
+						"values": [
+							8433.40
+						]
 					}
 				]
 			}
-		}
+		]
 	}`
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -169,17 +180,22 @@ func TestGetSLISleep(t *testing.T) {
 	okResponse := `{
 		"totalCount": 3,
 		"nextPageKey": null,
-		"metrics": {
-			"builtin:service.response.time:merge(0):percentile(50)": {
-				"values": [
+		"result": [
+			{
+				"metricId": "builtin:service.response.time:merge(0):percentile(50)",
+				"data": [
 					{
 						"dimensions": [],
-						"timestamp": 1573808100000,
-						"value": 8433.40
+						"timestamps": [
+							1579097520000
+						],
+						"values": [
+							8433.40
+						]
 					}
 				]
 			}
-		}
+		]
 	}`
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

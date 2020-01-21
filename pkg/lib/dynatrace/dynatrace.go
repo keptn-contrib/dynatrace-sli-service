@@ -21,13 +21,14 @@ const ResponseTimeP90 = "response_time_p90"
 const ResponseTimeP95 = "response_time_p95"
 
 type resultNumbers struct {
-	Dimensions []string `json:"dimensions"`
-	Timestamp  int64    `json:"timestamp"`
-	Value      float64  `json:"value"`
+	Dimensions []string  `json:"dimensions"`
+	Timestamps []int64   `json:"timestamps"`
+	Values     []float64 `json:"values"`
 }
 
 type resultValues struct {
-	Values []resultNumbers `json:"values"`
+	MetricID string          `json:"metricId"`
+	Data     []resultNumbers `json:"data"`
 }
 
 type dtMetricsAPIError struct {
@@ -39,25 +40,30 @@ type dtMetricsAPIError struct {
 
 /**
 {
-    "totalCount": 3,
+    "totalCount": 8,
     "nextPageKey": null,
-    "metrics": {
-        "builtin:service.response.time:merge(0):percentile(95)": {
-            "values": [
+    "result": [
+        {
+            "metricId": "builtin:service.response.time:percentile(50):merge(0)",
+            "data": [
                 {
                     "dimensions": [],
-                    "timestamp": 1573808100000,
-                    "value": 8433.408860322825
+                    "timestamps": [
+                        1579097520000
+                    ],
+                    "values": [
+                        65005.48481639812
+                    ]
                 }
             ]
         }
-    }
+    ]
 }
 */
 type dynatraceResult struct {
-	TotalCount  int                     `json:"totalCount"`
-	NextPageKey string                  `json:"nextPageKey"`
-	Metrics     map[string]resultValues `json:"metrics"`
+	TotalCount  int            `json:"totalCount"`
+	NextPageKey string         `json:"nextPageKey"`
+	Result      []resultValues `json:"result"`
 }
 
 // Handler interacts with a dynatrace API endpoint
@@ -147,13 +153,15 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 
 	fmt.Printf("Old=%s, new=%s\n", timeseriesIdentifier, timeseriesIdentifierEncoded)
 
-	targetUrl := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/series/%s", timeseriesQueryString)
+	targetUrl := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/query/")
 
 	queryParams := map[string]string{
-		"resolution": "Inf", // resolution=Inf means that we only get 1 datapoint (per service)
-		"from":       timestampToString(startUnix),
-		"to":         timestampToString(endUnix),
+		"metricSelector": timeseriesQueryString,
+		"resolution":     "Inf", // resolution=Inf means that we only get 1 datapoint (per service)
+		"from":           timestampToString(startUnix),
+		"to":             timestampToString(endUnix),
 	}
+	fmt.Println(queryParams)
 
 	// append queryParams to URL
 	u, _ := url.Parse(targetUrl)
@@ -206,25 +214,35 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 		return 0, fmt.Errorf("Dynatrace API returned status code %d - Metric could not be received.", resp.StatusCode)
 	}
 
-	if len(result.Metrics) == 0 {
+	if len(result.Result) == 0 {
 		// datapoints is empty - try again?
 		return 0, errors.New("Dynatrace Metrics API returned no DataPoints")
 	}
 
 	fmt.Println("trying to fetch metric", timeseriesIdentifier)
 
-	if _, ok := result.Metrics[timeseriesIdentifier]; !ok {
+	var (
+		metricIdExists    = false
+		actualMetricValue = 0.0
+	)
+	for _, i := range result.Result {
+
+		if i.MetricID == timeseriesIdentifier {
+			metricIdExists = true
+
+			if len(i.Data) != 1 {
+				return 0, fmt.Errorf("Dynatrace Metrics API returned %d result values, expected 1", len(i.Data))
+			}
+
+			actualMetricValue = i.Data[0].Values[0]
+		}
+	}
+
+	if !metricIdExists {
 		return 0, fmt.Errorf("Dynatrace Metrics API result does not contain identifier %s", timeseriesIdentifier)
 	}
 
-	// finally iterate over result.Result.DataPoints and choose the one with the key lookForEntityId
-	resultData := result.Metrics[timeseriesIdentifier].Values
-
-	if len(resultData) != 1 {
-		return 0, fmt.Errorf("Dynatrace Metrics API returned %d result values, expected 1", len(resultData))
-	}
-
-	return scaleData(timeseriesIdentifier, resultData[0].Value), nil
+	return scaleData(timeseriesIdentifier, actualMetricValue), nil
 }
 
 // scales data based on the timeseries identifier (e.g., service.responsetime needs to be scaled from microseconds
