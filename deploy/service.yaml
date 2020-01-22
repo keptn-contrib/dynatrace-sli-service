@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: dynatrace-sli-service
-          image: keptn/dynatrace-sli-service:0.3.0
+          image: keptn/dynatrace-sli-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -82,4 +82,3 @@ spec:
               value: 'sh.keptn.internal.event.get-sli'
             - name: PUBSUB_RECIPIENT
               value: 'dynatrace-sli-service'
-
