@@ -23,10 +23,10 @@ spec:
           resources:
             requests:
               memory: "32Mi"
-              cpu: "50m"
+              cpu: "100m"
             limits:
-              memory: "256Mi"
-              cpu: "500m"
+              memory: "512Mi"
+              cpu: "1000m"
           env:
             - name: CONFIGURATION_SERVICE
               value: 'http://configuration-service.keptn.svc.cluster.local:8080'

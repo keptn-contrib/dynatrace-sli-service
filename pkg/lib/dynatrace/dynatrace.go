@@ -20,6 +20,9 @@ const ResponseTimeP50 = "response_time_p50"
 const ResponseTimeP90 = "response_time_p90"
 const ResponseTimeP95 = "response_time_p95"
 
+// store url to the metrics api format migration document
+const MetricsAPIOldFormatNewFormatDoc = "https://github.com/keptn-contrib/dynatrace-sli-service/blob/master/docs/CustomQueryFormatMigration.md"
+
 type resultNumbers struct {
 	Dimensions []string  `json:"dimensions"`
 	Timestamps []int64   `json:"timestamps"`
@@ -141,34 +144,72 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 		return 0, err
 	}
 
-	// replace query params
+	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
 	timeseriesQueryString = ph.replaceQueryParameters(timeseriesQueryString)
 
-	// split query string by first occurance of "?"
-	timeseriesIdentifier := strings.Split(timeseriesQueryString, "?")[0]
-
-	timeseriesIdentifierEncoded := url.QueryEscape(timeseriesIdentifier)
-
-	timeseriesQueryString = strings.Replace(timeseriesQueryString, timeseriesIdentifier, timeseriesIdentifierEncoded, 1)
-
-	fmt.Printf("Old=%s, new=%s\n", timeseriesIdentifier, timeseriesIdentifierEncoded)
-
-	targetUrl := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/query/")
-
-	queryParams := map[string]string{
-		"metricSelector": timeseriesQueryString,
-		"resolution":     "Inf", // resolution=Inf means that we only get 1 datapoint (per service)
-		"from":           timestampToString(startUnix),
-		"to":             timestampToString(endUnix),
+	if strings.HasPrefix(timeseriesQueryString, "?metricSelector=") {
+		fmt.Printf("COMPATIBILITY WARNING: Provided query string %s is not compatible. Auto-removing the ? in front (see %s for details).\n", timeseriesQueryString, MetricsAPIOldFormatNewFormatDoc)
+		timeseriesQueryString = strings.Replace(timeseriesQueryString, "?metricSelector=", "metricSelector=", 1)
 	}
+
+	// split query string by first occurrence of "?"
+	timeseriesSplit := strings.Split(timeseriesQueryString, "?")
+
+	timeseriesIdentifier := ""
+
+	timeseriesQueryParams := ""
+
+	// support the old format with "timeseriesIdentifier:someFilters()?scope=..." as well as the new format with
+	// "?metricSelector=timeseriesIdentifier&entitySelector=...&scope=..."
+	if len(timeseriesSplit) == 1 {
+		// new format without "?" -> everything within the query string are query parameters
+		timeseriesQueryParams = timeseriesSplit[0]
+	} else {
+		fmt.Printf("COMPATIBILITY WARNING: Your query %s still uses the old format (see %s for details).\n", timeseriesQueryParams, MetricsAPIOldFormatNewFormatDoc)
+		// old format with "?" - everything left of the ? is the identifier, everything right are query params
+		timeseriesIdentifier = timeseriesSplit[0]
+
+		// build the new query
+		timeseriesQueryParams = fmt.Sprintf("metricSelector=%s&%s", timeseriesSplit[0], timeseriesSplit[1])
+	}
+
+	targetUrl := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/query/?%s", timeseriesQueryParams)
+
+	// default query params that are required: resolution, from and to
+	queryParams := map[string]string{
+		"resolution": "Inf", // resolution=Inf means that we only get 1 datapoint (per service)
+		"from":       timestampToString(startUnix),
+		"to":         timestampToString(endUnix),
+	}
+	fmt.Println("Query Params initially:")
 	fmt.Println(queryParams)
 
-	// append queryParams to URL
+	// append queryParams to targetUrl
 	u, _ := url.Parse(targetUrl)
 	q, _ := url.ParseQuery(u.RawQuery)
 
 	for param, value := range queryParams {
 		q.Add(param, value)
+	}
+
+	// check if q contains "scope"
+	scopeData := q.Get("scope")
+
+	// compatibility with old scope=... custom queries
+	if scopeData != "" {
+		fmt.Printf("COMPATIBILITY WARNING: You are still using scope=... - querying the new metrics API requires use of entitySelector=... instead (see %s for details).", MetricsAPIOldFormatNewFormatDoc)
+		// scope is no longer supported in the new API, it needs to be called "entitySelector" and contain type(SERVICE)
+		if !strings.Contains(scopeData, "type(SERVICE)") {
+			fmt.Printf("COMPATIBILITY WARNING: Automatically adding type(SERVICE) to entitySelector=... for compatibility with the new Metrics API (see %s for details).", MetricsAPIOldFormatNewFormatDoc)
+			scopeData = fmt.Sprintf("%s,type(SERVICE)", scopeData)
+		}
+		// add scope as entitySelector
+		q.Add("entitySelector", scopeData)
+	}
+
+	// check timeseriesIdentifier
+	if timeseriesIdentifier == "" {
+		timeseriesIdentifier = q.Get("metricSelector")
 	}
 
 	u.RawQuery = q.Encode()
@@ -231,7 +272,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 			metricIdExists = true
 
 			if len(i.Data) != 1 {
-				return 0, fmt.Errorf("Dynatrace Metrics API returned %d result values, expected 1", len(i.Data))
+				return 0, fmt.Errorf("Dynatrace Metrics API returned %d result values, expected 1. Please ensure the response contains exactly one value (e.g., by using :merge(0):avg for the metric)", len(i.Data))
 			}
 
 			actualMetricValue = i.Data[0].Values[0]
@@ -285,16 +326,16 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 	// default config
 	switch metric {
 	case Throughput:
-		return "builtin:service.requestCount.total.merge(0).count&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
-		//"builtin:service.requestCount.total.merge(0).count&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.DEPLOYMENT)"
+		// ?metricSelector=builtin:service.requestCount.total:merge(0):count&
+		return "builtin:service.requestCount.total:merge(0):count?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ErrorRate:
-		return "builtin:service.errors.total.count.merge(0).avg&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
+		return "builtin:service.errors.total.count:merge(0):avg?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP50:
-		return "builtin:service.response.time.merge(0).percentile(50)&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
+		return "builtin:service.response.time:merge(0):percentile(50)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP90:
-		return "builtin:service.response.time.merge(0).percentile(90)&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
+		return "builtin:service.response.time:merge(0):percentile(90)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP95:
-		return "builtin:service.response.time.merge(0).percentile(95)&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
+		return "builtin:service.response.time:merge(0):percentile(95)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	default:
 		fmt.Sprintf("Unknown metric %s\n", metric)
 		return "", fmt.Errorf("unsupported SLI metric %s", metric)

@@ -11,4 +11,3 @@ deploy:
   kubectl:
     manifests:
       - deploy/service.yaml
-      - deploy/distributor.yaml
