@@ -51,9 +51,10 @@ jobs:
             echo "After that ammend your commit (e.g.: git add ${unformatted} && git commit --amend --no-edit) and force push the changes (git push -f)."
             travis_terminate 1
           fi
-
-    - stage: tests
-      # Run tests
+          
+    - stage: sonarqube
+      if: type = push
+      # Run sonarqube scanner only for pushes (not for PRs)
       services: []
       language: go
       go:
@@ -68,6 +69,19 @@ jobs:
           organization: "keptn-contrib"
       script:
         - sonar-scanner
+
+    - stage: tests
+      # Run tests
+      services: []
+      language: go
+      go:
+        - 1.12.x
+      # cache some go files
+      cache:
+        directories:
+          - $HOME/.cache/go-build
+          - $HOME/gopath/pkg/mod
+      script:
         - go build ./...
         - go test -race -v ./...
 
