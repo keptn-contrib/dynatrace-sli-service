@@ -288,13 +288,13 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 		return "builtin:service.requestCount.total.merge(0).count&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
 		//"builtin:service.requestCount.total.merge(0).count&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.DEPLOYMENT)"
 	case ErrorRate:
-		return "builtin:service.errors.total.count.merge(0).avg?scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
+		return "builtin:service.errors.total.count.merge(0).avg&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
 	case ResponseTimeP50:
-		return "builtin:service.response.time.merge(0).percentile(50)?scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
+		return "builtin:service.response.time.merge(0).percentile(50)&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
 	case ResponseTimeP90:
-		return "builtin:service.response.time.merge(0).percentile(90)?scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
+		return "builtin:service.response.time.merge(0).percentile(90)&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
 	case ResponseTimeP95:
-		return "builtin:service.response.time.merge(0).percentile(95)?scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
+		return "builtin:service.response.time.merge(0).percentile(95)&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
 	default:
 		fmt.Sprintf("Unknown metric %s\n", metric)
 		return "", fmt.Errorf("unsupported SLI metric %s", metric)
