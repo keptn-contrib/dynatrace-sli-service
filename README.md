@@ -62,11 +62,11 @@ To fetch data this service queries ``https://{DT_TENANT_ID}/api/v2/metrics/serie
 The default SLI queries for this service are defined as follows: 
 
 ```yaml
-throughput: "builtin:service.requestCount.total:merge(0):count?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
-error_rate: "builtin:service.errors.total.count:merge(0):avg?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
-response_time_p50: "builtin:service.response.time:merge(0):percentile(50)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
-response_time_p90: "builtin:service.response.time:merge(0):percentile(90)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
-response_time_p95: "builtin:service.response.time:merge(0):percentile(95)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:canary)"
+throughput: "builtin:service.requestCount.total.merge(0).count&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.canary)"
+error_rate: "builtin:service.errors.total.count.merge(0).avg&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.canary)"
+response_time_p50: "builtin:service.response.time.merge(0).percentile(50)&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.canary)"
+response_time_p90: "builtin:service.response.time.merge(0).percentile(90)&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.canary)"
+response_time_p95: "builtin:service.response.time.merge(0).percentile(95)&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.canary)"
 ```
 
 Please note that the tags that are used are:
