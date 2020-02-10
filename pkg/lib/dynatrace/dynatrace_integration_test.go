@@ -35,7 +35,7 @@ func TestGetSLIValue(t *testing.T) {
 		"nextPageKey": null,
 		"result": [
 			{
-				"metricId": "builtin:service.response.time:merge(0):percentile(50)",
+				"metricId": "builtin:service.response.time.merge(0).percentile(50)",
 				"data": [
 					{
 						"dimensions": [],
@@ -65,7 +65,7 @@ func TestGetSLIValue(t *testing.T) {
 	end := time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
-	assert.EqualValues(t, nil, err)
+	assert.NoError(t, err)
 
 	assert.InDelta(t, 8.43340, value, 0.001)
 }
@@ -78,7 +78,7 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
     "nextPageKey": null,
 	"result": [
 		{
-			"metricId": "builtin:service.response.time:merge(0):percentile(50)",
+			"metricId": "builtin:service.response.time.merge(0).percentile(50)",
 			"data": [
 			]
 		}
@@ -142,7 +142,7 @@ func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 	end := time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
-	assert.EqualValues(t, errors.New("Dynatrace Metrics API result does not contain identifier builtin:service.response.time:merge(0):percentile(50)"), err)
+	assert.EqualValues(t, errors.New("Dynatrace Metrics API result does not contain identifier builtin:service.response.time.merge(0).percentile(50)"), err)
 
 	assert.EqualValues(t, 0.0, value)
 }
@@ -182,7 +182,7 @@ func TestGetSLISleep(t *testing.T) {
 		"nextPageKey": null,
 		"result": [
 			{
-				"metricId": "builtin:service.response.time:merge(0):percentile(50)",
+				"metricId": "builtin:service.response.time.merge(0).percentile(50)",
 				"data": [
 					{
 						"dimensions": [],
