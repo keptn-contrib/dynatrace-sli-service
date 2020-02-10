@@ -55,17 +55,22 @@ A result looks as follows:
 {
     "totalCount": 4,
     "nextPageKey": null,
-    "metrics": {
-        "builtin:service.response.time:merge(0):percentile(50)": {
-            "values": [
+    "result": [
+        {
+            "metricId": "builtin:service.response.time.merge(0).percentile(50)",
+            "data": [
                 {
                     "dimensions": [],
-                    "timestamp": 1574092860000,
-                    "value": 1364.0454545454545
+                    "timestamps": [
+                        1574092860000
+                    ],
+                    "values": [
+                        1364.0454545454545
+                    ]
                 }
             ]
         }
-    }
+    ]
 }
 ```
 

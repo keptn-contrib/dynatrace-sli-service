@@ -88,8 +88,8 @@ Users can override the predefined queries, as well as add custom queries by crea
     ---
     spec_version: '1.0'
     indicators:
-      throughput: "builtin:service.requestCount.total:merge(0):count?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)"
-      error_rate: "builtin:service.errors.total.count:merge(0):avg?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)"
+      throughput: "builtin:service.requestCount.total.merge(0).count&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)"
+      error_rate: "builtin:service.errors.total.count.merge(0).avg&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)"
     ```
 
 * To store this configuration, you need to add this file to a Keptn's configuration store. This is done by using the Keptn CLI with the [add-resource](https://keptn.sh/docs/0.6.0/reference/cli/#keptn-add-resource) command. 
@@ -105,15 +105,15 @@ We expect each service to have the following tags within Dynatrace:
 
 E.g., the service `carts` in the stage `dev` within project `sockshop` would have the following tags:
 
-* `keptn_project:sockshop`
-* `keptn_stage:dev`
-* `keptn_service:carts`
-* `keptn_deployment:primary` (or `keptn_deployment:canary` during tests)
+* `keptn_project.sockshop`
+* `keptn_stage.dev`
+* `keptn_service.carts`
+* `keptn_deployment.primary` (or `keptn_deployment.canary` during tests)
 
 These tags are used for querying the service in question using the `scope=` parameter of the metrics API, e.g.:
 
 ```
-scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)
+scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)
 ```
 
 ## Known Limitations
