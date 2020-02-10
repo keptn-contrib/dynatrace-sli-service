@@ -213,8 +213,8 @@ func TestGetSLISleep(t *testing.T) {
 	end := time.Now().Add(-80 * time.Second).Format(time.RFC3339)
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{})
 
-	assert.InDelta(t, 8.43340, value, 0.001)
 	assert.Nil(t, err)
+	assert.InDelta(t, 8.43340, value, 0.001)
 }
 
 // Tests the behaviour of the GetSLIValue function in case of a HTTP 400 return code

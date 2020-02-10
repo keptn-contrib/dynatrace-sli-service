@@ -145,7 +145,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	timeseriesQueryString = ph.replaceQueryParameters(timeseriesQueryString)
 
 	// split query string by first occurance of "?"
-	timeseriesIdentifier := strings.Split(timeseriesQueryString, "?")[0]
+	timeseriesIdentifier := strings.Split(timeseriesQueryString, "&")[0]
 
 	timeseriesIdentifierEncoded := url.QueryEscape(timeseriesIdentifier)
 
@@ -286,7 +286,7 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 	switch metric {
 	case Throughput:
 		return "builtin:service.requestCount.total.merge(0).count&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
-		//"builtin:service.requestCount.total.merge(0).count&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.DEPLOYMENT)"
+		//"builtin:service.requestCount.total.merge(0).count&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)"
 	case ErrorRate:
 		return "builtin:service.errors.total.count.merge(0).avg&scope=tag(keptn_project.$PROJECT),tag(keptn_stage.$STAGE),tag(keptn_service.$SERVICE),tag(keptn_deployment.$DEPLOYMENT)", nil
 	case ResponseTimeP50:
