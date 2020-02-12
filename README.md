@@ -23,7 +23,6 @@ To deploy the current version of the *dynatrace-sli-service* in your Keptn Kuber
 
 ```console
 kubectl apply -f deploy/service.yaml
-kubectl apply -f deploy/distributor.yaml
 ```
 
 ## Delete in your Kubernetes cluster
@@ -32,7 +31,6 @@ To delete a deployed *dynatrace-sli-service*, use the file `deploy/*.yaml` files
 
 ```console
 kubectl delete -f deploy/service.yaml
-kubectl delete -f deploy/distributor.yaml
 ```
 
 ## Settings / Secrets
