@@ -8,7 +8,7 @@ env:
     - GOPROXY=https://proxy.golang.org
 before_install:
   - export TZ=Europe/Vienna
-  - IMAGE=keptn/dynatrace-sli-service
+  - IMAGE=keptncontrib/dynatrace-sli-service
   - REPO_URL="$(git remote get-url --all origin)"
   # get the last tag
   - GIT_LAST_TAG=$(git describe --tags $(git rev-list --tags) || echo "0.0.0")
@@ -96,9 +96,9 @@ jobs:
         - docker tag "${IMAGE}:${GIT_SHA}" "${IMAGE}:${TYPE}.${NUMBER}.${DATE}"
       after_success:
        - echo "$REGISTRY_PASSWORD" | docker login --username $REGISTRY_USER --password-stdin
-       - docker push "${IMAGE}:${GIT_SHA}"
-       - docker push "${IMAGE}:${TYPE}.${NUMBER}.${DATE}"
-
+       - docker push "${IMAGE}"
+       - echo "The following images have been built and pushed to dockerhub:"
+       - docker images
 
     - stage: master/develop
       # build docker images for master/develop branch
@@ -110,9 +110,9 @@ jobs:
         - docker tag "${IMAGE}:${GIT_SHA}" "${IMAGE}:latest"
       after_success:
         - echo "$REGISTRY_PASSWORD" | docker login --username $REGISTRY_USER --password-stdin
-        - docker push "${IMAGE}:${GIT_SHA}"
-        - docker push "${IMAGE}:${DATE}"
-        - docker push "${IMAGE}:latest"
+        - docker push "${IMAGE}"
+        - echo "The following images have been built and pushed to dockerhub:"
+        - docker images
 
     - stage: release-branch
       # build docker images for release branches
@@ -127,5 +127,6 @@ jobs:
         - docker tag "${IMAGE}:${GIT_SHA}" "${IMAGE}:${VERSION}"
       after_success:
         - echo "$REGISTRY_PASSWORD" | docker login --username $REGISTRY_USER --password-stdin
-        - docker images
         - docker push "${IMAGE}"
+        - echo "The following images have been built and pushed to dockerhub:"
+        - docker images

@@ -18,10 +18,10 @@ By default, the following SLIs are automatically supported:
 
 | Keptn Version    | [Dynatrace-SLI-Service Service Image](https://hub.docker.com/r/keptncontrib/dynatrace-sli-service/tags) |
 |:----------------:|:----------------------------------------:|
-|       0.6.0      | keptn/dynatrace-sli-service:0.3.0[^1]    |
-|       0.6.1      | keptncontrib/dynatrace-sli-service:0.4.0 |
+|       0.6.0      | keptncontrib/dynatrace-sli-service:0.3.0 |
+|       0.6.1      | keptncontrib/dynatrace-sli-service:0.4.0[^1] |
 
-[^1] Starting with release 0.4.0 of this service we moved the Docker image on DockerHub to the `keptncontrib` organization 
+[^1] Not available yet
 
 ## Installation
 
@@ -42,6 +42,14 @@ kubectl -n keptn get deployment dynatrace-sli-service -o wide
 kubectl -n keptn get pods -l run=dynatrace-sli-service
 ```
 
+### Up- or Downgrading
+
+Adapt and use the following command in case you want to up- or downgrade your installed version (specified by the `$VERSION` placeholder):
+
+```console
+kubectl -n keptn set image deployment/dynatrace-sli-service dynatrace-sli-service=keptncontrib/dynatrace-sli-service:$VERSION --record
+```
+
 ### Uninstall
 
 To delete a deployed *dynatrace-sli-service*, use the file `deploy/*.yaml` files from this repository and delete the Kubernetes resources:
@@ -49,6 +57,7 @@ To delete a deployed *dynatrace-sli-service*, use the file `deploy/*.yaml` files
 ```console
 kubectl delete -f deploy/service.yaml
 ```
+
 
 ## Setup
 
