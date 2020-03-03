@@ -65,8 +65,76 @@ func TestGetSLIValue(t *testing.T) {
 	end := time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
-	assert.EqualValues(t, nil, err)
+	assert.NoError(t, err)
 
+	assert.InDelta(t, 8.43340, value, 0.001)
+}
+
+// tests the GETSliValue function to return the proper datapoint with the old custom query format
+func TestGetSLIValueWithOldandNewCustomQueryFormat(t *testing.T) {
+
+	okResponse := `{
+		"totalCount": 8,
+		"nextPageKey": null,
+		"result": [
+			{
+				"metricId": "builtin:service.response.time:merge(0):percentile(50)",
+				"data": [
+					{
+						"dimensions": [],
+						"timestamps": [
+							1579097520000
+						],
+						"values": [
+							8433.40
+						]
+					}
+				]
+			}
+		]
+	}`
+
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(okResponse))
+	})
+
+	httpClient, teardown := testingHTTPClient(h)
+	defer teardown()
+
+	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	dh.HTTPClient = httpClient
+
+	// overwrite custom queries with the new format (starting with metricSelector=)
+	dh.CustomQueries = make(map[string]string)
+	dh.CustomQueries[ResponseTimeP50] = "metricSelector=builtin:service.response.time:merge(0):percentile(50)&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"
+
+	start := time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
+	end := time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
+
+	assert.EqualValues(t, nil, err)
+	assert.InDelta(t, 8.43340, value, 0.001)
+
+	// now do the same but with the new format but with ?metricSelector= in front (the ? is not needed/wanted)
+	dh.CustomQueries = make(map[string]string)
+	dh.CustomQueries[ResponseTimeP50] = "?metricSelector=builtin:service.response.time:merge(0):percentile(50)&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"
+
+	start = time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
+	end = time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
+	value, err = dh.GetSLIValue(ResponseTimeP50, start, end, nil)
+
+	assert.EqualValues(t, nil, err)
+	assert.InDelta(t, 8.43340, value, 0.001)
+
+	// now do the same but with the old format ($metricName?scope=...)
+	dh.CustomQueries = make(map[string]string)
+	dh.CustomQueries[ResponseTimeP50] = "builtin:service.response.time:merge(0):percentile(50)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)"
+
+	start = time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
+	end = time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
+	value, err = dh.GetSLIValue(ResponseTimeP50, start, end, nil)
+
+	assert.EqualValues(t, nil, err)
 	assert.InDelta(t, 8.43340, value, 0.001)
 }
 
@@ -99,7 +167,7 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 	end := time.Unix(1571649085, 0).UTC().Format(time.RFC3339)
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
 
-	assert.EqualValues(t, errors.New("Dynatrace Metrics API returned 0 result values, expected 1"), err)
+	assert.EqualValues(t, errors.New("Dynatrace Metrics API returned 0 result values, expected 1. Please ensure the response contains exactly one value (e.g., by using :merge(0):avg for the metric)"), err)
 
 	assert.EqualValues(t, 0.0, value)
 }

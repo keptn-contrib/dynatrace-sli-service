@@ -14,16 +14,27 @@ where `${PROJECTNAME}` is the name of the project as specified within the `keptn
 
 The following tags are expected to be set on the monitored **services** within Dynatrace:
 
-* `environment` - maps to the stage within Keptn (basically the Kubernetes namespace, e.g., `sockshop-dev`, `sockshop-staging` or `sockshop-production`)
-* `service` - maps to the name of the service within Keptn (e.g., `carts`)
+* `keptn_project`, e.g., `sockshop` (maps to the project name defined by `keptn create project ...`)
+* `keptn_stage`, e.g., `dev`, `staging`, ... (maps to the stages defined in your shipyard.yaml)
+* `keptn_service`, e.g., `carts` (maps to the service onboarded/created within Keptn)
+* `keptn_deployment`, e.g., `primary`, `canary` or `direct` (depends on the deployment-strategy defined in your shipyard.yaml)
 
 ![alt text](assets/dynatrace_service_tags.png)
 
-At the moment only timeseries starting with a prefix of `com.dynatrace.builtin:service.` are supported.
+These tags are used for querying the service in question using the `entitySelector=` parameter of the metrics API, e.g.:
 
-## Timeseries Mapping
+```
+entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)
+```
 
-The following metrics are supported by Keptn
+For these tags to show up in Dynatrace, two steps are necessary:
+
+1. Add these tags to your deployments environment variable `DT_CUSTOM_PROP` (e.g., [keptn/examples/onboarding-carts/carts/templates/deployment.yaml](https://github.com/keptn/examples/blob/8c1aeb70bf17a826f02fb181db03a6c5947d803d/onboarding-carts/carts/templates/deployment.yaml#L29-L30))
+1. Add an automated tagging rule (see https://keptn.sh/docs/0.6.0/reference/monitoring/dynatrace/ for a reference)
+
+## Metrics/Timeseries Mapping
+
+The following metrics/timeseries are automatically supported by the Dynatrace-SLI-Service:
 
 * Throughput (number of requests per second that have been processed)
 * ErrorRate (fraction of all received requests that produced an error)
@@ -32,46 +43,45 @@ The following metrics are supported by Keptn
     * ResponseTimeP90
     * ResponseTimeP95
 
-and mapped to Dynatrace timeseries data as follows:
+and mapped to Dynatrace metrics as follows:
 
-| Name               | Metric                                          | AggregationType               |
+| Name               | Metric                                          | AggregationType[^2]           |
 |--------------------|-------------------------------------------------|-------------------------------|
-| Throughput         | builtin:service.requestCount.total              | count                         |
-| ErrorRate          | builtin:service.errors.total.count              | avg                           |
-| ResponseTimeP50    | builtin:service.response.time[^1]               | percentile (`percentile=50`)  |
-| ResponseTimeP90    | builtin:service.response.time[^1]               | percentile (`percentile=90`)  |
-| ResponseTimeP95    | builtin:service.response.time[^1]               | percentile (`percentile=95`)  |
+| Throughput         | builtin:service.requestCount.total              | `:merge(0):count`             |
+| ErrorRate          | builtin:service.errors.total.count              | `:merge(0):avg`               |
+| ResponseTimeP50    | builtin:service.response.time[^1]               | `:merge(0):percentile(50)`    |
+| ResponseTimeP90    | builtin:service.response.time[^1]               | `:merge(0):percentile(90)`    |
+| ResponseTimeP95    | builtin:service.response.time[^1]               | `:merge(0):percentile(95)`    |
 
 More information about timeseries and available metrics can be found 
 [here](https://www.dynatrace.com/support/help/extend-dynatrace/dynatrace-api/environment-api/metric/).
 
 [^1] service.response.time is returned in microseconds by Dynatrace API, and converted to milliseconds within this service.
+[^2] AggregationType needs to contain `merge(0)` such that the first dimension (which is the entity) is aggregated into a single value
 
 ## Result Data
 
-A result looks as follows:
+A result looks as follows (e.g., for the metric ResponseTimeP50):
 
 ```json
 {
-    "totalCount": 4,
+    "totalCount": 1,
     "nextPageKey": null,
-    "metrics": {
-        "builtin:service.response.time:merge(0):percentile(50)": {
-            "values": [
+    "result": [
+        {
+            "metricId": "builtin:service.response.time:merge(0):percentile(50)",
+            "data": [
                 {
                     "dimensions": [],
-                    "timestamp": 1574092860000,
-                    "value": 1364.0454545454545
+                    "timestamps": [
+                        1579097520000
+                    ],
+                    "values": [
+                        8433.40
+                    ]
                 }
             ]
         }
-    }
+    ]
 }
 ```
-
-## Keptn Performance Tests
-
-If performance tests are triggered within Keptn, an additional tag is automatically set within Dynatrace: 
- `test-subject:true`. This enables us to separate services that have only been created for testing (e.g., new artifacts) 
- from services that have been deployed before.
- 
