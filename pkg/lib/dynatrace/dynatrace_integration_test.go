@@ -2,14 +2,16 @@ package dynatrace
 
 import (
 	"errors"
-	"github.com/keptn/go-utils/pkg/events"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
+	"github.com/keptn/go-utils/pkg/events"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/context"
 )
 
 // create a fake http client for integration tests
@@ -58,7 +60,14 @@ func TestGetSLIValue(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	keptnEvent := &common.BaseKeptnEvent{}
+	keptnEvent.Project = "sockshop"
+	keptnEvent.Stage = "dev"
+	keptnEvent.Service = "carts"
+	keptnEvent.DeploymentStrategy = ""
+
+	// dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
 	dh.HTTPClient = httpClient
 
 	start := time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
@@ -101,7 +110,13 @@ func TestGetSLIValueWithOldandNewCustomQueryFormat(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	keptnEvent := &common.BaseKeptnEvent{}
+	keptnEvent.Project = "sockshop"
+	keptnEvent.Stage = "dev"
+	keptnEvent.Service = "carts"
+	keptnEvent.DeploymentStrategy = ""
+
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
 	dh.HTTPClient = httpClient
 
 	// overwrite custom queries with the new format (starting with metricSelector=)
@@ -160,7 +175,13 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	keptnEvent := &common.BaseKeptnEvent{}
+	keptnEvent.Project = "sockshop"
+	keptnEvent.Stage = "dev"
+	keptnEvent.Service = "carts"
+	keptnEvent.DeploymentStrategy = ""
+
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
 	dh.HTTPClient = httpClient
 
 	start := time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
@@ -203,7 +224,13 @@ func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	keptnEvent := &common.BaseKeptnEvent{}
+	keptnEvent.Project = "sockshop"
+	keptnEvent.Stage = "dev"
+	keptnEvent.Service = "carts"
+	keptnEvent.DeploymentStrategy = ""
+
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
 	dh.HTTPClient = httpClient
 
 	start := time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
@@ -217,7 +244,13 @@ func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 
 // Tests what happens if the end-time is in the future
 func TestGetSLIEndTimeFuture(t *testing.T) {
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	keptnEvent := &common.BaseKeptnEvent{}
+	keptnEvent.Project = "sockshop"
+	keptnEvent.Stage = "dev"
+	keptnEvent.Service = "carts"
+	keptnEvent.DeploymentStrategy = ""
+
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
 
 	start := time.Now().Format(time.RFC3339)
 	// artificially increase end time to be in the future
@@ -231,7 +264,13 @@ func TestGetSLIEndTimeFuture(t *testing.T) {
 
 // Tests what happens if start-time is after end-time
 func TestGetSLIStartTimeAfterEndTime(t *testing.T) {
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	keptnEvent := &common.BaseKeptnEvent{}
+	keptnEvent.Project = "sockshop"
+	keptnEvent.Stage = "dev"
+	keptnEvent.Service = "carts"
+	keptnEvent.DeploymentStrategy = ""
+
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
 
 	start := time.Now().Format(time.RFC3339)
 	// artificially increase end time to be in the future
@@ -273,7 +312,13 @@ func TestGetSLISleep(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	keptnEvent := &common.BaseKeptnEvent{}
+	keptnEvent.Project = "sockshop"
+	keptnEvent.Stage = "dev"
+	keptnEvent.Service = "carts"
+	keptnEvent.DeploymentStrategy = ""
+
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
 	dh.HTTPClient = httpClient
 
 	start := time.Now().Add(-5 * time.Minute).Format(time.RFC3339)
@@ -295,7 +340,13 @@ func TestGetSLIValueWithErrorResponse(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
+	keptnEvent := &common.BaseKeptnEvent{}
+	keptnEvent.Project = "sockshop"
+	keptnEvent.Stage = "dev"
+	keptnEvent.Service = "carts"
+	keptnEvent.DeploymentStrategy = ""
+
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
 	dh.HTTPClient = httpClient
 
 	start := time.Unix(1571649084, 0).UTC().Format(time.RFC3339)
