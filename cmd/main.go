@@ -187,7 +187,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 	log.Println("Finished fetching metrics; Sending event now ...")
 
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
-		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy, eventData.Deployment)
+		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
+		eventData.Deployment, eventData.Labels)
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
@@ -244,10 +245,10 @@ func getGlobalDynatraceCredentials(kubeClient v1.CoreV1Interface, logger *keptnu
 // getProjectDynatraceCredentials returns project specific Dynatrace credentials
 func getProjectDynatraceCredentials(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger, project string) (string, string, error) {
 	secretName := fmt.Sprintf("dynatrace-credentials-%s", project)
-	// check if secret 'dynatrace-credentials-<project> exists
+	// check if secret dynatrace-credentials-<project> exists
 	secret, err := kubeClient.Secrets("keptn").Get(secretName, metav1.GetOptions{})
 
-	// return cluster-internal dynatrace URL if no secret has been found
+	// return cluster-internal Dynatrace URL if no secret has been found
 	if err != nil {
 		log.Println(err)
 		return "", "", errors.New(fmt.Sprintf("Could not find secret '%s' in namespace keptn.", secretName))
@@ -292,7 +293,7 @@ func getProjectDynatraceCredentials(kubeClient v1.CoreV1Interface, logger *keptn
 
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string,
-	teststrategy string, deploymentStrategy string, deployment string) error {
+	teststrategy string, deploymentStrategy string, deployment string, labels map[string]string) error {
 
 	source, _ := url.Parse("dynatrace-sli-service")
 	contentType := "application/json"
@@ -307,6 +308,7 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		TestStrategy:       teststrategy,
 		DeploymentStrategy: deploymentStrategy,
 		Deployment:         deployment,
+		Labels:             labels,
 	}
 	event := cloudevents.Event{
 		Context: cloudevents.EventContextV02{
