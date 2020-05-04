@@ -21,13 +21,11 @@ By default, even if you do not specifiy a custom SLI.yaml, the following SLIs ar
 
 ## Compatibility Matrix
 
-| Keptn Version    | [Dynatrace-SLI-Service Service Image](https://hub.docker.com/r/keptncontrib/dynatrace-sli-service/tags) | Description |
-|:----------------:|:----------------------------------------:|--------------------------------------------------|
-|       0.6.0      | keptncontrib/dynatrace-sli-service:0.3.0 |  |
-|       0.6.1      | keptncontrib/dynatrace-sli-service:0.4.0[^1] | Default installation with Keptn 0.6.1 |
-|       0.6.1      | keptncontrib/dynatrace-sli-service:0.5.0 | Added support for dynatrace.conf.yaml to support multiple Dynatrace environments. Also added support of more placeholders in SLI.yaml, e.g: $LABEL.yourlabel |
-
-[^1] Not available yet
+| Keptn Version    | [Dynatrace-SLI-Service Service Image](https://hub.docker.com/r/keptncontrib/dynatrace-sli-service/tags) |
+|:----------------:|:----------------------------------------:|
+|       0.6.0      | keptncontrib/dynatrace-sli-service:0.3.0 |
+|       0.6.1      | keptncontrib/dynatrace-sli-service:0.3.1 |
+|   0.6.1,0.6.2    | keptncontrib/dynatrace-sli-service:0.4.0 |
 
 ## Installation
 
@@ -83,21 +81,25 @@ kubectl create secret generic dynatrace-credentials-<project> -n "keptn" --from-
 
 Please note that there is a naming convention for the secret because this can be configured per **project**. Therefore, the secret has to have the name `dynatrace-credentials-<project>`. An example credentials file is available in: [misc/dynatrace-credentials.yaml](misc/dynatrace-credentials.yaml).
 
-**Using different Dynatrace environment per stage or service!**
-If you have different Dynatrace environments to e.g: monitor pre-production and production environments and therefore want the *dynatrace-sli-service* to connect to that respective Dynatrace environment when pulling SLI metrics for a specific Keptn stage or service you can do the following:
-#1: Create a secret for your additional Dynatrace environments in the same way as explained above and store them under a meaningful name, e.g: dynatrace-preprod or dynatrace-prod:
-```
-kubectl create secret generic dynatrace-preprod -n "keptn" --from-file=dynatrace-credentials=your-dynatrace-pre-prod-creds.yaml
-```
-#2: Define a dynatrace.conf.yaml resource file which allows you to specify a DTCreds value which has to be name of the secret, e.g: dynatrace-preprod
-```yaml
-spec_version: '0.1.0'
-dtCreds: dynatrace-preprod
-```
-#3: Upload that dynatrace.conf.yaml to your Keptn project, stage or service via keptn add-resource (either CLI or API) into the dynatace folder, e.g: here is an example to upload it to a specific stage which means the *dynatrace-sli-service* will use the credentials stored in *dynatrace-preprod* secret for every SLI retrieval on that stage
-```console
-keptn add-resource --project=yourproject --stage=yourstage --resource=./dynatrace.conf.yaml --resourceUri=dynatrace/dynatrace.conf.yaml
-```
+**Using different Dynatrace environment per stage or service**
+
+If you have multiple Dynatrace environments, e.g., to separately monitor pre-production and production environments, and therefore want the *dynatrace-sli-service* to connect to that respective Dynatrace environment when pulling SLI metrics for a specific Keptn stage or service you can do the following:
+
+1. Create a secret for your additional Dynatrace environments in the same way as explained above and store them under a meaningful name, e.g: dynatrace-preprod or dynatrace-prod:
+ ```
+ kubectl create secret generic dynatrace-preprod -n "keptn" --from-file=dynatrace-credentials=your-dynatrace-pre-prod-creds.yaml
+ ```
+
+2. Define a dynatrace.conf.yaml resource file which allows you to specify a DTCreds value which has to be name of the secret, e.g: dynatrace-preprod
+ ```yaml
+ spec_version: '0.1.0'
+ dtCreds: dynatrace-preprod
+ ```
+
+3.: Upload that dynatrace.conf.yaml to your Keptn project, stage or service via keptn add-resource (either CLI or API) into the dynatace folder, e.g: here is an example to upload it to a specific stage which means the *dynatrace-sli-service* will use the credentials stored in *dynatrace-preprod* secret for every SLI retrieval on that stage
+ ```console
+ keptn add-resource --project=yourproject --stage=yourstage --resource=./dynatrace.conf.yaml --resourceUri=dynatrace/dynatrace.conf.yaml
+ ```
 
 
 ## SLI Configuration

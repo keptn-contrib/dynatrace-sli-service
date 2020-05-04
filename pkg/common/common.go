@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ghodss/yaml"
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"gopkg.in/yaml.v2"
 
 	configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
 
@@ -18,8 +18,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var RunLocal = (os.Getenv("env") == "runlocal")
-var RunLocalTest = (os.Getenv("env") == "runlocaltest")
+var RunLocal = (os.Getenv("ENV") == "local")
+var RunLocalTest = (os.Getenv("ENV") == "localtest")
 
 /**
  * Defines the Dynatrace Configuration File structure!

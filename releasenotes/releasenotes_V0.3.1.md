@@ -1,4 +1,4 @@
-# Release Notes develop
+# Release Notes v0.3.1
 
 ## New Features
 
