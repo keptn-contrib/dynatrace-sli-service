@@ -213,7 +213,6 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 		// if we RunLocal we take it from the env-variables
 		dtCreds.Tenant = os.Getenv("DT_TENANT")
 		dtCreds.ApiToken = os.Getenv("DT_API_TOKEN")
-		dtCreds.PaaSToken = os.Getenv("DT_PAAS_TOKEN")
 	} else {
 		kubeAPI, err := GetKubernetesClient()
 		if err != nil {
@@ -225,13 +224,13 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 			return nil, err
 		}
 
-		if string(secret.Data["DT_TENANT"]) == "" || string(secret.Data["DT_API_TOKEN"]) == "" || string(secret.Data["DT_PAAS_TOKEN"]) == "" {
-			return nil, errors.New("invalid or no Dynatrace credentials found")
+        	// grabnerandi: remove check on DT_PAAS_TOKEN as it is not relevant for quality-gate-only use case
+		if string(secret.Data["DT_TENANT"]) == "" || string(secret.Data["DT_API_TOKEN"]) == "" { //|| string(secret.Data["DT_PAAS_TOKEN"]) == "" {
+			return nil, errors.New("invalid or no Dynatrace credentials found. Need DT_TENANT & DT_API_TOKEN stored in secret!")
 		}
-
+		
 		dtCreds.Tenant = string(secret.Data["DT_TENANT"])
 		dtCreds.ApiToken = string(secret.Data["DT_API_TOKEN"])
-		dtCreds.PaaSToken = string(secret.Data["DT_PAAS_TOKEN"])
 	}
 
 	// ensure URL always has http or https in front
