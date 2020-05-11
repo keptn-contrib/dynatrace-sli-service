@@ -25,7 +25,7 @@ By default, even if you do not specifiy a custom SLI.yaml, the following SLIs ar
 |:----------------:|:----------------------------------------:|
 |       0.6.0      | keptncontrib/dynatrace-sli-service:0.3.0 |
 |       0.6.1      | keptncontrib/dynatrace-sli-service:0.3.1 |
-|   0.6.1,0.6.2    | keptncontrib/dynatrace-sli-service:0.4.0 |
+|   0.6.1,0.6.2    | keptncontrib/dynatrace-sli-service:0.4.1 |
 
 ## Installation
 
