@@ -128,7 +128,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	if err != nil {
 		stdLogger.Debug(err.Error())
-		stdLogger.Debug("Failed to fetch global Dynatrace credentials, exiting.")
+		stdLogger.Debug("Failed to fetch Dynatrace credentials, exiting.")
 		return err
 	}
 
@@ -264,11 +264,21 @@ func getDynatraceCredentials(secretName string, project string, kubeClient v1.Co
 	secretNames := []string{secretName, fmt.Sprintf("dynatrace-credentials-%s", project), "dynatrace-credentials", "dynatrace"}
 
 	for _, secret := range secretNames {
-		dtCredentials, _ := common.GetDTCredentials(secret)
+		logger.Info(fmt.Sprintf("Trying to fetch secret containing Dynatrace credentials with name '%s'", secret))
+		dtCredentials, err := common.GetDTCredentials(secret)
+
+		// write in log if fetching Dynatrace Credentials failed
+		if err != nil {
+			logger.Error(fmt.Sprintf("Error fetching secret containing Dynatrace credentials with name '%s': %s", secret, err.Error()))
+		}
+
 		if dtCredentials != nil {
+			logger.Info(" -> credentials found, returning...")
 			return dtCredentials, nil
 		}
 	}
+
+	logger.Error("No Dynatrace credentials found in namespace keptn")
 
 	return nil, errors.New("Couldn't find any dynatrace specific secrets in namespace keptn")
 }
