@@ -66,20 +66,13 @@ kubectl delete -f deploy/service.yaml
 ## Setup
 
 By default, the dynatrace-sli-service will use the same tenant and api token as provided for the [dynatrace-service](https://github.com/keptn-contrib/dynatrace-service).
-In case you do not use the dynatrace-service, or if you want to use another Dynatrace tenant for a certain project, a secret containing the tenant ID and API token has to be deployed into the `keptn` namespace. The secret must be stored in a file, e.g., `your-dynatrace-creds.yaml` with the following format:
-
-```yaml
-DT_TENANT: your_tenant_id.live.dynatracelabs.com
-DT_API_TOKEN: XYZ123456789
-```
-
-You need to add this file as a secret to the `keptn` namespace as follows (replace the `<project>` placeholder with the name of your project):
+In case you do not use the dynatrace-service, or if you want to use another Dynatrace tenant for a certain project, a secret containing the tenant ID and API token has to be deployed into the `keptn` namespace. 
 
 ```console
-kubectl create secret generic dynatrace-credentials-<project> -n "keptn" --from-file=dynatrace-credentials=your-dynatrace-creds.yaml
+kubectl create secret generic dynatrace-credentials-<project> -n "keptn" --from-literal="DT_TENANT=$DT_TENANT" --from-literal="DT_API_TOKEN=$DT_API_TOKEN"
 ```
 
-Please note that there is a naming convention for the secret because this can be configured per **project**. Therefore, the secret has to have the name `dynatrace-credentials-<project>`. An example credentials file is available in: [misc/dynatrace-credentials.yaml](misc/dynatrace-credentials.yaml).
+Please note that there is a naming convention for the secret because this can be configured per **project**. Therefore, the secret has to have the name `dynatrace-credentials-<project>`.
 
 **Using different Dynatrace environment per stage or service**
 
@@ -87,7 +80,7 @@ If you have multiple Dynatrace environments, e.g., to separately monitor pre-pro
 
 1. Create a secret for your additional Dynatrace environments in the same way as explained above and store them under a meaningful name, e.g: dynatrace-preprod or dynatrace-prod:
  ```
- kubectl create secret generic dynatrace-preprod -n "keptn" --from-file=dynatrace-credentials=your-dynatrace-pre-prod-creds.yaml
+ kubectl create secret generic dynatrace-preprod -n "keptn" --from-literal="DT_TENANT=$DT_TENANT" --from-literal="DT_API_TOKEN=$DT_API_TOKEN"
  ```
 
 2. Define a dynatrace.conf.yaml resource file which allows you to specify a DTCreds value which has to be name of the secret, e.g: dynatrace-preprod

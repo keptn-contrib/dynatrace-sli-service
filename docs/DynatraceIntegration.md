@@ -6,9 +6,9 @@ Within this document the integration of this service with Dynatrace is described
 
 The Dynatrace Tenant and an API Token need to be stored in a `.yaml` file and added as a Kubernetes secret using
 ```console
-kubectl create secret generic dynatrace-credentials-${PROJECTNAME} -n "keptn" --from-file=dynatrace-credentials=dynatrace-credentials.yaml
+kubectl create secret generic dynatrace-credentials-<project> -n "keptn" --from-literal="DT_TENANT=$DT_TENANT" --from-literal="DT_API_TOKEN=$DT_API_TOKEN"
 ```
-where `${PROJECTNAME}` is the name of the project as specified within the `keptn create project` command (e.g., `sockshop`).
+where `<project>` is the name of the project as specified within the `keptn create project` command (e.g., `sockshop`).
 
 ## Tags
 
