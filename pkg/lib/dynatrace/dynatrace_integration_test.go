@@ -254,7 +254,7 @@ func TestGetSLIEndTimeFuture(t *testing.T) {
 
 	start := time.Now().Format(time.RFC3339)
 	// artificially increase end time to be in the future
-	end := time.Now().Add(1 * time.Minute).Format(time.RFC3339)
+	end := time.Now().Add(3 * time.Minute).Format(time.RFC3339)
 	value, err := dh.GetSLIValue(Throughput, start, end, []*events.SLIFilter{})
 
 	assert.EqualValues(t, 0.0, value)
