@@ -112,9 +112,15 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 		return 0, errors.New("Error parsing end date: " + err.Error())
 	}
 
+	// AG-27052020: When using keptn send event start-evaluation and clocks are not 100% in sync, e.g: workstation is 1-2 seconds off
+	//              we might run into the issue that we detect the endtime to be in the future. I ran into this problem after my laptop ran out of sync for about 1.5s
+	//              to circumvent this issue I am changing the check to also allow a time difference of up to 2 minutes (120 seconds). This shouldnt be a problem as our SLI Service retries the DYnatrace API anyway
+	// Here is the issue: https://github.com/keptn-contrib/dynatrace-sli-service/issues/55
 	// ensure end time is not in the future
-	if time.Now().Sub(endUnix).Seconds() < 0 {
-		fmt.Printf("ERROR: Supplied end-time %v is in the future\n", endUnix)
+	now := time.Now()
+	timeDiffInSeconds := now.Sub(endUnix).Seconds()
+	if timeDiffInSeconds < -120 { // used to be 0
+		fmt.Printf("ERROR: Supplied end-time %v is in the future (now: %v - diff in sec: %v)\n", endUnix, now, timeDiffInSeconds)
 		return 0, errors.New("end time must not be in the future")
 	}
 

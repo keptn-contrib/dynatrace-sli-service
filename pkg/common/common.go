@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"strings"
 
@@ -98,25 +99,27 @@ func GetKeptnDomain() (string, error) {
 func ReplaceKeptnPlaceholders(input string, keptnEvent *BaseKeptnEvent) string {
 	result := input
 
+	// FIXING on 27.5.2020: URL Escaping of parameters as described in https://github.com/keptn-contrib/dynatrace-sli-service/issues/54
+
 	// first we do the regular keptn values
-	result = strings.Replace(result, "$CONTEXT", keptnEvent.Context, -1)
-	result = strings.Replace(result, "$EVENT", keptnEvent.Event, -1)
-	result = strings.Replace(result, "$SOURCE", keptnEvent.Source, -1)
-	result = strings.Replace(result, "$PROJECT", keptnEvent.Project, -1)
-	result = strings.Replace(result, "$STAGE", keptnEvent.Stage, -1)
-	result = strings.Replace(result, "$SERVICE", keptnEvent.Service, -1)
-	result = strings.Replace(result, "$DEPLOYMENT", keptnEvent.Deployment, -1)
-	result = strings.Replace(result, "$TESTSTRATEGY", keptnEvent.TestStrategy, -1)
+	result = strings.Replace(result, "$CONTEXT", url.QueryEscape(keptnEvent.Context), -1)
+	result = strings.Replace(result, "$EVENT", url.QueryEscape(keptnEvent.Event), -1)
+	result = strings.Replace(result, "$SOURCE", url.QueryEscape(keptnEvent.Source), -1)
+	result = strings.Replace(result, "$PROJECT", url.QueryEscape(keptnEvent.Project), -1)
+	result = strings.Replace(result, "$STAGE", url.QueryEscape(keptnEvent.Stage), -1)
+	result = strings.Replace(result, "$SERVICE", url.QueryEscape(keptnEvent.Service), -1)
+	result = strings.Replace(result, "$DEPLOYMENT", url.QueryEscape(keptnEvent.Deployment), -1)
+	result = strings.Replace(result, "$TESTSTRATEGY", url.QueryEscape(keptnEvent.TestStrategy), -1)
 
 	// now we do the labels
 	for key, value := range keptnEvent.Labels {
-		result = strings.Replace(result, "$LABEL."+key, value, -1)
+		result = strings.Replace(result, "$LABEL."+key, url.QueryEscape(value), -1)
 	}
 
 	// now we do all environment variables
 	for _, env := range os.Environ() {
 		pair := strings.SplitN(env, "=", 2)
-		result = strings.Replace(result, "$ENV."+pair[0], pair[1], -1)
+		result = strings.Replace(result, "$ENV."+pair[0], url.QueryEscape(pair[1]), -1)
 	}
 
 	// TODO: iterate through k8s secrets!
