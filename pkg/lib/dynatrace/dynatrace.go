@@ -120,7 +120,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, customFi
 	now := time.Now()
 	timeDiffInSeconds := now.Sub(endUnix).Seconds()
 	if timeDiffInSeconds < -120 { // used to be 0
-		fmt.Printf("ERROR: Supplied end-time %v is in the future (now: %v - diff in sec: %d)\n", endUnix, now, timeDiffInSeconds)
+		fmt.Printf("ERROR: Supplied end-time %v is in the future (now: %v - diff in sec: %v)\n", endUnix, now, timeDiffInSeconds)
 		return 0, errors.New("end time must not be in the future")
 	}
 
