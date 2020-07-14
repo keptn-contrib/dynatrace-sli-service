@@ -516,7 +516,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
  * #2: ["<500ms","<+10%"]
  * #3: ["<1000ms","<+20%"]
  */
-func (ph *Handler) ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []string, []string) {
+func ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []string, []string) {
 	splits := strings.Split(customName, ";")
 
 	if len(splits) == 0 {
@@ -568,7 +568,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 	}
 
 	// Lets parse the dashboards title and get total score pass and warning
-	_, globalPassSplit, globalWarningSplit := ph.ParsePassAndWarningFromString(dashboardJSON.DashboardMetadata.Name, []string{"90%"}, []string{"75%"})
+	_, globalPassSplit, globalWarningSplit := ParsePassAndWarningFromString(dashboardJSON.DashboardMetadata.Name, []string{"90%"}, []string{"75%"})
 	dashboardSLO.TotalScore.Pass = globalPassSplit[0]
 	dashboardSLO.TotalScore.Warning = globalWarningSplit[0]
 
@@ -584,7 +584,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 
 			fmt.Printf("Processing custom chart: %s\n", tile.FilterConfig.CustomName)
 			// lets start by extracting the base SLI Indicator name from the tile header, e.g: teststep_rt: pass: <500ms;<+10%; warning: <1000ms;<+20% translates to teststep_rt
-			baseIndicatorName, passSLOs, warningSLOs := ph.ParsePassAndWarningFromString(tile.FilterConfig.CustomName, []string{}, []string{})
+			baseIndicatorName, passSLOs, warningSLOs := ParsePassAndWarningFromString(tile.FilterConfig.CustomName, []string{}, []string{})
 
 			// we can potentially have multiple series on that chart
 			for _, series := range tile.FilterConfig.ChartConfig.Series {
