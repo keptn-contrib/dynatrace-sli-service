@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +45,17 @@ type resultValues struct {
 type SLI struct {
 	SpecVersion string            `yaml:"spec_version"`
 	Indicators  map[string]string `yaml:"indicators"`
+}
+
+/**
+ * Output of /dashboards
+ */
+type DynatraceDashboards struct {
+	Dashboards []struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Owner string `json:"owner"`
+	} `json:"dashboards"`
 }
 
 /**
@@ -200,12 +212,59 @@ func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, heade
 }
 
 /**
- * getDynatraceDashboard: will either query the passed dashboard id - or - if none is passed - will try to find a dashboard that is tagged with project, stage, service, sli
+ * Queries all Dynatrace Dashboards and returns the dashboard ID that matches KQG;project=%project%;service=%service%;stage=%stage;xxx
+ */
+func (ph *Handler) findDynatraceDashboard(project string, stage string, service string) (string, error) {
+	// Lets query the list of all Dashboards and find the one that matches project, stage, service based on the title (in the future - we can do it via tags)
+	// create dashboard query URL and set additional headers
+	fmt.Printf("Query all dashboards\n")
+	dashboardAPIUrl := ph.ApiURL + fmt.Sprintf("/api/config/v1/dashboards")
+	req, err := http.NewRequest("GET", dashboardAPIUrl, nil)
+	for headerName, headerValue := range ph.Headers {
+		req.Header.Set(headerName, headerValue)
+	}
+
+	// perform the request
+	resp, err := ph.HTTPClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
+	}
+
+	fmt.Println("Request finished, parsing dashboard response body...")
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(body))
+	dashboardsJSON := &DynatraceDashboards{}
+
+	// parse json
+	err = json.Unmarshal(body, &dashboardsJSON)
+
+	if err != nil {
+		return "", err
+	}
+
+	/*// now - lets iterate through the list and find one that matches our project, stage, service ...
+	for dashboard := range dashboardsJSON.Dashboards {
+		if dashboard.Name
+	}*/
+
+	return "", nil
+}
+
+/**
+ * getDynatraceDashboard: will either query the passed dashboard id - or - if none is passed - will try to find a dashboard that matches project, stage, service (based on name or tags)
  * the parsed JSON object is returned
  */
 func (ph *Handler) getDynatraceDashboard(project string, stage string, service string, dashboard string) (*DynatraceDashboard, error) {
 	if dashboard == "" {
-		// TODO - need to implement the feature to find dashboard with matching tags!
+		dashboard, _ = ph.findDynatraceDashboard(project, stage, service)
+	}
+
+	if dashboard == "" {
 		return nil, nil
 	}
 
@@ -453,24 +512,37 @@ func (ph *Handler) ParseSLODetailsFromCustomTileName(customName string) (string,
 	return splits[0], passSplit, warningSplit
 }
 
-// Implements - https://github.com/keptn-contrib/dynatrace-sli-service/issues/60
-// Queries Dynatrace for the existance of a dashboard tagged with keptn_project:project, keptn_stage:stage, keptn_service:service, SLI
-// if this dashboard exists it will be parsed and a custom SLI_dashboard.yaml and an SLO_dashboard.yaml will be created
-func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) ([]*keptn.SLIResult, error) {
+/**  Implements - https://github.com/keptn-contrib/dynatrace-sli-service/issues/60
+* Queries Dynatrace for the existance of a dashboard tagged with keptn_project:project, keptn_stage:stage, keptn_service:service, SLI
+* if this dashboard exists it will be parsed and a custom SLI_dashboard.yaml and an SLO_dashboard.yaml will be created
+* Returns:
+  #1: Link to Dashboard
+  #2: SLI
+  #3: ServiceLevelObjectives
+  #4: SLIResult
+  #5: Error
+*/
+func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
 	dashboardJSON, err := ph.getDynatraceDashboard(project, stage, service, dashboard)
 	if err != nil {
-		return nil, err
+		return "", nil, nil, nil, err
+	}
+
+	if dashboardJSON == nil {
+		return "", nil, nil, nil, nil
 	}
 
 	// we generate our own SLIResult array based on the dashboard configuration
 	var sliResults []*keptn.SLIResult
-	dashboardSLI := SLI{}
+	dashboardSLI := &SLI{}
 	dashboardSLI.Indicators = make(map[string]string)
-	dashboardSLO := &keptn.ServiceLevelObjectives{}
+	dashboardSLO := &keptn.ServiceLevelObjectives{
+		Objectives: []*keptn.SLO{},
+	}
 
-	// we generate an SLO.yaml
-
-	fmt.Printf("Dashboard JSON: %s, %d, %s\n", dashboardJSON.ID, len(dashboardJSON.Tiles), dashboardJSON.DashboardMetadata.Name)
+	// lets also generate the dashboard link for that timeframe to pass back as label to Keptn
+	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s", ph.ApiURL, dashboardJSON.ID, common.TimestampToString(startUnix), common.TimestampToString(endUnix))
+	fmt.Printf("Dashboard Link: %s\n", dashboardLinkAsLabel)
 
 	// now lets iterate through the dashboard to find our SLIs
 	for _, tile := range dashboardJSON.Tiles {
@@ -499,17 +571,22 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 				// now we need to merge all the dimensions that are not part of the series.dimensions, e.g: if the metric has two dimensions but only one dimension is used in the chart we need to merge the others
 				// as multiple-merges are possible but as they are executed in sequence we have to use the right index
 				for metricDimIx := metricDimensionCount - 1; metricDimIx >= 0; metricDimIx-- {
+					doMergeDimension := true
+					metricDimIxAsString := strconv.Itoa(metricDimIx)
 					// lets check if this dimension is in the chart
 					for _, seriesDim := range series.Dimensions {
-						fmt.Printf("seriesDim.id: %s\n", seriesDim.ID)
-						if seriesDim.ID == string(metricDimIx) {
+						fmt.Printf("seriesDim.id: %s; metricDimIx: %s\n", seriesDim.ID, metricDimIxAsString)
+						if strings.Compare(seriesDim.ID, metricDimIxAsString) == 0 {
 							// this is a dimension we want to keep and not merge
-							fmt.Printf("not merging dimension %s", seriesDim.Name)
-						} else {
-							// this is a dimension we want to merge as it is not split by in the chart
-							fmt.Printf("merging dimension %s", seriesDim.Name)
-							mergeAggregator = mergeAggregator + fmt.Sprintf(":merge(%d)", metricDimIx)
+							fmt.Printf("not merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name)
+							doMergeDimension = false
 						}
+					}
+
+					if doMergeDimension {
+						// this is a dimension we want to merge as it is not split by in the chart
+						fmt.Printf("merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name)
+						mergeAggregator = mergeAggregator + fmt.Sprintf(":merge(%d)", metricDimIx)
 					}
 				}
 
@@ -576,9 +653,12 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 								dashboardSLI.Indicators[indicatorName] = metricQuery
 
 								// lets add the SLO definitin in case we need to generate an SLO.yaml
-								sloDefinition := &keptn.SLO{SLI: indicatorName, Weight: 1}
-								sloDefinition.Pass = append(sloDefinition.Pass, &keptn.SLOCriteria{passSLOs})
-								sloDefinition.Warning = append(sloDefinition.Pass, &keptn.SLOCriteria{warningSLOs})
+								sloDefinition := &keptn.SLO{
+									SLI:     indicatorName,
+									Weight:  1,
+									Pass:    []*keptn.SLOCriteria{{Criteria: passSLOs}},
+									Warning: []*keptn.SLOCriteria{{Criteria: warningSLOs}},
+								}
 								dashboardSLO.Objectives = append(dashboardSLO.Objectives, sloDefinition)
 							}
 						} else {
@@ -590,7 +670,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 		}
 	}
 
-	return sliResults, errors.New("stop here")
+	return dashboardLinkAsLabel, dashboardSLI, dashboardSLO, sliResults, nil
 }
 
 func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter) (float64, error) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -23,7 +24,6 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
 	keptn "github.com/keptn/go-utils/pkg/lib"
 	// configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
 	// keptnevents "github.com/keptn/go-utils/pkg/events"
@@ -86,6 +86,12 @@ func gotEvent(ctx context.Context, event cloudevents.Event) error {
 	}
 }
 
+/**
+ * Handles keptn.InternalGetSLIEventType
+ *
+ * First tries to find a Dynatrace dashboard and then parses it for SLIs and SLOs
+ * Second will go to parse the SLI.yaml and returns the SLI as passed in by the event
+ */
 func retrieveMetrics(event cloudevents.Event) error {
 	var shkeptncontext string
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
@@ -109,12 +115,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	stdLogger := keptn.NewLogger(shkeptncontext, event.Context.GetID(), "dynatrace-sli-service")
 	stdLogger.Info("Retrieving Dynatrace timeseries metrics")
-
-	kubeClient, err := common.GetKubernetesClient()
-	if err != nil && !(common.RunLocal || common.RunLocalTest) {
-		stdLogger.Error("could not create Kubernetes client")
-		return errors.New("could not create Kubernetes client")
-	}
 
 	//
 	// see if there is a dynatrace.conf.yaml
@@ -140,6 +140,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return err
 	}
 
+	//
 	// creating Dynatrace Handler which allows us to call the Dynatrace API
 	stdLogger.Info("Dynatrace credentials (Tenant, Token) received")
 	dynatraceHandler := dynatrace.NewDynatraceHandler(dtCredentials.Tenant,
@@ -154,6 +155,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return nil
 	}
 
+	//
 	// parse start and end (which are datetime strings) and convert them into unix timestamps
 	startUnix, err := common.ParseUnixTimestamp(eventData.Start)
 	if err != nil {
@@ -164,75 +166,106 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return errors.New("Error parsing end date: " + err.Error())
 	}
 
-	// Option 1: We query the data from a dashboard instead of the uploaded SLI.yaml
-	// Lets see if we have a Dashboard in Dynatrace that we should parse
-	stdLogger.Info("Query Dynatrace Dashboards to see if there is an SLI dashboard available")
-	var dashboardSLI string
-	dashboardSLI, err = dynatraceHandler.QueryDynatraceDashboardForSLIs(eventData.Project, eventData.Stage, eventData.Service, dynatraceConfigFile.Dashboard, startUnix, endUnix, eventData.CustomFilters, stdLogger)
-	if err != nil {
-		stdLogger.Error(err.Error())
-		return err
-	}
-	// this is the generated sli.yaml out of the found dashboard in Dynatrace
-	if dashboardSLI != "" {
-		// TODO: write file to disk and load it from there
-		stdLogger.Info(dashboardSLI)
-	}
-
-	// Option 2: We query the SLIs that are defines in the SLI.yaml
-	// get custom metrics for project
-	stdLogger.Info("Load indicators from SLI.yaml")
-	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, keptnHandler, stdLogger)
-	if err != nil {
-		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
-		stdLogger.Error(err.Error())
-		return err
-	}
-
-	// set our list of queries on the handler
-	if projectCustomQueries != nil {
-		dynatraceHandler.CustomQueries = projectCustomQueries
-	}
-
-	// create a new CloudEvent to store SLI Results in
+	//
+	// THIS IS OUR RETURN OBJECT: sliResult
+	// Whether option 1 or option 2 - this will hold our SLIResults
 	var sliResults []*keptn.SLIResult
 
-	// query all indicators
-	for _, indicator := range eventData.Indicators {
-		stdLogger.Info("Fetching indicator: " + indicator)
-		sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix, eventData.CustomFilters)
+	//
+	// Option 1: We query the data from a dashboard instead of the uploaded SLI.yaml
+	// ==============================================================================
+	// Lets see if we have a Dashboard in Dynatrace that we should parse
+	stdLogger.Info("Query Dynatrace Dashboards to see if there is an SLI dashboard available")
+	dashboardLinkAsLabel, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(eventData.Project, eventData.Stage, eventData.Service, dynatraceConfigFile.Dashboard, startUnix, endUnix, eventData.CustomFilters, stdLogger)
+	if err != nil {
+		stdLogger.Error(err.Error())
+		return err
+	}
+
+	// lets write the SLI to the config repo
+	if dashboardSLI != nil {
+		stdLogger.Info("Generated SLI.yaml from Dynatrace Dashboard")
+		jsonAsString, _ := json.Marshal(dashboardSLI)
+		stdLogger.Info(string(jsonAsString))
+	}
+
+	// lets write the SLO to the config repo
+	if dashboardSLO != nil {
+		stdLogger.Info("Generated SLO.yaml from Dynatrace Dashboard")
+		jsonAsString, _ := json.Marshal(dashboardSLO)
+		stdLogger.Info(string(jsonAsString))
+	}
+
+	// lets send the result back to Keptn - we are done here :-)
+	if sliResults != nil {
+		// add link to dynatrace dashboard to labels
+		if dashboardLinkAsLabel != "" {
+			eventData.Labels["Dashboard Link"] = dashboardLinkAsLabel
+		}
+
+		stdLogger.Info("Captured SLIResults from Dynatrace Dashboard")
+		jsonAsString, _ := json.Marshal(sliResults)
+		stdLogger.Info(string(jsonAsString))
+	} else {
+		//
+		// Option 2: We query the SLIs based on the definitions stored in SLI.yaml
+		// ========================================================================0
+		// get custom metrics for project
+		stdLogger.Info("Load indicators from SLI.yaml")
+		projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, keptnHandler, stdLogger)
 		if err != nil {
+			stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
 			stdLogger.Error(err.Error())
-			// failed to fetch metric
-			sliResults = append(sliResults, &keptn.SLIResult{
-				Metric:  indicator,
-				Value:   0,
-				Success: false, // Mark as failure
-				Message: err.Error(),
-			})
-		} else {
-			// successfully fetched metric
-			sliResults = append(sliResults, &keptn.SLIResult{
-				Metric:  indicator,
-				Value:   sliValue,
-				Success: true, // mark as success
-			})
+			return err
 		}
+
+		// set our list of queries on the handler
+		if projectCustomQueries != nil {
+			dynatraceHandler.CustomQueries = projectCustomQueries
+		}
+
+		// query all indicators
+		for _, indicator := range eventData.Indicators {
+			stdLogger.Info("Fetching indicator: " + indicator)
+			sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix, eventData.CustomFilters)
+			if err != nil {
+				stdLogger.Error(err.Error())
+				// failed to fetch metric
+				sliResults = append(sliResults, &keptn.SLIResult{
+					Metric:  indicator,
+					Value:   0,
+					Success: false, // Mark as failure
+					Message: err.Error(),
+				})
+			} else {
+				// successfully fetched metric
+				sliResults = append(sliResults, &keptn.SLIResult{
+					Metric:  indicator,
+					Value:   sliValue,
+					Success: true, // mark as success
+				})
+			}
+		}
+
+		log.Println("Finished fetching metrics; Sending event now ...")
+
+		if common.RunLocal || common.RunLocalTest {
+			log.Println("(RunLocal Output) Here are the results:")
+			for _, v := range sliResults {
+				log.Println(fmt.Sprintf("%s:%.2f - Success: %t - Error: %s", v.Metric, v.Value, v.Success, v.Message))
+			}
+			return nil
+		}
+
 	}
 
-	log.Println("Finished fetching metrics; Sending event now ...")
-
-	if common.RunLocal || common.RunLocalTest {
-		log.Println("(RunLocal Output) Here are the results:")
-		for _, v := range sliResults {
-			log.Println(fmt.Sprintf("%s:%.2f - Success: %t - Error: %s", v.Metric, v.Value, v.Success, v.Message))
-		}
-		return nil
+	if sliResults != nil {
+		return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
+			sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
+			eventData.Deployment, eventData.Labels)
 	}
 
-	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
-		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
-		eventData.Deployment, eventData.Labels)
+	return nil
 }
 
 /**
