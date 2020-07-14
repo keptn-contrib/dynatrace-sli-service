@@ -490,7 +490,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
  * #2: ["<500ms","<+10%"]
  * #3: ["<1000ms","<+20%"]
  */
-func (ph *Handler) ParseSLODetailsFromCustomTileName(customName string) (string, []string, []string) {
+func ParseSLODetailsFromCustomTileName(customName string) (string, []string, []string) {
 	splits := strings.Split(customName, ";")
 
 	if len(splits) == 0 {
@@ -552,7 +552,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 
 			fmt.Printf("Processing custom chart: %s\n", tile.FilterConfig.CustomName)
 			// lets start by extracting the base SLI Indicator name from the tile header, e.g: teststep_rt: pass: <500ms;<+10%; warning: <1000ms;<+20% translates to teststep_rt
-			baseIndicatorName, passSLOs, warningSLOs := ph.ParseSLODetailsFromCustomTileName(tile.FilterConfig.CustomName)
+			baseIndicatorName, passSLOs, warningSLOs := ParseSLODetailsFromCustomTileName(tile.FilterConfig.CustomName)
 
 			// we can potentially have multiple series on that chart
 			for _, series := range tile.FilterConfig.ChartConfig.Series {
