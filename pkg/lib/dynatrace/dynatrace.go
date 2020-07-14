@@ -235,7 +235,7 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 		return "", fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
 	}
 
-	fmt.Println("Request finished, parsing dashboard response body...")
+	fmt.Println("Request finished, parsing dashboard list response body...")
 	body, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(body))
 	dashboardsJSON := &DynatraceDashboards{}
@@ -247,10 +247,35 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 		return "", err
 	}
 
-	/*// now - lets iterate through the list and find one that matches our project, stage, service ...
-	for dashboard := range dashboardsJSON.Dashboards {
-		if dashboard.Name
-	}*/
+	// now - lets iterate through the list and find one that matches our project, stage, service ...
+	findValues := []string{fmt.Sprintf("project=%s", project), fmt.Sprintf("service=%s", service), fmt.Sprintf("stage=%s", stage)}
+	for _, dashboard := range dashboardsJSON.Dashboards {
+		if strings.HasPrefix(dashboard.Name, "KQG;") {
+			fmt.Println("Analyzing if Dashboard matches: " + dashboard.Name)
+
+			nameSplits := strings.Split(dashboard.Name, ";")
+
+			// now lets see if we can find all our name/value pairs for project, service & stage
+			dashboardMatch := true
+			for _, findValue := range findValues {
+				foundValue := false
+				for _, nameSplitValue := range nameSplits {
+					if strings.Compare(findValue, nameSplitValue) == 0 {
+						foundValue = true
+					}
+				}
+				if foundValue == false {
+					dashboardMatch = false
+					continue
+				}
+			}
+
+			if dashboardMatch {
+				fmt.Println("Found Dashboard Match: " + dashboard.ID)
+				return dashboard.ID, nil
+			}
+		}
+	}
 
 	return "", nil
 }
@@ -485,20 +510,21 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 
 /**
  * Takes a value such as "teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%"
+ * can also take a value like "KQG;project=myproject;pass=90%;warning=75%"
  * This will return
  * #1: teststep_rt
  * #2: ["<500ms","<+10%"]
  * #3: ["<1000ms","<+20%"]
  */
-func (ph *Handler) ParseSLODetailsFromCustomTileName(customName string) (string, []string, []string) {
+func (ph *Handler) ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []string, []string) {
 	splits := strings.Split(customName, ";")
 
 	if len(splits) == 0 {
 		return "", nil, nil
 	}
 
-	var passSplit []string
-	var warningSplit []string
+	passSplit := defaultPass
+	warningSplit := defaultWarning
 	for i := 1; i < len(splits); i++ {
 		sloSplit := strings.Split(splits[i], "=")
 		if sloSplit[0] == "pass" {
@@ -538,7 +564,13 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 	dashboardSLI.Indicators = make(map[string]string)
 	dashboardSLO := &keptn.ServiceLevelObjectives{
 		Objectives: []*keptn.SLO{},
+		TotalScore: &keptn.SLOScore{},
 	}
+
+	// Lets parse the dashboards title and get total score pass and warning
+	_, globalPassSplit, globalWarningSplit := ph.ParsePassAndWarningFromString(dashboardJSON.DashboardMetadata.Name, []string{"90%"}, []string{"75%"})
+	dashboardSLO.TotalScore.Pass = globalPassSplit[0]
+	dashboardSLO.TotalScore.Warning = globalWarningSplit[0]
 
 	// lets also generate the dashboard link for that timeframe to pass back as label to Keptn
 	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s", ph.ApiURL, dashboardJSON.ID, common.TimestampToString(startUnix), common.TimestampToString(endUnix))
@@ -552,7 +584,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 
 			fmt.Printf("Processing custom chart: %s\n", tile.FilterConfig.CustomName)
 			// lets start by extracting the base SLI Indicator name from the tile header, e.g: teststep_rt: pass: <500ms;<+10%; warning: <1000ms;<+20% translates to teststep_rt
-			baseIndicatorName, passSLOs, warningSLOs := ph.ParseSLODetailsFromCustomTileName(tile.FilterConfig.CustomName)
+			baseIndicatorName, passSLOs, warningSLOs := ph.ParsePassAndWarningFromString(tile.FilterConfig.CustomName, []string{}, []string{})
 
 			// we can potentially have multiple series on that chart
 			for _, series := range tile.FilterConfig.ChartConfig.Series {

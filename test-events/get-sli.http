@@ -29,10 +29,10 @@ Content-Type: application/cloudevents+json
       "error_rate",
       "throughput"
     ],
-    "project": "demoproject",
+    "project": "qgproject",
     "service": "evalservice",
     "sliProvider": "dynatrace",
-    "stage": "dev",
+    "stage": "qualitystage",
     "teststrategy": "performance",
     "labels": {
       "testid": "12345",
