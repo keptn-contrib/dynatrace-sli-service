@@ -20,8 +20,8 @@ Content-Type: application/cloudevents+json
     "customFilters": [
     ],
     "deploymentstrategy": "direct",
-    "start": "2020-04-27T09:18:14Z",
-    "end": "2020-04-27T09:26:53Z",
+    "start": "2020-07-09T12:28:14Z",
+    "end": "2020-07-09T14:28:53Z",
     "indicators": [
       "response_time_p95",
       "response_time_p90",

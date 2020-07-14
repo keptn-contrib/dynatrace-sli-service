@@ -6,16 +6,17 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"gopkg.in/yaml.v2"
 
-	configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
-
-	keptnutils "github.com/keptn/go-utils/pkg/utils"
+	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
+	keptn "github.com/keptn/go-utils/pkg/lib"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,6 +32,7 @@ const DynatraceConfigFilenameLOCAL = "dynatrace/_dynatrace.conf.yaml"
 type DynatraceConfigFile struct {
 	SpecVersion string `json:"spec_version" yaml:"spec_version"`
 	DtCreds     string `json:"dtCreds",omitempty yaml:"dtCreds",omitempty`
+	Dashboard   string `json:"dashboard",omitempty yaml:"dashboard",omitempty`
 }
 
 type DTCredentials struct {
@@ -137,7 +139,7 @@ func GetConfigurationServiceURL() string {
 //
 // Loads dynatrace.conf for the current service
 //
-func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptnutils.Logger) (*DynatraceConfigFile, error) {
+func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*DynatraceConfigFile, error) {
 
 	logger.Info("Loading dynatrace.conf.yaml")
 	// if we run in a runlocal mode we are just getting the file from the local disk
@@ -152,7 +154,7 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptnutils.Logger) (
 		logger.Info("Loaded LOCAL file " + DynatraceConfigFilenameLOCAL)
 		fileContent = string(localFileContent)
 	} else {
-		resourceHandler := configutils.NewResourceHandler(GetConfigurationServiceURL())
+		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
 
 		// Lets search on SERVICE-LEVEL
 		keptnResourceContent, err := resourceHandler.GetServiceResource(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, DynatraceConfigFilename)
@@ -227,11 +229,11 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 			return nil, err
 		}
 
-        	// grabnerandi: remove check on DT_PAAS_TOKEN as it is not relevant for quality-gate-only use case
+		// grabnerandi: remove check on DT_PAAS_TOKEN as it is not relevant for quality-gate-only use case
 		if string(secret.Data["DT_TENANT"]) == "" || string(secret.Data["DT_API_TOKEN"]) == "" { //|| string(secret.Data["DT_PAAS_TOKEN"]) == "" {
 			return nil, errors.New("invalid or no Dynatrace credentials found. Need DT_TENANT & DT_API_TOKEN stored in secret!")
 		}
-		
+
 		dtCreds.Tenant = string(secret.Data["DT_TENANT"])
 		dtCreds.ApiToken = string(secret.Data["DT_API_TOKEN"])
 	}
@@ -244,4 +246,22 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 	}
 
 	return dtCreds, nil
+}
+
+func ParseUnixTimestamp(timestamp string) (time.Time, error) {
+	parsedTime, err := time.Parse(time.RFC3339, timestamp)
+	if err == nil {
+		return parsedTime, nil
+	}
+
+	timestampInt, err := strconv.ParseInt(timestamp, 10, 64)
+	if err != nil {
+		return time.Now(), err
+	}
+	unix := time.Unix(timestampInt, 0)
+	return unix, nil
+}
+
+func TimestampToString(time time.Time) string {
+	return strconv.FormatInt(time.Unix()*1000, 10)
 }
