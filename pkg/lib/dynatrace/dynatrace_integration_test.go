@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
-	"github.com/keptn/go-utils/pkg/events"
+	"github.com/keptn/go-utils/pkg/lib"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 )

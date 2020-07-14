@@ -25,8 +25,6 @@ import (
 
 	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
 	keptn "github.com/keptn/go-utils/pkg/lib"
-	keptnkubeutil "github.com/keptn/kubernetes-utils/pkg"
-
 	// configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
 	// keptnevents "github.com/keptn/go-utils/pkg/events"
 	// keptnutils "github.com/keptn/go-utils/pkg/utils"
@@ -93,7 +91,13 @@ func retrieveMetrics(event cloudevents.Event) error {
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
 	eventData := &keptn.InternalGetSLIEventData{}
 	err := event.DataAs(eventData)
+	if err != nil {
+		return err
+	}
 
+	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{
+		ConfigurationServiceURL: os.Getenv(configservice),
+	})
 	if err != nil {
 		return err
 	}
@@ -106,7 +110,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	stdLogger := keptn.NewLogger(shkeptncontext, event.Context.GetID(), "dynatrace-sli-service")
 	stdLogger.Info("Retrieving Dynatrace timeseries metrics")
 
-	kubeClient, err := keptnkubeutil.GetKubeAPI(true)
+	kubeClient, err := common.GetKubernetesClient()
 	if err != nil && !(common.RunLocal || common.RunLocalTest) {
 		stdLogger.Error("could not create Kubernetes client")
 		return errors.New("could not create Kubernetes client")
@@ -128,7 +132,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		dtCreds = dynatraceConfigFile.DtCreds
 		stdLogger.Debug("Found dynatrace.conf.yaml with DTCreds: " + dtCreds)
 	}
-	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, kubeClient, stdLogger)
+	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
 
 	if err != nil {
 		stdLogger.Debug(err.Error())
@@ -178,7 +182,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	// Option 2: We query the SLIs that are defines in the SLI.yaml
 	// get custom metrics for project
 	stdLogger.Info("Load indicators from SLI.yaml")
-	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, kubeClient, stdLogger)
+	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, keptnHandler, stdLogger)
 	if err != nil {
 		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
 		stdLogger.Error(err.Error())
@@ -259,7 +263,7 @@ func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, logg
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
-func getCustomQueries(project string, stage string, service string, kubeClient // .Core// Interface, logger *keptn.Logger) (map[string]string, error) {
+func getCustomQueries(project string, stage string, service string, keptnHandler *keptn.Keptn, logger *keptn.Logger) (map[string]string, error) {
 	logger.Info("Checking for custom SLI queries")
 
 	if common.RunLocal || common.RunLocalTest {
@@ -268,13 +272,7 @@ func getCustomQueries(project string, stage string, service string, kubeClient /
 		return sliMap, nil
 	}
 
-	endPoint, err := getServiceEndpoint(configservice)
-	if err != nil {
-		return nil, errors.New("Failed to retrieve endpoint of configuration-service. %s" + err.Error())
-	}
-
-	resourceHandler := keptnapi.NewResourceHandler(endPoint.String())
-	customQueries, err := resourceHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
+	customQueries, err := keptnHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +284,7 @@ func getCustomQueries(project string, stage string, service string, kubeClient /
  * returns the DTCredentials
  * First looks at the passed secretName. If null validates if there is a dynatrace-credentials-%PROJECT% - if not - defaults to "dynatrace" global secret
  */
-func getDynatraceCredentials(secretName string, project string, kubeClient // .Core// Interface, logger *keptn.Logger) (*common.DTCredentials, error) {
+func getDynatraceCredentials(secretName string, project string, logger *keptn.Logger) (*common.DTCredentials, error) {
 
 	secretNames := []string{secretName, fmt.Sprintf("dynatrace-credentials-%s", project), "dynatrace-credentials", "dynatrace"}
 

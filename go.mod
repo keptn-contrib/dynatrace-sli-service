@@ -12,7 +12,6 @@ require (
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/keptn/go-utils v0.6.3-0.20200709130352-6dacb8130dc0
-	github.com/keptn/kubernetes-utils v0.1.0
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/net v0.0.0-20191021144547-ec77196f6094
