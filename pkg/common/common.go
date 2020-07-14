@@ -10,11 +10,14 @@ import (
 	"strings"
 	"time"
 
+	b64 "encoding/base64"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"gopkg.in/yaml.v2"
 
+	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
 	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
 	keptn "github.com/keptn/go-utils/pkg/lib"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -194,6 +197,42 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 	return dynatraceConfFile, nil
 }
 
+/*
+ * Uploads a file to the Keptn Configuration Service
+ */
+func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent, logger *keptn.Logger) error {
+
+	logger.Info("Uploading remote file")
+	// if we run in a runlocal mode we are just getting the file from the local disk
+	if RunLocal || RunLocalTest {
+		err := ioutil.WriteFile(remoteResourceURI, contentToUpload, 0644)
+		if err != nil {
+			logMessage := fmt.Sprintf("Couldnt write local file %s", remoteResourceURI)
+			logger.Info(logMessage)
+			return err
+		}
+		logger.Info("Local file written " + remoteResourceURI)
+	} else {
+		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
+
+		// lets base64 encode the string
+		encodedContent := b64.StdEncoding.EncodeToString(contentToUpload)
+
+		// lets upload it
+		resources := []*keptnmodels.Resource{{ResourceContent: encodedContent, ResourceURI: &remoteResourceURI}}
+		_, err := resourceHandler.CreateResources(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resources)
+		if err != nil {
+			logMessage := fmt.Sprintf("Couldnt upload remote resource %s: %s", remoteResourceURI, err.Message)
+			logger.Error(logMessage)
+		}
+	}
+
+	return nil
+}
+
+/**
+ * parses the dynatrace.conf.yaml file that is passed as parameter
+ */
 func parseDynatraceConfigFile(input []byte) (*DynatraceConfigFile, error) {
 	dynatraceConfFile := &DynatraceConfigFile{}
 	err := yaml.Unmarshal([]byte(input), &dynatraceConfFile)

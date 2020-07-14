@@ -1,8 +1,11 @@
----
-spec_version: '1.0'
-indicators:
-    throughput:           "metricSelector=builtin:service.requestCount.total:merge(0):sum&entitySelector=tag($LABEL.dttag),type(SERVICE)"
-    error_rate:           "metricSelector=builtin:service.errors.total.count:merge(0):avg&entitySelector=tag($SERVICE),type(SERVICE)"
-    response_time_p50:    "metricSelector=builtin:service.response.time:merge(0):percentile(50)&entitySelector=tag($SERVICE),type(SERVICE)"
-    response_time_p90:    "metricSelector=builtin:service.response.time:merge(0):percentile(90)&entitySelector=tag($SERVICE),type(SERVICE)"
-    response_time_p95:    "metricSelector=builtin:service.response.time:merge(0):percentile(95)&entitySelector=tag($SERVICE),type(SERVICE)"
+{
+  "SpecVersion": "",
+  "Indicators": {
+    "process_cpu": "metricSelector=builtin:tech.nodejs.uvLoop.count:merge(1):merge(0):avg;entitySelector=type(PROCESS_GROUP_INSTANCE)",
+    "teststep_rt_Basic Check": "metricSelector=calc:service.teststepresponsetime:merge(0):avg;entitySelector=type(SERVICE)",
+    "teststep_rt_echo": "metricSelector=calc:service.teststepresponsetime:merge(0):avg;entitySelector=type(SERVICE)",
+    "teststep_rt_homepage": "metricSelector=calc:service.teststepresponsetime:merge(0):avg;entitySelector=type(SERVICE)",
+    "teststep_rt_invoke": "metricSelector=calc:service.teststepresponsetime:merge(0):avg;entitySelector=type(SERVICE)",
+    "teststep_rt_version": "metricSelector=calc:service.teststepresponsetime:merge(0):avg;entitySelector=type(SERVICE)"
+  }
+}

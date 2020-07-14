@@ -565,6 +565,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 	dashboardSLO := &keptn.ServiceLevelObjectives{
 		Objectives: []*keptn.SLO{},
 		TotalScore: &keptn.SLOScore{},
+		Comparison: &keptn.SLOComparison{CompareWith: "single_result", IncludeResultWithScore: "pass", NumberOfComparisonResults: 1, AggregateFunction: "avg"},
 	}
 
 	// Lets parse the dashboards title and get total score pass and warning
@@ -671,6 +672,9 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 								}
 								value = value / float64(len(singleDataEntry.Values))
 
+								// lets scale the metric
+								value = scaleData(metricDefinition.MetricID, metricDefinition.Unit, value)
+
 								// we got our metric, slos and the value
 								fmt.Printf("%s: pass=%s, warning=%s, value=%0.2f\n", indicatorName, passSLOs, warningSLOs, value)
 
@@ -769,16 +773,21 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 		return 0, fmt.Errorf("Dynatrace Metrics API result does not contain identifier %s", metricID)
 	}
 
-	return scaleData(metricID, actualMetricValue), nil
+	return scaleData(metricID, "", actualMetricValue), nil
 }
 
 // scales data based on the timeseries identifier (e.g., service.responsetime needs to be scaled from microseconds
 // to milliseocnds)
-func scaleData(metricId string, value float64) float64 {
-	if strings.Contains(metricId, "builtin:service.response.time") {
-		// scale service.responsetime from microseconds to milliseconds
+func scaleData(metricId string, unit string, value float64) float64 {
+	if (strings.Compare(unit, "MicroSecond") == 0) || strings.Contains(metricId, "builtin:service.response.time") {
+		// scale from microseconds to milliseconds
 		return value / 1000.0
 	}
+
+	/* if strings.Compare(unit, "NanoSecond") {
+
+	}*/
+
 	// default:
 	return value
 }

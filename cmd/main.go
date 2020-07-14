@@ -185,15 +185,23 @@ func retrieveMetrics(event cloudevents.Event) error {
 	// lets write the SLI to the config repo
 	if dashboardSLI != nil {
 		stdLogger.Info("Generated SLI.yaml from Dynatrace Dashboard")
-		jsonAsString, _ := json.Marshal(dashboardSLI)
-		stdLogger.Info(string(jsonAsString))
+		jsonAsByteArray, _ := json.MarshalIndent(dashboardSLI, "", "  ")
+
+		err := common.UploadKeptnResource(jsonAsByteArray, "dynatrace/sli.yaml", keptnEvent, stdLogger)
+		if err != nil {
+			return err
+		}
 	}
 
 	// lets write the SLO to the config repo
 	if dashboardSLO != nil {
 		stdLogger.Info("Generated SLO.yaml from Dynatrace Dashboard")
-		jsonAsString, _ := json.Marshal(dashboardSLO)
-		stdLogger.Info(string(jsonAsString))
+		jsonAsByteArray, _ := json.MarshalIndent(dashboardSLO, "", "  ")
+
+		err := common.UploadKeptnResource(jsonAsByteArray, "slo.yaml", keptnEvent, stdLogger)
+		if err != nil {
+			return err
+		}
 	}
 
 	// lets send the result back to Keptn - we are done here :-)

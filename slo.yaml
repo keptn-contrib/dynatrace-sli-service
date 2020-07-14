@@ -1,0 +1,137 @@
+{
+  "spec_version": "",
+  "filter": null,
+  "comparison": null,
+  "objectives": [
+    {
+      "sli": "process_cpu",
+      "pass": [
+        {
+          "criteria": [
+            "\u003c100ms",
+            "\u003c100ms"
+          ]
+        }
+      ],
+      "warning": [
+        {
+          "criteria": [
+            "\u003c+20%",
+            "\u003c+20%"
+          ]
+        }
+      ],
+      "weight": 1,
+      "key_sli": false
+    },
+    {
+      "sli": "teststep_rt_invoke",
+      "pass": [
+        {
+          "criteria": [
+            "\u003c100ms",
+            "\u003c100ms"
+          ]
+        }
+      ],
+      "warning": [
+        {
+          "criteria": [
+            "\u003c+20%",
+            "\u003c+20%"
+          ]
+        }
+      ],
+      "weight": 1,
+      "key_sli": false
+    },
+    {
+      "sli": "teststep_rt_version",
+      "pass": [
+        {
+          "criteria": [
+            "\u003c100ms",
+            "\u003c100ms"
+          ]
+        }
+      ],
+      "warning": [
+        {
+          "criteria": [
+            "\u003c+20%",
+            "\u003c+20%"
+          ]
+        }
+      ],
+      "weight": 1,
+      "key_sli": false
+    },
+    {
+      "sli": "teststep_rt_homepage",
+      "pass": [
+        {
+          "criteria": [
+            "\u003c100ms",
+            "\u003c100ms"
+          ]
+        }
+      ],
+      "warning": [
+        {
+          "criteria": [
+            "\u003c+20%",
+            "\u003c+20%"
+          ]
+        }
+      ],
+      "weight": 1,
+      "key_sli": false
+    },
+    {
+      "sli": "teststep_rt_Basic Check",
+      "pass": [
+        {
+          "criteria": [
+            "\u003c100ms",
+            "\u003c100ms"
+          ]
+        }
+      ],
+      "warning": [
+        {
+          "criteria": [
+            "\u003c+20%",
+            "\u003c+20%"
+          ]
+        }
+      ],
+      "weight": 1,
+      "key_sli": false
+    },
+    {
+      "sli": "teststep_rt_echo",
+      "pass": [
+        {
+          "criteria": [
+            "\u003c100ms",
+            "\u003c100ms"
+          ]
+        }
+      ],
+      "warning": [
+        {
+          "criteria": [
+            "\u003c+20%",
+            "\u003c+20%"
+          ]
+        }
+      ],
+      "weight": 1,
+      "key_sli": false
+    }
+  ],
+  "total_score": {
+    "pass": "90%",
+    "warning": "75%"
+  }
+}
