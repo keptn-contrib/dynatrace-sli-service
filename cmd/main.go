@@ -131,6 +131,10 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if dynatraceConfigFile != nil {
 		dtCreds = dynatraceConfigFile.DtCreds
 		stdLogger.Debug("Found dynatrace.conf.yaml with DTCreds: " + dtCreds)
+	} else {
+		dynatraceConfigFile = &common.DynatraceConfigFile{}
+		dynatraceConfigFile.Dashboard = ""
+		dynatraceConfigFile.DtCreds = "dynatrace"
 	}
 	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
 
@@ -339,7 +343,7 @@ func getDynatraceCredentials(secretName string, project string, logger *keptn.Lo
 		}
 
 		if dtCredentials != nil {
-			logger.Info(" -> credentials found, returning...")
+			logger.Info(fmt.Sprintf(" -> credentials found, returning (%s) ...", dtCredentials.Tenant))
 			return dtCredentials, nil
 		}
 	}

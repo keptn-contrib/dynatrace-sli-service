@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	b64 "encoding/base64"
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -215,11 +213,8 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 	} else {
 		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
 
-		// lets base64 encode the string
-		encodedContent := b64.StdEncoding.EncodeToString(contentToUpload)
-
 		// lets upload it
-		resources := []*keptnmodels.Resource{{ResourceContent: encodedContent, ResourceURI: &remoteResourceURI}}
+		resources := []*keptnmodels.Resource{{ResourceContent: string(contentToUpload), ResourceURI: &remoteResourceURI}}
 		_, err := resourceHandler.CreateResources(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resources)
 		if err != nil {
 			logMessage := fmt.Sprintf("Couldnt upload remote resource %s: %s", remoteResourceURI, err.Message)
