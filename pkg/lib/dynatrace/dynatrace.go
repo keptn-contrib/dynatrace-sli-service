@@ -39,6 +39,12 @@ type resultValues struct {
 	Data     []resultNumbers `json:"data"`
 }
 
+type DTUSQLResult struct {
+	ExtrapolationLevel int             `json:"extrapolationLevel"`
+	ColumnNames        []string        `json:"columnNames"`
+	Values             [][]interface{} `json:"values"`
+}
+
 /**
  * Struct for SLI.yaml
  */
@@ -85,6 +91,8 @@ type DynatraceDashboard struct {
 		Name       string `json:"name"`
 		TileType   string `json:"tileType"`
 		Configured bool   `json:"configured"`
+		Query      string `json:"query"`
+		Type       string `json:"type"`
 		Bounds     struct {
 			Top    int `json:"top"`
 			Left   int `json:"left"`
@@ -109,10 +117,10 @@ type DynatraceDashboard struct {
 					Type        string      `json:"type"`
 					EntityType  string      `json:"entityType"`
 					Dimensions  []struct {
-						ID              string      `json:"id"`
-						Name            string      `json:"name"`
-						Values          interface{} `json:"values"`
-						EntityDimension bool        `json:"entitiyDimension"`
+						ID              string   `json:"id"`
+						Name            string   `json:"name"`
+						Values          []string `json:"values"`
+						EntityDimension bool     `json:"entitiyDimension"`
 					} `json:"dimensions"`
 					SortAscending   bool   `json:"sortAscending"`
 					SortColumn      bool   `json:"sortColumn"`
@@ -237,7 +245,6 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 
 	fmt.Println("Request finished, parsing dashboard list response body...")
 	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(body))
 	dashboardsJSON := &DynatraceDashboards{}
 
 	// parse json
@@ -426,6 +433,93 @@ func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceResult
 }
 
 /**
+ * Executes the passed Metrics API Call, validates that the call returns data and returns the data set
+ */
+func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
+	// now we execute the query against the Dynatrace API
+	req, err := http.NewRequest("GET", usql, nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	// set additional headers
+	for headerName, headerValue := range ph.Headers {
+		req.Header.Set(headerName, headerValue)
+	}
+
+	// perform the request
+	resp, err := ph.HTTPClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("Request finished, parsing body...")
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	fmt.Println(string(body) + "\n")
+
+	// parse response json
+	var result DTUSQLResult
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure the status code from the API is 200
+	if resp.StatusCode != 200 {
+		dtMetricsErr := &DtMetricsAPIError{}
+		err := json.Unmarshal(body, dtMetricsErr)
+		if err == nil {
+			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtMetricsErr.Error.Code, dtMetricsErr.Error.Message)
+		}
+		return nil, fmt.Errorf("Dynatrace API returned status code %d - Metric could not be received.", resp.StatusCode)
+	}
+
+	// if no data comes back
+	if len(result.Values) == 0 {
+		// datapoints is empty - try again?
+		return nil, errors.New("Dynatrace USQL Query didnt return any DataPoints")
+	}
+
+	return &result, nil
+}
+
+/**
+ * Builds a USQL query based on the incoming values
+ */
+func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, endUnix time.Time) string {
+	fmt.Printf("Finalize USQL query for %s\n", query)
+
+	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
+	usql := ph.replaceQueryParameters(query)
+
+	// default query params that are required: resolution, from and to
+	queryParams := map[string]string{
+		"query":             usql,
+		"explain":           "false",
+		"addDeepLinkFields": "false",
+		"startTimestamp":    common.TimestampToString(startUnix),
+		"endTimestamp":      common.TimestampToString(endUnix),
+	}
+
+	targetUrl := fmt.Sprintf("%s/api/v1/userSessionQueryLanguage/table", ph.ApiURL)
+
+	// append queryParams to targetUrl
+	u, _ := url.Parse(targetUrl)
+	q, _ := url.ParseQuery(u.RawQuery)
+
+	for param, value := range queryParams {
+		q.Add(param, value)
+	}
+
+	u.RawQuery = q.Encode()
+	fmt.Println("Final USQL Query=", u.String())
+
+	return u.String()
+}
+
+/**
 * Builds the complete query string based on start, end and filters
 * metricQuery should contain metricSelector and entitySelector
 * Returns:
@@ -600,6 +694,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 				// building the merge aggregator string, e.g: merge(1):merge(0) - or merge(0)
 				metricDimensionCount := len(metricDefinition.DimensionDefinitions)
 				mergeAggregator := ""
+				filterAggregator := ""
 
 				// now we need to merge all the dimensions that are not part of the series.dimensions, e.g: if the metric has two dimensions but only one dimension is used in the chart we need to merge the others
 				// as multiple-merges are possible but as they are executed in sequence we have to use the right index
@@ -613,6 +708,12 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 							// this is a dimension we want to keep and not merge
 							fmt.Printf("not merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name)
 							doMergeDimension = false
+
+							// lets check if we need to apply a dimension filter
+							// TODO: support multiple filters - right now we only support 1
+							if len(seriesDim.Values) > 0 {
+								filterAggregator = fmt.Sprintf(":filter(eq(%s,%s))", seriesDim.Name, seriesDim.Values[0])
+							}
 						}
 					}
 
@@ -624,8 +725,8 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 				}
 
 				// lets create the metricSelector and entitySelector
-				metricQuery := fmt.Sprintf("metricSelector=%s%s:%s;entitySelector=type(%s)",
-					series.Metric, mergeAggregator, strings.ToLower(series.Aggregation),
+				metricQuery := fmt.Sprintf("metricSelector=%s%s%s:%s;entitySelector=type(%s)",
+					series.Metric, mergeAggregator, filterAggregator, strings.ToLower(series.Aggregation),
 					series.EntityType)
 
 				// lets build the Dynatrace API Metric query for the proposed timeframe and additonal filters!
@@ -704,40 +805,58 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 				}
 			}
 		}
+
+		// Dynatrace Query Language
+		if tile.TileType == "DTAQL" {
+
+			// for Dynatrace Query Language we currently support the following
+			// SINGLE_VALUE: we just take the one value that comes back
+			// PIE_CHART, COLUMN_CHART: we assume the first column is the dimension and the second column is the value column
+			// TABLE: we assume the first column is the dimension and the last is the value
+
+			usql := ph.BuildDynatraceUSQLQuery(tile.Query, startUnix, endUnix)
+			usqlResult, err := ph.ExecuteUSQLQuery(usql)
+
+			if err != nil {
+
+			} else {
+
+				for _, rowValue := range usqlResult.Values {
+					dimensionName := ""
+					dimensionValue := 0.0
+
+					if tile.Type == "SINGLE_VALUE" {
+						dimensionValue = rowValue[0].(float64)
+					}
+
+					if tile.Type == "PIE_CHART" {
+						dimensionName = rowValue[0].(string)
+						dimensionValue = rowValue[1].(float64)
+					}
+
+					if tile.Type == "COLUMN_CHART" {
+						dimensionName = rowValue[0].(string)
+						dimensionValue = rowValue[1].(float64)
+					}
+
+					if tile.Type == "TABLE" {
+						dimensionName = rowValue[0].(string)
+						dimensionValue = rowValue[len(rowValue)-1].(float64)
+					}
+
+					fmt.Printf("DimensionName: %s, DimensionValue: %0.2f", dimensionName, dimensionValue)
+				}
+			}
+		}
 	}
 
 	return dashboardLinkAsLabel, dashboardSLI, dashboardSLO, sliResults, nil
 }
 
+/**
+ * Queries a single metric value from Dynatrace API
+ */
 func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter) (float64, error) {
-	// disable SSL verification (probably not a good idea for dynatrace)
-	// http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-
-	// AG-27052020: When using keptn send event start-evaluation and clocks are not 100% in sync, e.g: workstation is 1-2 seconds off
-	//              we might run into the issue that we detect the endtime to be in the future. I ran into this problem after my laptop ran out of sync for about 1.5s
-	//              to circumvent this issue I am changing the check to also allow a time difference of up to 2 minutes (120 seconds). This shouldnt be a problem as our SLI Service retries the DYnatrace API anyway
-	// Here is the issue: https://github.com/keptn-contrib/dynatrace-sli-service/issues/55
-	// ensure end time is not in the future
-	now := time.Now()
-	timeDiffInSeconds := now.Sub(endUnix).Seconds()
-	if timeDiffInSeconds < -120 { // used to be 0
-		fmt.Printf("ERROR: Supplied end-time %v is in the future (now: %v - diff in sec: %v)\n", endUnix, now, timeDiffInSeconds)
-		return 0, errors.New("end time must not be in the future")
-	}
-
-	// ensure start time is before end time
-	if endUnix.Sub(startUnix).Seconds() < 0 {
-		fmt.Printf("ERROR: Start time needs to be before end time\n")
-		return 0, errors.New("start time needs to be before end time")
-	}
-
-	// make sure the end timestamp is at least 120 seconds in the past such that dynatrace metrics API has processed data
-	for time.Now().Sub(endUnix).Seconds() < 120 {
-		// ToDo: this should be done in main.go
-		fmt.Printf("Sleeping for %d seconds... (waiting for Dynatrace Metrics API)\n", int(120-time.Now().Sub(endUnix).Seconds()))
-		time.Sleep(10 * time.Second)
-	}
-
 	// first we get the query from the SLI configuration based on its logical name
 	fmt.Printf("Getting SLI config for %s\n", metric)
 	metricsQuery, err := ph.getTimeseriesConfig(metric)
@@ -756,16 +875,21 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 		metricIDExists    = false
 		actualMetricValue = 0.0
 	)
-	for _, i := range result.Result {
 
-		if i.MetricID == metricID {
-			metricIDExists = true
+	if err != nil && result != nil {
+		for _, i := range result.Result {
 
-			if len(i.Data) != 1 {
-				return 0, fmt.Errorf("Dynatrace Metrics API returned %d result values, expected 1. Please ensure the response contains exactly one value (e.g., by using :merge(0):avg for the metric)", len(i.Data))
+			if strings.Compare(i.MetricID, metricID) == 0 {
+				metricIDExists = true
+
+				if len(i.Data) != 1 {
+					jsonString, _ := json.Marshal(i)
+					return 0, fmt.Errorf("Dynatrace Metrics API returned %d result values, expected 1. Please ensure the response contains exactly one value (e.g., by using :merge(0):avg for the metric). Here is the output for troubleshooting: %s", len(i.Data), string(jsonString))
+				}
+
+				actualMetricValue = i.Data[0].Values[0]
+				break
 			}
-
-			actualMetricValue = i.Data[0].Values[0]
 		}
 	}
 
@@ -788,7 +912,6 @@ func scaleData(metricId string, unit string, value float64) float64 {
 
 	}*/
 
-	// default:
 	return value
 }
 

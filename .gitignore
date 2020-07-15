@@ -27,3 +27,6 @@ dynatrace-sli-service
 vendor
 
 dynatrace-sli-service
+test-events/get-sli-dynalive.http
+slo.yaml
+dynatrace/sli.yaml
