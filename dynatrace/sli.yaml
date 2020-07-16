@@ -1,29 +1,14 @@
 {
   "SpecVersion": "",
   "Indicators": {
-    "Actions per Session \u0026 Session Duration_APPLICATION-91A869F0065D216E_Real users": "metricSelector=builtin:apps.web.actionsPerSession:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-008569CDB300AE03_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-08EBD5603755FA87_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-7324C7EE41CC3273_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-7F6ACE5C74505040_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-91A869F0065D216E_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-930AE48168C2E70B_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-971518AA470E6C1E_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-A038082C12D23042_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-E9D5A48C66B161DE_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Actions_per_Session_\u0026_Session_Duration_APPLICATION-FDF1A182E95E9E3D_Real users": "metricSelector=builtin:apps.web.sessionDuration:merge(1):filter(eq(User type,Real users)):avg;entitySelector=type(APPLICATION)",
-    "Bounce rate": "metricSelector=builtin:apps.web.bouncedSessionRatio:merge(2):merge(1):none;entitySelector=type(APPLICATION)",
-    "Bounce rate_APPLICATION-7F6ACE5C74505040": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Bounce_rate_APPLICATION-008569CDB300AE03": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Bounce_rate_APPLICATION-08EBD5603755FA87": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Bounce_rate_APPLICATION-7324C7EE41CC3273": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Bounce_rate_APPLICATION-91A869F0065D216E": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Bounce_rate_APPLICATION-971518AA470E6C1E": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Bounce_rate_APPLICATION-A038082C12D23042": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Bounce_rate_APPLICATION-A2F08A39C7C23041": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Bounce_rate_APPLICATION-E9D5A48C66B161DE": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Bounce_rate_APPLICATION-FDF1A182E95E9E3D": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg;entitySelector=type(APPLICATION)",
-    "Desktop Key User Actions - Median Time to Visually Complete (s)": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:filter(eq(dt.entity.browser,BROWSER-44C8EFE87C847CA6)):percentile;entitySelector=type(APPLICATION_METHOD)",
-    "Mobile Key User Actions - Median Time to Visually Complete (s)": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:filter(eq(dt.entity.browser,BROWSER-1D597E38A66F160E)):percentile;entitySelector=type(APPLICATION_METHOD)"
+    "bounce_rate": "metricSelector=builtin:apps.web.bouncedSessionRatio:merge(2):merge(1):value:names;entitySelector=type(APPLICATION),mzId(3454183460044244211)",
+    "camp_adoption": "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\"",
+    "camp_bounces": "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\" and bounce = true",
+    "camp_conv": "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\" and useraction.name like '*validate-creditcard*'",
+    "ua_vc_Loading_of_page__blog_": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names;entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)",
+    "ua_vc_Loading_of_page__easytravel_home": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names;entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)",
+    "ua_vc_Loading_of_page__easytravel_search": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names;entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)",
+    "ua_vc_Loading_of_page__easytravel_signup": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names;entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)",
+    "vis_complete": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg:names;entitySelector=type(APPLICATION),mzId(3454183460044244211)"
   }
 }

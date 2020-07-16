@@ -110,20 +110,37 @@ func ensureRightTimestamps(start string, end string) (time.Time, time.Time, erro
 	now := time.Now()
 	timeDiffInSeconds := now.Sub(endUnix).Seconds()
 	if timeDiffInSeconds < -120 { // used to be 0
-		fmt.Printf("ERROR: Supplied end-time %v is in the future (now: %v - diff in sec: %v)\n", endUnix, now, timeDiffInSeconds)
+		fmt.Printf("ERROR: Supplied end-time %v is too far (>120seconds) in the future (now: %v - diff in sec: %v)\n", endUnix, now, timeDiffInSeconds)
 		return startUnix, endUnix, errors.New("end time must not be in the future")
 	}
 
 	// ensure start time is before end time
-	if endUnix.Sub(startUnix).Seconds() < 0 {
+	timeframeInSeconds := endUnix.Sub(startUnix).Seconds()
+	if timeframeInSeconds < 0 {
 		fmt.Printf("ERROR: Start time needs to be before end time\n")
 		return startUnix, endUnix, errors.New("start time needs to be before end time")
 	}
 
-	// make sure the end timestamp is at least 120 seconds in the past such that dynatrace metrics API has processed data
-	for time.Now().Sub(endUnix).Seconds() < 120 {
+	// AG-2020-07-16: Wait so Dynatrace has enough data but dont wait every time to shorten processing time
+	// if we have a very short evaluation window and the end timestampe is now then we need to give Dynatrace some time to make sure we have relevant data
+	// if the evalutaion timeframe is > 2 minutes we dont wait and just live with the fact that we may miss one minute or two at the end
+
+	waitForSeconds := 120.0        // by default lets make sure we are at least 120 seconds away from "now()"
+	if timeframeInSeconds >= 300 { // if our evaluated timeframe however is larger than 5 minutes its ok to continue right away. 5 minutes is the default timeframe for most evaluations
+		waitForSeconds = 0.0
+	} else if timeframeInSeconds >= 120 { // if the evaluation span is between 2 and 5 minutes make sure we at least have the last minute of data
+		waitForSeconds = 60.0
+	}
+
+	// log outpout if we are waiting
+	if time.Now().Sub(endUnix).Seconds() < waitForSeconds {
+		fmt.Printf("As the end date is too close to Now() we are going to wait to make sure we have all the data for the requested timeframe(start-end)\n")
+	}
+
+	// make sure the end timestamp is at least waitForSeconds seconds in the past such that dynatrace metrics API has processed data
+	for time.Now().Sub(endUnix).Seconds() < waitForSeconds {
 		// ToDo: this should be done in main.go
-		fmt.Printf("Sleeping for %d seconds... (waiting for Dynatrace Metrics API)\n", int(120-time.Now().Sub(endUnix).Seconds()))
+		fmt.Printf("Sleeping for %d seconds... (waiting for Dynatrace Metrics API)\n", int(waitForSeconds-time.Now().Sub(endUnix).Seconds()))
 		time.Sleep(10 * time.Second)
 	}
 
@@ -164,6 +181,16 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 		if err != nil {
 			return dashboardLinkAsLabel, sliResults, err
 
+		}
+	}
+
+	// lets also write the result to a local file in local test mode
+	if sliResults != nil {
+		if common.RunLocal || common.RunLocalTest {
+			logger.Info("(RunLocal Output) Write SLIResult to sliresult.yaml")
+			jsonAsByteArray, _ := json.MarshalIndent(sliResults, "", "  ")
+
+			common.UploadKeptnResource(jsonAsByteArray, "sliresult.yaml", keptnEvent, logger)
 		}
 	}
 
@@ -269,6 +296,9 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if sliResults != nil {
 		// add link to dynatrace dashboard to labels
 		if dashboardLinkAsLabel != "" {
+			if eventData.Labels == nil {
+				eventData.Labels = make(map[string]string)
+			}
 			eventData.Labels["Dashboard Link"] = dashboardLinkAsLabel
 		}
 

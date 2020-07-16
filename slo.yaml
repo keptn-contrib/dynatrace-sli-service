@@ -9,458 +9,143 @@
   },
   "objectives": [
     {
-      "sli": "Bounce rate_APPLICATION-7F6ACE5C74505040",
+      "sli": "ua_vc_Loading_of_page__easytravel_home",
       "pass": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c2000"
+          ]
         }
       ],
       "warning": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c3000"
+          ]
         }
       ],
       "weight": 1,
       "key_sli": false
     },
     {
-      "sli": "Bounce_rate_APPLICATION-A038082C12D23042",
+      "sli": "ua_vc_Loading_of_page__easytravel_signup",
       "pass": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c2000"
+          ]
         }
       ],
       "warning": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c3000"
+          ]
         }
       ],
       "weight": 1,
       "key_sli": false
     },
     {
-      "sli": "Bounce_rate_APPLICATION-008569CDB300AE03",
+      "sli": "ua_vc_Loading_of_page__easytravel_search",
       "pass": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c2000"
+          ]
         }
       ],
       "warning": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c3000"
+          ]
         }
       ],
       "weight": 1,
       "key_sli": false
     },
     {
-      "sli": "Bounce_rate_APPLICATION-7324C7EE41CC3273",
+      "sli": "ua_vc_Loading_of_page__blog_",
       "pass": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c2000"
+          ]
         }
       ],
       "warning": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c3000"
+          ]
         }
       ],
       "weight": 1,
       "key_sli": false
     },
     {
-      "sli": "Bounce_rate_APPLICATION-FDF1A182E95E9E3D",
+      "sli": "bounce_rate",
       "pass": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c25"
+          ]
         }
       ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
+      "warning": null,
       "weight": 1,
       "key_sli": false
     },
     {
-      "sli": "Bounce_rate_APPLICATION-91A869F0065D216E",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
+      "sli": "camp_conv",
+      "pass": null,
+      "warning": null,
       "weight": 1,
       "key_sli": false
     },
     {
-      "sli": "Bounce_rate_APPLICATION-08EBD5603755FA87",
+      "sli": "vis_complete",
       "pass": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c4000"
+          ]
         }
       ],
       "warning": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003c6000"
+          ]
         }
       ],
+      "weight": 1,
+      "key_sli": true
+    },
+    {
+      "sli": "camp_bounces",
+      "pass": null,
+      "warning": null,
       "weight": 1,
       "key_sli": false
     },
     {
-      "sli": "Bounce_rate_APPLICATION-E9D5A48C66B161DE",
+      "sli": "camp_adoption",
       "pass": [
         {
-          "criteria": []
+          "criteria": [
+            "\u003e+10%"
+          ]
         }
       ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Bounce_rate_APPLICATION-971518AA470E6C1E",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Bounce_rate_APPLICATION-A2F08A39C7C23041",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions per Session \u0026 Session Duration_APPLICATION-91A869F0065D216E_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-08EBD5603755FA87_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-7F6ACE5C74505040_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-FDF1A182E95E9E3D_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-7324C7EE41CC3273_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-008569CDB300AE03_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-930AE48168C2E70B_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-E9D5A48C66B161DE_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-971518AA470E6C1E_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-A038082C12D23042_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-91A869F0065D216E_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-08EBD5603755FA87_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-7F6ACE5C74505040_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-FDF1A182E95E9E3D_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-7324C7EE41CC3273_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-008569CDB300AE03_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-930AE48168C2E70B_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-E9D5A48C66B161DE_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-971518AA470E6C1E_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
-      "weight": 1,
-      "key_sli": false
-    },
-    {
-      "sli": "Actions_per_Session_\u0026_Session_Duration_APPLICATION-A038082C12D23042_Real users",
-      "pass": [
-        {
-          "criteria": []
-        }
-      ],
-      "warning": [
-        {
-          "criteria": []
-        }
-      ],
+      "warning": null,
       "weight": 1,
       "key_sli": false
     }
   ],
   "total_score": {
-    "pass": "90%",
-    "warning": "75%"
+    "pass": "91%",
+    "warning": "74%"
   }
 }

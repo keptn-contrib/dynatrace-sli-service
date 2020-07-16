@@ -30,3 +30,6 @@ dynatrace-sli-service
 test-events/get-sli-dynalive.http
 slo.yaml
 dynatrace/sli.yaml
+sliresult.yaml
+slo.yaml
+dynatrace/sli.yaml

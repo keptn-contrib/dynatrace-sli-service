@@ -81,10 +81,13 @@ type DynatraceDashboard struct {
 			LinkShared bool `json:"linkShared"`
 			Published  bool `json:"published"`
 		} `json:"sharingDetails"`
-		DashboardFilter struct {
-			Timeframe      string      `json:"timeframe"`
-			ManagementZone interface{} `json:"managementZone"`
-		} `json:"dashboardFilter"`
+		DashboardFilter *struct {
+			Timeframe      string `json:"timeframe"`
+			ManagementZone *struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"managementZone,omitempty"`
+		} `json:"dashboardFilter,omitempty"`
 		Tags []string `json:"tags"`
 	} `json:"dashboardMetadata"`
 	Tiles []struct {
@@ -93,6 +96,8 @@ type DynatraceDashboard struct {
 		Configured bool   `json:"configured"`
 		Query      string `json:"query"`
 		Type       string `json:"type"`
+		CustomName string `json:"customName`
+		Markdown   string `json:"markdown`
 		Bounds     struct {
 			Top    int `json:"top"`
 			Left   int `json:"left"`
@@ -288,10 +293,10 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 }
 
 /**
- * getDynatraceDashboard: will either query the passed dashboard id - or - if none is passed - will try to find a dashboard that matches project, stage, service (based on name or tags)
+ * loadDynatraceDashboard: will either query the passed dashboard id - or - if none is passed - will try to find a dashboard that matches project, stage, service (based on name or tags)
  * the parsed JSON object is returned
  */
-func (ph *Handler) getDynatraceDashboard(project string, stage string, service string, dashboard string) (*DynatraceDashboard, error) {
+func (ph *Handler) loadDynatraceDashboard(project string, stage string, service string, dashboard string) (*DynatraceDashboard, error) {
 	if dashboard == "" {
 		dashboard, _ = ph.findDynatraceDashboard(project, stage, service)
 	}
@@ -301,7 +306,7 @@ func (ph *Handler) getDynatraceDashboard(project string, stage string, service s
 	}
 
 	// create dashboard query URL and set additional headers
-	fmt.Printf("Query dashboard with ID: %s", dashboard)
+	fmt.Printf("Query dashboard with ID: %s\n", dashboard)
 	dashboardAPIUrl := ph.ApiURL + fmt.Sprintf("/api/config/v1/dashboards/%s", dashboard)
 	req, err := http.NewRequest("GET", dashboardAPIUrl, nil)
 	for headerName, headerValue := range ph.Headers {
@@ -321,7 +326,7 @@ func (ph *Handler) getDynatraceDashboard(project string, stage string, service s
 
 	fmt.Println("Request finished, parsing dashboard response body...")
 	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(body))
+	// fmt.Println(string(body))
 	dashboardJSON := &DynatraceDashboard{}
 
 	// parse json
@@ -603,33 +608,162 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 }
 
 /**
- * Takes a value such as "teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%"
- * can also take a value like "KQG;project=myproject;pass=90%;warning=75%"
+ * Takes a value such as "Some description;sli=teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%;weight=1;key=true"
+ * can also take a value like "KQG;project=myproject;pass=90%;warning=75%;"
  * This will return
  * #1: teststep_rt
- * #2: ["<500ms","<+10%"]
- * #3: ["<1000ms","<+20%"]
+ * #2: []SLOCriteria { Criteria{"<500ms","<+10%"}}
+ * #3: []SLOCriteria { ["<1000ms","<+20%" }}
+ * #4: 1
+ * #5: true
  */
-func ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []string, []string) {
-	splits := strings.Split(customName, ";")
+func ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []*keptn.SLOCriteria, []*keptn.SLOCriteria, int, bool) {
+	nameValueSplits := strings.Split(customName, ";")
 
-	if len(splits) == 0 {
-		return "", nil, nil
+	// lets initialize it
+	sliName := ""
+	weight := 1
+	keySli := false
+	passCriteria := []*keptn.SLOCriteria{}
+	warnCriteria := []*keptn.SLOCriteria{}
+
+	for i := 0; i < len(nameValueSplits); i++ {
+		nameValueSplit := strings.Split(nameValueSplits[i], "=")
+		switch nameValueSplit[0] {
+		case "sli":
+			sliName = nameValueSplit[1]
+		case "pass":
+			passCriteria = append(passCriteria, &keptn.SLOCriteria{
+				Criteria: strings.Split(nameValueSplit[1], ","),
+			})
+		case "warning":
+			warnCriteria = append(warnCriteria, &keptn.SLOCriteria{
+				Criteria: strings.Split(nameValueSplit[1], ","),
+			})
+		case "key":
+			keySli, _ = strconv.ParseBool(nameValueSplit[1])
+		case "weight":
+			weight, _ = strconv.Atoi(nameValueSplit[1])
+		}
 	}
 
-	passSplit := defaultPass
-	warningSplit := defaultWarning
-	for i := 1; i < len(splits); i++ {
-		sloSplit := strings.Split(splits[i], "=")
-		if sloSplit[0] == "pass" {
-			passSplit = strings.Split(sloSplit[1], ",")
-		}
-		if sloSplit[0] == "warning" {
-			warningSplit = strings.Split(sloSplit[1], ",")
-		}
+	// use the defaults if nothing was specified
+	if (len(passCriteria) == 0) && (len(defaultPass) > 0) {
+		passCriteria = append(passCriteria, &keptn.SLOCriteria{
+			Criteria: defaultPass,
+		})
 	}
 
-	return splits[0], passSplit, warningSplit
+	if (len(warnCriteria) == 0) && (len(defaultWarning) > 0) {
+		warnCriteria = append(warnCriteria, &keptn.SLOCriteria{
+			Criteria: defaultWarning,
+		})
+	}
+
+	// if we have no criteria for warn or pass we just return nil
+	if len(passCriteria) == 0 {
+		passCriteria = nil
+	}
+	if len(warnCriteria) == 0 {
+		warnCriteria = nil
+	}
+
+	return sliName, passCriteria, warnCriteria, weight, keySli
+}
+
+/**
+ * Parses a text that can be used in a Markdown tile to specify global SLO properties
+ */
+func ParseMarkdownConfiguration(markdown string, slo *keptn.ServiceLevelObjectives) {
+	markdownSplits := strings.Split(markdown, ";")
+
+	for _, markdownSplitValue := range markdownSplits {
+		configValueSplits := strings.Split(markdownSplitValue, "=")
+		if len(configValueSplits) != 2 {
+			continue
+		}
+
+		// lets get configname and value
+		configName := strings.ToLower(configValueSplits[0])
+		configValue := configValueSplits[1]
+
+		switch configName {
+		case "kqg.total.pass":
+			slo.TotalScore.Pass = configValue
+		case "kqg.total.warning":
+			slo.TotalScore.Warning = configValue
+		case "kqg.compare.withscore":
+			slo.Comparison.IncludeResultWithScore = configValue
+			if (configValue == "pass") || (configValue == "pass_or_warn") || (configValue == "all") {
+				slo.Comparison.IncludeResultWithScore = configValue
+			} else {
+				slo.Comparison.IncludeResultWithScore = "pass"
+			}
+		case "kqg.compare.results":
+			noresults, err := strconv.Atoi(configValue)
+			if err != nil {
+				slo.Comparison.NumberOfComparisonResults = 1
+			} else {
+				slo.Comparison.NumberOfComparisonResults = noresults
+			}
+			if slo.Comparison.NumberOfComparisonResults > 1 {
+				slo.Comparison.CompareWith = "several_results"
+			} else {
+				slo.Comparison.CompareWith = "single_result"
+			}
+		case "kqg.compare.function":
+			if (configValue == "avg") || (configValue == "p50") || (configValue == "p90") || (configValue == "p95") {
+				slo.Comparison.AggregateFunction = configValue
+			} else {
+				slo.Comparison.AggregateFunction = "avg"
+			}
+		}
+	}
+}
+
+/**
+ * make sure we have a valid indicator name by getting rid of special characters
+ */
+func cleanIndicatorName(indicatorName string) string {
+	// TODO: check more than just blanks
+	indicatorName = strings.ReplaceAll(indicatorName, " ", "_")
+	indicatorName = strings.ReplaceAll(indicatorName, "/", "_")
+	indicatorName = strings.ReplaceAll(indicatorName, "%", "_")
+
+	return indicatorName
+}
+
+/**
+ * When passing a query to dynatrace using filter expressions - the dimension names in a filter will be escaped with specifal characters, e.g: filter(dt.entity.browser,IE) becomes filter(dt~entity~browser,ie)
+ * This function here tries to come up with a better matching algorithm
+ * WHILE NOT PERFECT - HERE IS THE FIRST IMPLEMENTATION
+ */
+func isMatchingMetricId(singleResultMetricID string, queryMetricID string) bool {
+	if strings.Compare(singleResultMetricID, queryMetricID) == 0 {
+		return true
+	}
+
+	// lets do some basic fuzzy matching
+	if strings.Contains(singleResultMetricID, "~") {
+		fmt.Printf("Need Fuzzy Matching between %s and %s\n", singleResultMetricID, queryMetricID)
+
+		//
+		// lets just see whether everything until the first : matches
+		if strings.Contains(singleResultMetricID, ":") && strings.Contains(singleResultMetricID, ":") {
+			fmt.Printf("Just compare before first :\n")
+
+			fuzzyResultMetricId := strings.Split(singleResultMetricID, ":")[0]
+			fuzzyQueryMetricID := strings.Split(queryMetricID, ":")[0]
+			if strings.Compare(fuzzyResultMetricId, fuzzyQueryMetricID) == 0 {
+				fmt.Printf("FUZZY MATCH!!\n")
+				return true
+			}
+		}
+
+		// TODO - more fuzzy checks
+	}
+
+	return false
 }
 
 /**  Implements - https://github.com/keptn-contrib/dynatrace-sli-service/issues/60
@@ -643,7 +777,7 @@ func ParsePassAndWarningFromString(customName string, defaultPass []string, defa
   #5: Error
 */
 func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
-	dashboardJSON, err := ph.getDynatraceDashboard(project, stage, service, dashboard)
+	dashboardJSON, err := ph.loadDynatraceDashboard(project, stage, service, dashboard)
 	if err != nil {
 		return "", nil, nil, nil, err
 	}
@@ -658,14 +792,18 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 	dashboardSLI.Indicators = make(map[string]string)
 	dashboardSLO := &keptn.ServiceLevelObjectives{
 		Objectives: []*keptn.SLO{},
-		TotalScore: &keptn.SLOScore{},
+		TotalScore: &keptn.SLOScore{Pass: "90%", Warning: "75%"},
 		Comparison: &keptn.SLOComparison{CompareWith: "single_result", IncludeResultWithScore: "pass", NumberOfComparisonResults: 1, AggregateFunction: "avg"},
 	}
 
 	// Lets parse the dashboards title and get total score pass and warning
-	_, globalPassSplit, globalWarningSplit := ParsePassAndWarningFromString(dashboardJSON.DashboardMetadata.Name, []string{"90%"}, []string{"75%"})
-	dashboardSLO.TotalScore.Pass = globalPassSplit[0]
-	dashboardSLO.TotalScore.Warning = globalWarningSplit[0]
+	// _, globalPassSplit, globalWarningSplit, _, _ := ParsePassAndWarningFromString(dashboardJSON.DashboardMetadata.Name, []string{"90%"}, []string{"75%"})
+	managementZoneFilter := ""
+	if dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone != nil {
+		managementZoneFilter = fmt.Sprintf(",mzId(%s)", dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID)
+	}
+	// dashboardSLO.TotalScore.Pass = globalPassSplit[0].Criteria[0]
+	// dashboardSLO.TotalScore.Warning = globalWarningSplit[0].Criteria[0]
 
 	// lets also generate the dashboard link for that timeframe to pass back as label to Keptn
 	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s", ph.ApiURL, dashboardJSON.ID, common.TimestampToString(startUnix), common.TimestampToString(endUnix))
@@ -673,13 +811,37 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 
 	// now lets iterate through the dashboard to find our SLIs
 	for _, tile := range dashboardJSON.Tiles {
+		if tile.TileType == "SYNTHETIC_TESTS" {
+			// we dont do markdowns or synthetic tests
+			continue
+		}
+
+		if tile.TileType == "MARKDOWN" {
+			// we allow the user to use a markdown to specify SLI/SLO properties, e.g: KQG.Total.Pass
+			// if we find KQG. we process the markdown
+			if strings.Contains(tile.Markdown, "KQG.") {
+				ParseMarkdownConfiguration(tile.Markdown, dashboardSLO)
+			}
+
+			continue
+		}
+
+		// custom chart and usql have different ways to define their tile names - so - lets figure it out by looking at the potential values
+		tileTitle := tile.FilterConfig.CustomName // this is for all custom charts
+		if tileTitle == "" {
+			tileTitle = tile.CustomName
+		}
+
+		// first - lets figure out if this tile should be included in SLI validation or not - we parse the title and look for "sli=sliname"
+		baseIndicatorName, passSLOs, warningSLOs, weight, keySli := ParsePassAndWarningFromString(tileTitle, []string{}, []string{})
+		if baseIndicatorName == "" {
+			fmt.Printf("Chart Tile %s - NOT included as name doesnt include sli=SLINAME\n", tileTitle)
+			continue
+		}
 
 		// only interested in custom charts
 		if tile.TileType == "CUSTOM_CHARTING" {
-
-			fmt.Printf("Processing custom chart: %s\n", tile.FilterConfig.CustomName)
-			// lets start by extracting the base SLI Indicator name from the tile header, e.g: teststep_rt: pass: <500ms;<+10%; warning: <1000ms;<+20% translates to teststep_rt
-			baseIndicatorName, passSLOs, warningSLOs := ParsePassAndWarningFromString(tile.FilterConfig.CustomName, []string{}, []string{})
+			fmt.Printf("Processing custom chart tile %s, sli=$s", tileTitle, baseIndicatorName)
 
 			// we can potentially have multiple series on that chart
 			for _, series := range tile.FilterConfig.ChartConfig.Series {
@@ -693,6 +855,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 
 				// building the merge aggregator string, e.g: merge(1):merge(0) - or merge(0)
 				metricDimensionCount := len(metricDefinition.DimensionDefinitions)
+				metricAggregation := metricDefinition.DefaultAggregation.Type
 				mergeAggregator := ""
 				filterAggregator := ""
 
@@ -724,10 +887,20 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 					}
 				}
 
+				// handle aggregation. If "NONE" is specified we go to the defaultAggregration
+				if series.Aggregation != "NONE" {
+					metricAggregation = series.Aggregation
+				}
+				// for percentile we need to specify the percentile itself
+				if metricAggregation == "PERCENTILE" {
+					metricAggregation = fmt.Sprintf("%s(%f)", metricAggregation, series.Percentile)
+				}
+
 				// lets create the metricSelector and entitySelector
-				metricQuery := fmt.Sprintf("metricSelector=%s%s%s:%s;entitySelector=type(%s)",
-					series.Metric, mergeAggregator, filterAggregator, strings.ToLower(series.Aggregation),
-					series.EntityType)
+				// ATTENTION: adding :names so we also get the names of the dimensions and not just the entities. This means we get two values for each dimension
+				metricQuery := fmt.Sprintf("metricSelector=%s%s%s:%s:names;entitySelector=type(%s)%s",
+					series.Metric, mergeAggregator, filterAggregator, strings.ToLower(metricAggregation),
+					series.EntityType, managementZoneFilter)
 
 				// lets build the Dynatrace API Metric query for the proposed timeframe and additonal filters!
 				fullMetricQuery, metricID := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix, customFilters)
@@ -751,20 +924,35 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 					fmt.Printf("received query result\n")
 					for _, singleResult := range queryResult.Result {
 						fmt.Printf("Processing result for %s\n", singleResult.MetricID)
-						if singleResult.MetricID == metricID {
-							if len(singleResult.Data) == 0 {
+						if isMatchingMetricId(singleResult.MetricID, metricID) {
+							dataResultCount := len(singleResult.Data)
+							if dataResultCount == 0 {
 								fmt.Printf("No data for this metric!\n")
 							}
 							for _, singleDataEntry := range singleResult.Data {
-								// we need to generate the indicator name based on the base name + all dimensions
+								//
+								// we need to generate the indicator name based on the base name + all dimensions, e.g: teststep_MYTESTSTEP, teststep_MYOTHERTESTSTEP
+								// EXCEPTION: If there is only ONE data value then we skip this and just use the base SLI name
 								indicatorName := baseIndicatorName
-								for _, dimension := range singleDataEntry.Dimensions {
-									indicatorName = indicatorName + "_" + dimension
+								if dataResultCount > 1 {
+									// because we use the ":names" transformation we always get two dimension names. First is the NAme, then the ID
+									// lets first validate that we really received Dimension Names
+									dimensionCount := len(singleDataEntry.Dimensions)
+									dimensionIncrement := 2
+									if dimensionCount != (len(series.Dimensions) * 2) {
+										fmt.Printf("DIDNT RECEIVE ID and Names. Lets assume we just received the dimension IDs")
+										dimensionIncrement = 1
+									}
+
+									// lets iterate through the list and get all names
+									for dimIx := 0; dimIx < len(singleDataEntry.Dimensions); dimIx = dimIx + dimensionIncrement {
+										dimensionName := singleDataEntry.Dimensions[dimIx]
+										indicatorName = indicatorName + "_" + dimensionName
+									}
 								}
 
 								// make sure we have a valid indicator name by getting rid of special characters
-								// TODO: check more than just blanks
-								baseIndicatorName = strings.ReplaceAll(baseIndicatorName, " ", "_")
+								indicatorName = cleanIndicatorName(indicatorName)
 
 								// calculating the value
 								value := 0.0
@@ -792,9 +980,10 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 								// lets add the SLO definitin in case we need to generate an SLO.yaml
 								sloDefinition := &keptn.SLO{
 									SLI:     indicatorName,
-									Weight:  1,
-									Pass:    []*keptn.SLOCriteria{{Criteria: passSLOs}},
-									Warning: []*keptn.SLOCriteria{{Criteria: warningSLOs}},
+									Weight:  weight,
+									KeySLI:  keySli,
+									Pass:    passSLOs,
+									Warning: warningSLOs,
 								}
 								dashboardSLO.Objectives = append(dashboardSLO.Objectives, sloDefinition)
 							}
@@ -844,7 +1033,35 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 						dimensionValue = rowValue[len(rowValue)-1].(float64)
 					}
 
-					fmt.Printf("DimensionName: %s, DimensionValue: %0.2f", dimensionName, dimensionValue)
+					// lets scale the metric
+					// value = scaleData(metricDefinition.MetricID, metricDefinition.Unit, value)
+
+					// we got our metric, slos and the value
+					indicatorName := baseIndicatorName
+					if dimensionName != "" {
+						indicatorName = indicatorName + "_" + dimensionName
+					}
+					fmt.Printf("%s: pass=%s, warning=%s, value=%0.2f\n", indicatorName, passSLOs, warningSLOs, dimensionValue)
+
+					// lets add the value to our SLIResult array
+					sliResults = append(sliResults, &keptn.SLIResult{
+						Metric:  indicatorName,
+						Value:   dimensionValue,
+						Success: true,
+					})
+
+					// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
+					dashboardSLI.Indicators[indicatorName] = tile.Query
+
+					// lets add the SLO definitin in case we need to generate an SLO.yaml
+					sloDefinition := &keptn.SLO{
+						SLI:     indicatorName,
+						Weight:  weight,
+						KeySLI:  keySli,
+						Pass:    passSLOs,
+						Warning: warningSLOs,
+					}
+					dashboardSLO.Objectives = append(dashboardSLO.Objectives, sloDefinition)
 				}
 			}
 		}
