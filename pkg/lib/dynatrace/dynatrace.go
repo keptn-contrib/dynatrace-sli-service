@@ -1097,15 +1097,20 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	fmt.Println("trying to fetch metric", metricID)
 	result, err := ph.ExecuteMetricsAPIQuery(metricsQuery)
 
+	if err != nil {
+		fmt.Println("Error from Execute Metrics API Query: " + err.Error())
+		return 0, err
+	}
+
 	var (
 		metricIDExists    = false
 		actualMetricValue = 0.0
 	)
 
-	if err != nil && result != nil {
+	if result != nil {
 		for _, i := range result.Result {
 
-			if strings.Compare(i.MetricID, metricID) == 0 {
+			if isMatchingMetricId(i.MetricID, metricID) {
 				metricIDExists = true
 
 				if len(i.Data) != 1 {

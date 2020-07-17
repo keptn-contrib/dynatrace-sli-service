@@ -33,3 +33,4 @@ dynatrace/sli.yaml
 sliresult.yaml
 slo.yaml
 dynatrace/sli.yaml
+dynatrace/dashboard.json

@@ -322,7 +322,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		// ========================================================================0
 		// get custom metrics for project
 		stdLogger.Info("Load indicators from SLI.yaml")
-		projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, keptnHandler, stdLogger)
+		projectCustomQueries, err := getCustomQueries(keptnEvent, keptnHandler, stdLogger)
 		if err != nil {
 			stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
 			stdLogger.Error(err.Error())
@@ -385,19 +385,24 @@ func retrieveMetrics(event cloudevents.Event) error {
 /**
  * Loads SLIs from a local file and adds it to the SLI map
  */
-func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, logger *keptn.Logger) (map[string]string, error) {
-	localFileContent, err := ioutil.ReadFile(sliFilePath)
-	if err != nil {
-		logMessage := fmt.Sprintf("Couldn't load file content from %s", sliFilePath)
-		logger.Info(logMessage)
-		return nil, nil
-	}
-	logger.Info("Loaded LOCAL file " + sliFilePath)
-	fileContent := string(localFileContent)
+func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliFileContent string, logger *keptn.Logger) (map[string]string, error) {
 
-	if fileContent != "" {
+	if sliFilePath != "" {
+		localFileContent, err := ioutil.ReadFile(sliFilePath)
+		if err != nil {
+			logMessage := fmt.Sprintf("Couldn't load file content from %s", sliFilePath)
+			logger.Info(logMessage)
+			return nil, nil
+		}
+		logger.Info("Loaded LOCAL file " + sliFilePath)
+		sliFileContent = string(localFileContent)
+	} else {
+		// we just take what was passed in the sliFileContent
+	}
+
+	if sliFileContent != "" {
 		sliConfig := keptn.SLIConfig{}
-		err := yaml.Unmarshal([]byte(fileContent), &sliConfig)
+		err := yaml.Unmarshal([]byte(sliFileContent), &sliConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -410,21 +415,30 @@ func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, logg
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
-func getCustomQueries(project string, stage string, service string, keptnHandler *keptn.Keptn, logger *keptn.Logger) (map[string]string, error) {
-	logger.Info("Checking for custom SLI queries")
+func getCustomQueries(keptnEvent *common.BaseKeptnEvent, keptnHandler *keptn.Keptn, logger *keptn.Logger) (map[string]string, error) {
+	logger.Info(fmt.Sprintf("Checking for custom SLI queries for project=%s,stage=%s,service=%s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
 
+	var sliMap = map[string]string{}
 	if common.RunLocal || common.RunLocalTest {
-		var sliMap = map[string]string{}
-		sliMap, _ = addResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", logger)
+		sliMap, _ = addResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "", logger)
 		return sliMap, nil
 	}
 
-	customQueries, err := keptnHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
+	sliContent, err := common.GetKeptnResource(keptnEvent, sliResourceURI, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	return customQueries, nil
+	sliMap, _ = addResourceContentToSLIMap(sliMap, "", sliContent, logger)
+	return sliMap, nil
+
+	// AG-2020-07-17 - after migrating to the new GoUtil SDK this function did no longer return the SLI Configuration - always returned "resource not found"
+	/* customQueries, err := keptnHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
+	if err != nil {
+		return nil, err
+	}
+
+	return customQueries, nil*/
 }
 
 /**

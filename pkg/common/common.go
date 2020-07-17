@@ -138,41 +138,41 @@ func GetConfigurationServiceURL() string {
 }
 
 //
-// Loads dynatrace.conf for the current service
+// Downloads a resource from the Keptn Configuration Repo
 //
-func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*DynatraceConfigFile, error) {
+func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *keptn.Logger) (string, error) {
 
-	logger.Info("Loading dynatrace.conf.yaml")
+	logger.Info("Loading " + resourceURI)
 	// if we run in a runlocal mode we are just getting the file from the local disk
 	var fileContent string
 	if RunLocal {
-		localFileContent, err := ioutil.ReadFile(DynatraceConfigFilenameLOCAL)
+		localFileContent, err := ioutil.ReadFile(resourceURI)
 		if err != nil {
-			logMessage := fmt.Sprintf("No %s file found LOCALLY for service %s in stage %s in project %s", DynatraceConfigFilenameLOCAL, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project)
+			logMessage := fmt.Sprintf("No %s file found LOCALLY for service %s in stage %s in project %s", resourceURI, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project)
 			logger.Info(logMessage)
-			return nil, nil
+			return "", nil
 		}
-		logger.Info("Loaded LOCAL file " + DynatraceConfigFilenameLOCAL)
+		logger.Info("Loaded LOCAL file " + resourceURI)
 		fileContent = string(localFileContent)
 	} else {
 		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
 
 		// Lets search on SERVICE-LEVEL
-		keptnResourceContent, err := resourceHandler.GetServiceResource(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, DynatraceConfigFilename)
+		keptnResourceContent, err := resourceHandler.GetServiceResource(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI)
 		if err != nil || keptnResourceContent == nil || keptnResourceContent.ResourceContent == "" {
 			// Lets search on STAGE-LEVEL
-			keptnResourceContent, err = resourceHandler.GetStageResource(keptnEvent.Project, keptnEvent.Stage, DynatraceConfigFilename)
+			keptnResourceContent, err = resourceHandler.GetStageResource(keptnEvent.Project, keptnEvent.Stage, resourceURI)
 			if err != nil || keptnResourceContent == nil || keptnResourceContent.ResourceContent == "" {
 				// Lets search on PROJECT-LEVEL
-				keptnResourceContent, err = resourceHandler.GetProjectResource(keptnEvent.Project, DynatraceConfigFilename)
+				keptnResourceContent, err = resourceHandler.GetProjectResource(keptnEvent.Project, resourceURI)
 				if err != nil || keptnResourceContent == nil || keptnResourceContent.ResourceContent == "" {
-					logger.Debug(fmt.Sprintf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, DynatraceConfigFilename, err))
-					return nil, err
+					logger.Debug(fmt.Sprintf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI, err))
+					return "", err
 				}
 
-				logger.Debug("Found " + DynatraceConfigFilename + " on project level")
+				logger.Debug("Found " + resourceURI + " on project level")
 			} else {
-				logger.Debug("Found " + DynatraceConfigFilename + " on stage level")
+				logger.Debug("Found " + resourceURI + " on stage level")
 			}
 		} else {
 			logger.Debug("Found " + DynatraceConfigFilename + " on service level")
@@ -180,8 +180,22 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 		fileContent = keptnResourceContent.ResourceContent
 	}
 
+	return fileContent, nil
+}
+
+//
+// Loads dynatrace.conf for the current service
+//
+func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*DynatraceConfigFile, error) {
+
+	dynatraceConfFileContent, err := GetKeptnResource(keptnEvent, DynatraceConfigFilename, logger)
+
+	if err != nil {
+		return nil, err
+	}
+
 	// unmarshal the file
-	dynatraceConfFile, err := parseDynatraceConfigFile([]byte(fileContent))
+	dynatraceConfFile, err := parseDynatraceConfigFile([]byte(dynatraceConfFileContent))
 
 	if err != nil {
 		logMessage := fmt.Sprintf("Couldn't parse %s file found for service %s in stage %s in project %s. Error: %s", DynatraceConfigFilename, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project, err.Error())
