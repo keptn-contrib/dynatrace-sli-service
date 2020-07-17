@@ -156,9 +156,20 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	// ==============================================================================
 	// Lets see if we have a Dashboard in Dynatrace that we should parse
 	logger.Info("Query Dynatrace Dashboards to see if there is an SLI dashboard available")
-	dashboardLinkAsLabel, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, dashboardConfig, startUnix, endUnix, customFilters, logger)
+	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, dashboardConfig, startUnix, endUnix, customFilters, logger)
 	if err != nil {
 		return dashboardLinkAsLabel, sliResults, err
+	}
+
+	// lets store the dashboard as well
+	if dashboardJSON != nil {
+		logger.Info("Dynatrace Dashboard")
+		jsonAsByteArray, _ := json.MarshalIndent(dashboardJSON, "", "  ")
+
+		err := common.UploadKeptnResource(jsonAsByteArray, "dynatrace/dashboard.json", keptnEvent, logger)
+		if err != nil {
+			return dashboardLinkAsLabel, sliResults, err
+		}
 	}
 
 	// lets write the SLI to the config repo

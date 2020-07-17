@@ -168,6 +168,167 @@ indicators:
 
 Hope these examples help you see what is possible. If you want to explore more about Dynatrace Metrics, and the queries you need to create to extract them I suggest you explore the Dynatrace API Explorer (Swagger UI) as well as the [Metric API v2](https://www.dynatrace.com/support/help/extend-dynatrace/dynatrace-api/environment-api/metric-v2/) documentation
 
+## SLIs & SLOs via Dynatrace Dashboard
+
+**New capability with 0.x.x**
+Based on user feedback we learned that defining custom SLIs via the SLI.yaml and then defining SLOs via SLO.yaml can be challenging as one has to be familiar with the Dynatrace Metrics V2 API to craft the necessary SLI Queries.
+As dashboards are a prominent feature in Dynatrace to visualize metrics it was a logical step to leverage dashboards as the basis for Keptn's SLI/SLO configuration.
+
+If *dynatrace-sli-service* parses your dashboard it will generate an sli.yaml and slo.yaml and uploads it to your Keptn configuration repository!
+
+### How dynatrace-sli-service locates a dashboard
+
+There are two options for the *dynatrace-sli-service* to parse a dashboard instead of relying on an SLI.yaml.
+#1: Have a dashboard on your Dynatrace Tenant with the Name pattern like this: KQG;project=<YOURKEPTNPROJECT>;service=<YOURKEPTNSERVICE>;stage=<YOURKEPTNSTAGE>
+#2: In your dynatrace.conf.yaml define a property called dashboard and give it the dashboard id as value, e.g: dashboard: e6c947f2-4c29-483c-a065-269b3707bea4
+
+If the *dynatrace-sli-service* doesn't locate a dashboard it defaults back to the SLI.yaml that you have uploaded in your Keptn configuration repository.
+
+### SLI/SLO Dashboard Layout and how it generates SLI & SLO definitions
+
+Here is a sample dashboard for our simplenode sample application:
+![](./images/samplenode_slislo_dashboard.png)
+
+And here is how the individual pieces matter
+
+**1. Name of the dashboard**
+
+If the dashboard is not referenced in dynatrace.conf.yaml via the Dashboard ID, the *dynatrace-sli-service* queries all dashboards and uses the one that starts with KQG; followed by the name value pairs project=<project>,service=<service>,stage=<stage>. The order of these name value pairs is not relevant but the values have to match your Keptn Project, Service and Stage. In the example dashboard you see that this dashboard matches the project simpleproject, service simplenode and stage staging
+
+**2. Management Zone Filter**
+
+If you are building a dashboard specific to an application or part of your environment its a good practice to set a default management zone filter for your dashboard. The *dynatrace-sli-service* will use that filter. This can either be a custom created management zone or - like in the example above - the one that Keptn creates in case you use Keptn for deployment.
+
+**3. Markdown with SLO Definitions**
+
+The dashboard is not only used to define which metrics should be evaluated (List of SLIs). It is also used to define the individual SLOs and global settings for the SLO, e.g: Total Score goals or Comparison Rules. These are settings you normally have in your SLO.yaml.
+To specify those settings simply create a markdown that contains name value pairs like in the example dashboard.
+
+Here is the text from that markup you see in the screenshot:
+```
+KQG.Total.Pass=90%;KQG.Total.Warning=75%;KQG.Compare.WithScore=pass;KQG.Compare.Results=1;KQG.Compare.Function=avg
+```
+
+It is not mandatory to define them as there are defaults for all of them. Here is a table though that gives you the details on each setting
+
+| Setting | Default | Comment |
+|:------|:-------|:-------|
+| KQG.Total.Pass | 90% | Specifies total pass goal of your SLO |
+| KQG.Total.Warning | 75% | Specifies total warning goal of your SLO |
+| KQG.Compare.Result | 1 | Against how many previous builds to compare your result to? |
+| KQG.Compare.WithScore | pass | Which prevoius builds to include in the comparison: pass, pass_or_warn or all |
+| KQG.Compare.Function | avg | When comparing against multiple builds which aggregation should be used: avg, p50, p90, p95 |
+
+
+**4. Tiles with SLI definition**
+
+The *dynatrace-sli-service* analyzes every tile but only includes those in the SLI/SLO anlaysis where the tile name includes the name value pair "sli=sliprefix"
+If you look at the example dashboard screenshot you see some tiles that have the sli=sliprefix and some that don't. This allows you to build dashboards that you can extend with metrics that should not be included in your SLI/SLO validation.
+
+Similar to the markdown, each tile can define several configuration elements. The only mandatory is sli=sliprefix.
+Here a couple of examples possible values. 
+It actually starts with a human readable value that is not included in the analysis but makes the dashboard easier readable:
+```
+Test Step Response Time;sli=teststep_rt;pass=<500;warning=<1000;weight=2
+Process Memory;sli=process_memory
+Response time (P50);sli=svc_rt_p95;pass=<+10%,<500
+```
+
+| Setting | Sample Value | Comment |
+|:------|:-------|:-------|
+| sli | test_rt | This will become the SLI Name, e.g: test_Rt If the chart includes metrics split by dimensions - then the value is a prefix and each dimension will be appended, e.g: test_rt_teststep1, test_rt_teststep2 |
+| pass | <500,<+10% | This can be a comma separated list which allows you to specify multiple critiera as you can also do in the SLO.yaml. You are also allowed to specify multiple pass name/value pairs which will result into multiple criterias just as allowed in the SLO.yaml spec |
+| warning | <1000 | Same as with pass |
+| weight | 1 | Allows you to define a weight of the SLI. Default is 1 |
+| key | true | If true, this SLI becomes a key SLI. Default is false |
+
+**5. Tile examples**
+
+Here a couple of examples from tiles and how they translate into SLI.yaml and SLO.yaml definitions
+
+*1: Service Response Time (p95)*
+
+![](./images/tileexample_1.png) 
+
+Results in an SLI.yaml like this
+```
+svc_rt_p95: metricSelector=builtin:service.response.time:percentile(50):names;entitySelector=type(SERVICE),mzId(-8783122447839702114)
+```
+
+And an SLO.yaml definition like this:
+```
+    - sli: svc_rt_p95
+      pass:
+        - criteria
+            - "<+10%"
+              "<600"
+      weight 1
+      key_sli: false
+```
+
+![](./images/tileexample_1_slo.png)
+
+*2: Test Step Response Time*
+
+![](./images/tileexample_2.png) 
+
+Result in an SLI definition like this
+```
+teststep_rt_Basic_Check: "metricSelector=calc:service.teststepresponsetime:merge(0):avg:names:filter(eq(Test Step,Basic Check));entitySelector=type(SERVICE),mzId(-8783122447839702114)",
+teststep_rt_echo: "metricSelector=calc:service.teststepresponsetime:merge(0):avg:names:filter(eq(Test Step,echo));entitySelector=type(SERVICE),mzId(-8783122447839702114)",
+teststep_rt_homepage: "metricSelector=calc:service.teststepresponsetime:merge(0):avg:names:filter(eq(Test Step,homepage));entitySelector=type(SERVICE),mzId(-8783122447839702114)",
+teststep_rt_invoke: "metricSelector=calc:service.teststepresponsetime:merge(0):avg:names:filter(eq(Test Step,invoke));entitySelector=type(SERVICE),mzId(-8783122447839702114)",
+teststep_rt_version: "metricSelector=calc:service.teststepresponsetime:merge(0):avg:names:filter(eq(Test Step,version));entitySelector=type(SERVICE),mzId(-8783122447839702114)",
+```
+
+And an SLO like this:
+```
+    - sli: teststep_rt_invoke
+      pass:
+        - criteria
+            - "<500"
+      warning:
+        - criteria
+             - "<1000"
+      weight 2
+      key_sli: false
+    - sli: teststep_rt_version
+      pass:
+        - criteria
+            - "<500"
+      warning:
+        - criteria
+             - "<1000"
+      weight 2
+      key_sli: false      
+      ...
+```
+
+### Support for USQL Tiles
+
+The *dynatrace-sli-service* also supports Dynatrace USQL tiles. The query will be executed as defined in the dashboard for the give timeframe of the SLI Evaluation.
+There are just some things to know for the different USQL result types:
+|Tile Type| Comment |
+|:-------|:---------|
+| Single | Just a single value |
+| Pie Chart | Takes dimension name and value |
+| Column Chart | First columns is considered dimension and second is the value |
+| Table | First column is considered dimension and last column the value |
+| Funnel | Currently not supported |
+
+Here is an example with two USQL Tiles showing a single value of a query:
+![](./images/tileexample_usql.png)
+
+This will translate into two SLIs called camp_adoption and camp_conv! The SLO definition is the same as explained above with regular time series! 
+
+### Steps to setup a Keptn project for SLI/SLO Dashboards
+
+This should work with any existing Keptn project you have. Just make sure you have the *dynatrace-sli-service* enabled for your project.
+Then create a dashboard as explained above that the *dynatrace-sli-service* can match to your project/service/stage. 
+
+If you start from scratch and you have never run an evaluation in your project make sure you upload an empty SLO.yaml to your service. Why? Because otherwise the Lighthouse service will skip evaluation and never triggers the *dynatrace-sli-service*. This is just a one time initialization effort
+
+Also check out the samples folder of this repo with some additional helper files and the exported dashboard from the example above!
 
 ## Known Limitations
 

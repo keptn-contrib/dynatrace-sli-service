@@ -1,0 +1,511 @@
+{
+  "dashboardMetadata": {
+      "name": "KQG;project=simpleproject;service=simplenode;stage=staging",
+      "shared": false,
+      "owner": "andreas.grabner@dynatrace.com",
+      "sharingDetails": {
+          "linkShared": true,
+          "published": false
+      },
+      "dashboardFilter": {
+          "timeframe": "",
+          "managementZone": {
+              "id": "-8783122447839702114",
+              "name": "Keptn: simpleproject staging"
+          }
+      }
+  },
+  "tiles": [{
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 532,
+          "left": 1216,
+          "width": 418,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Event Loop Tick Frequency;sli=node_tickfreq;pass=<3000;warning=<5000",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "TIMESERIES",
+              "series": [{
+                  "metric": "builtin:tech.nodejs.uvLoop.count",
+                  "aggregation": "AVG",
+                  "type": "LINE",
+                  "entityType": "PROCESS_GROUP_INSTANCE",
+                  "dimensions": [],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 76,
+          "left": 380,
+          "width": 456,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Test Step Response Time;sli=teststep_rt;pass=<500;warning=<1000;weight=2",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "TOP_LIST",
+              "series": [{
+                  "metric": "calc:service.teststepresponsetime",
+                  "aggregation": "AVG",
+                  "type": "LINE",
+                  "entityType": "SERVICE",
+                  "dimensions": [{
+                      "id": "1",
+                      "name": "Test Step",
+                      "values": [],
+                      "entityDimension": false
+                  }],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Markdown",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+          "top": 0,
+          "left": 0,
+          "width": 1634,
+          "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "KQG.Total.Pass=90%;KQG.Total.Warning=75%;KQG.Compare.WithScore=pass;KQG.Compare.Results=1;KQG.Compare.Function=avg"
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 76,
+          "left": 0,
+          "width": 380,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Response time (P95);sli=svc_rt_p95;pass=<+10%,<600",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "SINGLE_VALUE",
+              "series": [{
+                  "metric": "builtin:service.response.time",
+                  "aggregation": "PERCENTILE",
+                  "percentile": 95,
+                  "type": "LINE",
+                  "entityType": "SERVICE",
+                  "dimensions": [{
+                      "id": "0",
+                      "name": "dt.entity.service",
+                      "values": [],
+                      "entityDimension": true
+                  }],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 304,
+          "left": 0,
+          "width": 380,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Response time (P90);sli=svc_rt_p90;pass=<+10%,<550",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "SINGLE_VALUE",
+              "series": [{
+                  "metric": "builtin:service.response.time",
+                  "aggregation": "PERCENTILE",
+                  "percentile": 90,
+                  "type": "LINE",
+                  "entityType": "SERVICE",
+                  "dimensions": [{
+                      "id": "0",
+                      "name": "dt.entity.service",
+                      "values": [],
+                      "entityDimension": true
+                  }],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 532,
+          "left": 0,
+          "width": 380,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Response time (P50);sli=svc_rt_p50;pass=<+10%,<500",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "SINGLE_VALUE",
+              "series": [{
+                  "metric": "builtin:service.response.time",
+                  "aggregation": "PERCENTILE",
+                  "percentile": 50,
+                  "type": "LINE",
+                  "entityType": "SERVICE",
+                  "dimensions": [{
+                      "id": "0",
+                      "name": "dt.entity.service",
+                      "values": [],
+                      "entityDimension": true
+                  }],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Markdown",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+          "top": 38,
+          "left": 0,
+          "width": 380,
+          "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "## Service Metrics (SLI/SLO)"
+  }, {
+      "name": "Markdown",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+          "top": 38,
+          "left": 380,
+          "width": 456,
+          "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "## Test Transaction (SLI/SLO)"
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 304,
+          "left": 380,
+          "width": 456,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Test Step Failure Rate;sli=teststep_fr;pass=<5;warning=<10;key=true",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "TOP_LIST",
+              "series": [{
+                  "metric": "calc:service.teststepfailurerate",
+                  "aggregation": "OF_INTEREST_RATIO",
+                  "type": "LINE",
+                  "entityType": "SERVICE",
+                  "dimensions": [{
+                      "id": "1",
+                      "name": "Test Step",
+                      "values": [],
+                      "entityDimension": false
+                  }],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 532,
+          "left": 380,
+          "width": 456,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Test Step Service Calls;sli=teststep_svccalls;pass=<2;warning=<5;key=true",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "TOP_LIST",
+              "series": [{
+                  "metric": "calc:service.teststepservicecalls",
+                  "aggregation": "AVG",
+                  "type": "LINE",
+                  "entityType": "SERVICE",
+                  "dimensions": [{
+                      "id": "1",
+                      "name": "Test Step",
+                      "values": [],
+                      "entityDimension": false
+                  }],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Markdown",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+          "top": 38,
+          "left": 1216,
+          "width": 418,
+          "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "## Process Metrics (SLI/SLO)"
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 304,
+          "left": 1216,
+          "width": 418,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Process Memory;sli=process_memory",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "TIMESERIES",
+              "series": [{
+                  "metric": "builtin:tech.generic.mem.workingSetSize",
+                  "aggregation": "AVG",
+                  "type": "LINE",
+                  "entityType": "PROCESS_GROUP_INSTANCE",
+                  "dimensions": [],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 76,
+          "left": 1216,
+          "width": 418,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Process CPU;sli=process_cpu;pass=<20;warning=<50;key=true",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "TIMESERIES",
+              "series": [{
+                  "metric": "builtin:tech.generic.cpu.usage",
+                  "aggregation": "AVG",
+                  "type": "LINE",
+                  "entityType": "PROCESS_GROUP_INSTANCE",
+                  "dimensions": [],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 76,
+          "left": 836,
+          "width": 380,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Test Step Response Time",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "TIMESERIES",
+              "series": [{
+                  "metric": "calc:service.teststepresponsetime",
+                  "aggregation": "AVG",
+                  "type": "LINE",
+                  "entityType": "SERVICE",
+                  "dimensions": [{
+                      "id": "1",
+                      "name": "Test Step",
+                      "values": [],
+                      "entityDimension": false
+                  }],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 304,
+          "left": 836,
+          "width": 380,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Test Step Failure Rate",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "TIMESERIES",
+              "series": [{
+                  "metric": "calc:service.teststepfailurerate",
+                  "aggregation": "OF_INTEREST_RATIO",
+                  "type": "LINE",
+                  "entityType": "SERVICE",
+                  "dimensions": [{
+                      "id": "1",
+                      "name": "Test Step",
+                      "values": [],
+                      "entityDimension": false
+                  }],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Custom chart",
+      "tileType": "CUSTOM_CHARTING",
+      "configured": true,
+      "bounds": {
+          "top": 532,
+          "left": 836,
+          "width": 380,
+          "height": 228
+      },
+      "tileFilter": {},
+      "filterConfig": {
+          "type": "MIXED",
+          "customName": "Test Step Service Calls",
+          "defaultName": "Custom chart",
+          "chartConfig": {
+              "legendShown": true,
+              "type": "TIMESERIES",
+              "series": [{
+                  "metric": "calc:service.teststepservicecalls",
+                  "aggregation": "AVG",
+                  "type": "LINE",
+                  "entityType": "SERVICE",
+                  "dimensions": [{
+                      "id": "1",
+                      "name": "Test Step",
+                      "values": [],
+                      "entityDimension": false
+                  }],
+                  "sortAscending": false,
+                  "sortColumn": true,
+                  "aggregationRate": "TOTAL"
+              }],
+              "resultMetadata": {}
+          },
+          "filtersPerEntityType": {}
+      }
+  }, {
+      "name": "Markdown",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+          "top": 38,
+          "left": 836,
+          "width": 380,
+          "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "## Test Transaction (just charts)"
+  }]
+}

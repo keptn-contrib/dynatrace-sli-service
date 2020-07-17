@@ -260,9 +260,11 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 	}
 
 	// now - lets iterate through the list and find one that matches our project, stage, service ...
-	findValues := []string{fmt.Sprintf("project=%s", project), fmt.Sprintf("service=%s", service), fmt.Sprintf("stage=%s", stage)}
+	findValues := []string{strings.ToLower(fmt.Sprintf("project=%s", project)), strings.ToLower(fmt.Sprintf("service=%s", service)), strings.ToLower(fmt.Sprintf("stage=%s", stage))}
 	for _, dashboard := range dashboardsJSON.Dashboards {
-		if strings.HasPrefix(dashboard.Name, "KQG;") {
+
+		// lets see if the dashboard matches our name
+		if strings.HasPrefix(strings.ToLower(dashboard.Name), "kqg;") {
 			fmt.Println("Analyzing if Dashboard matches: " + dashboard.Name)
 
 			nameSplits := strings.Split(dashboard.Name, ";")
@@ -272,7 +274,7 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 			for _, findValue := range findValues {
 				foundValue := false
 				for _, nameSplitValue := range nameSplits {
-					if strings.Compare(findValue, nameSplitValue) == 0 {
+					if strings.Compare(findValue, strings.ToLower(nameSplitValue)) == 0 {
 						foundValue = true
 					}
 				}
@@ -776,14 +778,14 @@ func isMatchingMetricId(singleResultMetricID string, queryMetricID string) bool 
   #4: SLIResult
   #5: Error
 */
-func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
+func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
 	dashboardJSON, err := ph.loadDynatraceDashboard(project, stage, service, dashboard)
 	if err != nil {
-		return "", nil, nil, nil, err
+		return "", nil, nil, nil, nil, err
 	}
 
 	if dashboardJSON == nil {
-		return "", nil, nil, nil, nil
+		return "", nil, nil, nil, nil, nil
 	}
 
 	// we generate our own SLIResult array based on the dashboard configuration
@@ -797,16 +799,14 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 	}
 
 	// Lets parse the dashboards title and get total score pass and warning
-	// _, globalPassSplit, globalWarningSplit, _, _ := ParsePassAndWarningFromString(dashboardJSON.DashboardMetadata.Name, []string{"90%"}, []string{"75%"})
 	managementZoneFilter := ""
 	if dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone != nil {
 		managementZoneFilter = fmt.Sprintf(",mzId(%s)", dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID)
 	}
-	// dashboardSLO.TotalScore.Pass = globalPassSplit[0].Criteria[0]
-	// dashboardSLO.TotalScore.Warning = globalWarningSplit[0].Criteria[0]
 
-	// lets also generate the dashboard link for that timeframe to pass back as label to Keptn
-	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s", ph.ApiURL, dashboardJSON.ID, common.TimestampToString(startUnix), common.TimestampToString(endUnix))
+	// Dashboard Link
+	// lets also generate the dashboard link for that timeframe (gtf=c_START_END) as well as management zone (gt=MZID) to pass back as label to Keptn
+	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s;gf=%s", ph.ApiURL, dashboardJSON.ID, common.TimestampToString(startUnix), common.TimestampToString(endUnix), dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID)
 	fmt.Printf("Dashboard Link: %s\n", dashboardLinkAsLabel)
 
 	// now lets iterate through the dashboard to find our SLIs
@@ -858,6 +858,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 				metricAggregation := metricDefinition.DefaultAggregation.Type
 				mergeAggregator := ""
 				filterAggregator := ""
+				filterSLIDefinitionAggregator := ""
 
 				// now we need to merge all the dimensions that are not part of the series.dimensions, e.g: if the metric has two dimensions but only one dimension is used in the chart we need to merge the others
 				// as multiple-merges are possible but as they are executed in sequence we have to use the right index
@@ -876,6 +877,9 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 							// TODO: support multiple filters - right now we only support 1
 							if len(seriesDim.Values) > 0 {
 								filterAggregator = fmt.Sprintf(":filter(eq(%s,%s))", seriesDim.Name, seriesDim.Values[0])
+							} else {
+								// we need this for the generation of the SLI for each individual dimension value
+								filterSLIDefinitionAggregator = fmt.Sprintf(":filter(eq(%s,FILTERDIMENSIONVALUE))", seriesDim.Name)
 							}
 						}
 					}
@@ -934,6 +938,11 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 								// we need to generate the indicator name based on the base name + all dimensions, e.g: teststep_MYTESTSTEP, teststep_MYOTHERTESTSTEP
 								// EXCEPTION: If there is only ONE data value then we skip this and just use the base SLI name
 								indicatorName := baseIndicatorName
+
+								// we need this one to "fake" the MetricQuery for the SLi.yaml to include the dynamic dimension name for each value
+								// we initialize it with ":names" as this is the part of the metric query string we will replace
+								filterSLIDefinitionAggregatorValue := ":names"
+
 								if dataResultCount > 1 {
 									// because we use the ":names" transformation we always get two dimension names. First is the NAme, then the ID
 									// lets first validate that we really received Dimension Names
@@ -948,6 +957,8 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 									for dimIx := 0; dimIx < len(singleDataEntry.Dimensions); dimIx = dimIx + dimensionIncrement {
 										dimensionName := singleDataEntry.Dimensions[dimIx]
 										indicatorName = indicatorName + "_" + dimensionName
+
+										filterSLIDefinitionAggregatorValue = ":names" + strings.Replace(filterSLIDefinitionAggregator, "FILTERDIMENSIONVALUE", dimensionName, 1)
 									}
 								}
 
@@ -975,7 +986,8 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 								})
 
 								// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
-								dashboardSLI.Indicators[indicatorName] = metricQuery
+								// we use ":names" to find the right spot to add our custom dimension filter
+								dashboardSLI.Indicators[indicatorName] = strings.Replace(metricQuery, ":names", filterSLIDefinitionAggregatorValue, 1)
 
 								// lets add the SLO definitin in case we need to generate an SLO.yaml
 								sloDefinition := &keptn.SLO{
@@ -1016,21 +1028,18 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 
 					if tile.Type == "SINGLE_VALUE" {
 						dimensionValue = rowValue[0].(float64)
-					}
-
-					if tile.Type == "PIE_CHART" {
+					} else if tile.Type == "PIE_CHART" {
 						dimensionName = rowValue[0].(string)
 						dimensionValue = rowValue[1].(float64)
-					}
-
-					if tile.Type == "COLUMN_CHART" {
+					} else if tile.Type == "COLUMN_CHART" {
 						dimensionName = rowValue[0].(string)
 						dimensionValue = rowValue[1].(float64)
-					}
-
-					if tile.Type == "TABLE" {
+					} else if tile.Type == "TABLE" {
 						dimensionName = rowValue[0].(string)
 						dimensionValue = rowValue[len(rowValue)-1].(float64)
+					} else {
+						fmt.Printf("USQL Tile Type %s currently not supported!", tile.Type)
+						continue
 					}
 
 					// lets scale the metric
@@ -1067,7 +1076,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 		}
 	}
 
-	return dashboardLinkAsLabel, dashboardSLI, dashboardSLO, sliResults, nil
+	return dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, nil
 }
 
 /**
@@ -1123,6 +1132,11 @@ func scaleData(metricId string, unit string, value float64) float64 {
 	if (strings.Compare(unit, "MicroSecond") == 0) || strings.Contains(metricId, "builtin:service.response.time") {
 		// scale from microseconds to milliseconds
 		return value / 1000.0
+	}
+
+	// convert Bytes to Kilobyte
+	if strings.Compare(unit, "Byte") == 0 {
+		return value / 1024
 	}
 
 	/* if strings.Compare(unit, "NanoSecond") {
