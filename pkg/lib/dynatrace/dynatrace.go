@@ -841,7 +841,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 
 		// only interested in custom charts
 		if tile.TileType == "CUSTOM_CHARTING" {
-			fmt.Printf("Processing custom chart tile %s, sli=$s", tileTitle, baseIndicatorName)
+			fmt.Printf("Processing custom chart tile %s, sli=%s", tileTitle, baseIndicatorName)
 
 			// we can potentially have multiple series on that chart
 			for _, series := range tile.FilterConfig.ChartConfig.Series {
@@ -976,7 +976,8 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 								value = scaleData(metricDefinition.MetricID, metricDefinition.Unit, value)
 
 								// we got our metric, slos and the value
-								fmt.Printf("%s: pass=%s, warning=%s, value=%0.2f\n", indicatorName, passSLOs, warningSLOs, value)
+								// fmt.Printf("%s: pass=%s, warning=%s, value=%0.2f\n", indicatorName, passSLOs, warningSLOs, dimensionValue)
+								fmt.Printf("%s: %0.2f\n", indicatorName, value)
 
 								// lets add the value to our SLIResult array
 								sliResults = append(sliResults, &keptn.SLIResult{
@@ -1050,7 +1051,8 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 					if dimensionName != "" {
 						indicatorName = indicatorName + "_" + dimensionName
 					}
-					fmt.Printf("%s: pass=%s, warning=%s, value=%0.2f\n", indicatorName, passSLOs, warningSLOs, dimensionValue)
+					// fmt.Printf("%s: pass=%s, warning=%s, value=%0.2f\n", indicatorName, passSLOs, warningSLOs, dimensionValue)
+					fmt.Printf("%s: %0.2f\n", indicatorName, dimensionValue)
 
 					// lets add the value to our SLIResult array
 					sliResults = append(sliResults, &keptn.SLIResult{

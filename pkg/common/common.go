@@ -231,7 +231,7 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 		resources := []*keptnmodels.Resource{{ResourceContent: string(contentToUpload), ResourceURI: &remoteResourceURI}}
 		_, err := resourceHandler.CreateResources(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resources)
 		if err != nil {
-			logMessage := fmt.Sprintf("Couldnt upload remote resource %s: %s", remoteResourceURI, err.Message)
+			logMessage := fmt.Sprintf("Couldnt upload remote resource %s: %s", remoteResourceURI, *err.Message)
 			logger.Error(logMessage)
 		}
 	}

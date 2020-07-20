@@ -1,11 +1,13 @@
 package dynatrace
 
 import (
-	_ "github.com/keptn/go-utils/pkg/lib"
 	"reflect"
 	"strconv"
 	"testing"
 	"time"
+
+	_ "github.com/keptn/go-utils/pkg/lib"
+	keptn "github.com/keptn/go-utils/pkg/lib"
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
 )
@@ -130,7 +132,7 @@ func TestParseValidUnixTimestamp(t *testing.T) {
 	}
 }
 
-func TestParseSLODetailsFromCustomTileName(t *testing.T) {
+func TestParsePassAndWarningFromString(t *testing.T) {
 	type args struct {
 		customName string
 	}
@@ -138,30 +140,40 @@ func TestParseSLODetailsFromCustomTileName(t *testing.T) {
 		name  string
 		args  args
 		want  string
-		want1 []string
-		want2 []string
+		want1 []*keptn.SLOCriteria
+		want2 []*keptn.SLOCriteria
+		want3 int
+		want4 bool
 	}{
 		{
 			name: "simple test",
 			args: args{
-				customName: "teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%",
+				customName: "Some description;sli=teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%;weight=1;key=true",
 			},
 			want:  "teststep_rt",
-			want1: []string{"<500ms", "<+10%"},
-			want2: []string{"<1000ms", "<+20%"},
+			want1: []*keptn.SLOCriteria{&keptn.SLOCriteria{Criteria: []string{"<500ms", "<+10%"}}},
+			want2: []*keptn.SLOCriteria{&keptn.SLOCriteria{Criteria: []string{"<1000ms", "<+20%"}}},
+			want3: 1,
+			want4: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, got2 := ParseSLODetailsFromCustomTileName(tt.args.customName)
+			got, got1, got2, got3, got4 := ParsePassAndWarningFromString(tt.args.customName, []string{}, []string{})
 			if got != tt.want {
-				t.Errorf("ParseSLODetailsFromCustomTileName() got = %v, want %v", got, tt.want)
+				t.Errorf("ParsePassAndWarningFromString() got = %v, want %v", got, tt.want)
 			}
 			if !reflect.DeepEqual(got1, tt.want1) {
-				t.Errorf("ParseSLODetailsFromCustomTileName() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("ParsePassAndWarningFromString() got1 = %v, want %v", got1, tt.want1)
 			}
 			if !reflect.DeepEqual(got2, tt.want2) {
-				t.Errorf("ParseSLODetailsFromCustomTileName() got2 = %v, want %v", got2, tt.want2)
+				t.Errorf("ParsePassAndWarningFromString() got2 = %v, want %v", got2, tt.want2)
+			}
+			if !reflect.DeepEqual(got3, tt.want3) {
+				t.Errorf("ParsePassAndWarningFromString() got2 = %v, want %v", got3, tt.want3)
+			}
+			if !reflect.DeepEqual(got4, tt.want4) {
+				t.Errorf("ParsePassAndWarningFromString() got2 = %v, want %v", got4, tt.want4)
 			}
 		})
 	}
