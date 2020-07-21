@@ -39,23 +39,20 @@ type resultValues struct {
 	Data     []resultNumbers `json:"data"`
 }
 
+// DTUSQLResult struct
 type DTUSQLResult struct {
 	ExtrapolationLevel int             `json:"extrapolationLevel"`
 	ColumnNames        []string        `json:"columnNames"`
 	Values             [][]interface{} `json:"values"`
 }
 
-/**
- * Struct for SLI.yaml
- */
+// SLI struct for SLI.yaml
 type SLI struct {
 	SpecVersion string            `yaml:"spec_version"`
 	Indicators  map[string]string `yaml:"indicators"`
 }
 
-/**
- * Output of /dashboards
- */
+// DynatraceDashboards is struct for /dashboards endpoint
 type DynatraceDashboards struct {
 	Dashboards []struct {
 		ID    string `json:"id"`
@@ -64,9 +61,7 @@ type DynatraceDashboards struct {
 	} `json:"dashboards"`
 }
 
-/**
- * Output of /dashboards/<dashboardID>
- */
+// DynatraceDashboard is struct for /dashboards/<dashboardID> endpoint
 type DynatraceDashboard struct {
 	Metadata struct {
 		ConfigurationVersions []int  `json:"configurationVersions"`
@@ -140,9 +135,7 @@ type DynatraceDashboard struct {
 	} `json:"tiles"`
 }
 
-/**
- * Defines the output of /metrics/<metricID>
- */
+// MetricDefinition defines the output of /metrics/<metricID>
 type MetricDefinition struct {
 	MetricID           string   `json:"metricId"`
 	DisplayName        string   `json:"displayName"`
@@ -190,9 +183,7 @@ type DtMetricsAPIError struct {
 }
 */
 
-/**
- * Result of /metrics/query
- */
+// DynatraceResult is struct for /metrics/query
 type DynatraceResult struct {
 	TotalCount  int            `json:"totalCount"`
 	NextPageKey string         `json:"nextPageKey"`
@@ -341,9 +332,7 @@ func (ph *Handler) loadDynatraceDashboard(project string, stage string, service 
 	return dashboardJSON, err
 }
 
-/**
- * Calls the /metrics/<metricID> API call to retrieve Metric Definition Details
- */
+// ExecuteMetricAPIDescribe calls the /metrics/<metricID> API call to retrieve Metric Definition Details
 func (ph *Handler) ExecuteMetricAPIDescribe(metricID string) (*MetricDefinition, error) {
 	targetURL := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/%s", metricID)
 	req, err := http.NewRequest("GET", targetURL, nil)
@@ -387,9 +376,7 @@ func (ph *Handler) ExecuteMetricAPIDescribe(metricID string) (*MetricDefinition,
 	return &result, nil
 }
 
-/**
- * Executes the passed Metrics API Call, validates that the call returns data and returns the data set
- */
+// ExecuteMetricsAPIQuery executes the passed Metrics API Call, validates that the call returns data and returns the data set
 func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceResult, error) {
 	// now we execute the query against the Dynatrace API
 	req, err := http.NewRequest("GET", metricsQuery, nil)
@@ -439,9 +426,7 @@ func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceResult
 	return &result, nil
 }
 
-/**
- * Executes the passed Metrics API Call, validates that the call returns data and returns the data set
- */
+// ExecuteUSQLQuery executes the passed Metrics API Call, validates that the call returns data and returns the data set
 func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
 	// now we execute the query against the Dynatrace API
 	req, err := http.NewRequest("GET", usql, nil)
@@ -492,9 +477,7 @@ func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
 	return &result, nil
 }
 
-/**
- * Builds a USQL query based on the incoming values
- */
+// BuildDynatraceUSQLQuery builds a USQL query based on the incoming values
 func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, endUnix time.Time) string {
 	fmt.Printf("Finalize USQL query for %s\n", query)
 
@@ -510,10 +493,10 @@ func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, en
 		"endTimestamp":      common.TimestampToString(endUnix),
 	}
 
-	targetUrl := fmt.Sprintf("%s/api/v1/userSessionQueryLanguage/table", ph.ApiURL)
+	targetURL := fmt.Sprintf("%s/api/v1/userSessionQueryLanguage/table", ph.ApiURL)
 
-	// append queryParams to targetUrl
-	u, _ := url.Parse(targetUrl)
+	// append queryParams to targetURL
+	u, _ := url.Parse(targetURL)
 	q, _ := url.ParseQuery(u.RawQuery)
 
 	for param, value := range queryParams {
@@ -526,14 +509,12 @@ func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, en
 	return u.String()
 }
 
-/**
-* Builds the complete query string based on start, end and filters
-* metricQuery should contain metricSelector and entitySelector
-* Returns:
-  #1: Finalized Dynatrace API Query
-  #2: MetricID that this query will return, e.g: builtin:host.cpu
-  #3: error
-*/
+// BuildDynatraceMetricsQuery builds the complete query string based on start, end and filters
+// metricQuery should contain metricSelector and entitySelector
+// Returns:
+//  #1: Finalized Dynatrace API Query
+//  #2: MetricID that this query will return, e.g: builtin:host.cpu
+//  #3: error
 func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter) (string, string) {
 	fmt.Printf("Finalize query for %s\n", metricquery)
 
@@ -564,7 +545,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 		metricQueryParams = fmt.Sprintf("metricSelector=%s&%s", querySplit[0], querySplit[1])
 	}
 
-	targetUrl := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/query/?%s", metricQueryParams)
+	targetURL := ph.ApiURL + fmt.Sprintf("/api/v2/metrics/query/?%s", metricQueryParams)
 
 	// default query params that are required: resolution, from and to
 	queryParams := map[string]string{
@@ -575,8 +556,8 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 	// fmt.Println("Query Params initially:")
 	// fmt.Println(queryParams)
 
-	// append queryParams to targetUrl
-	u, _ := url.Parse(targetUrl)
+	// append queryParams to targetURL
+	u, _ := url.Parse(targetURL)
 	q, _ := url.ParseQuery(u.RawQuery)
 
 	for param, value := range queryParams {
@@ -609,16 +590,14 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 	return u.String(), metricSelector
 }
 
-/**
- * Takes a value such as "Some description;sli=teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%;weight=1;key=true"
- * can also take a value like "KQG;project=myproject;pass=90%;warning=75%;"
- * This will return
- * #1: teststep_rt
- * #2: []SLOCriteria { Criteria{"<500ms","<+10%"}}
- * #3: []SLOCriteria { ["<1000ms","<+20%" }}
- * #4: 1
- * #5: true
- */
+// ParsePassAndWarningFromString takes a value such as "Some description;sli=teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%;weight=1;key=true"
+// can also take a value like "KQG;project=myproject;pass=90%;warning=75%;"
+// This will return
+// #1: teststep_rt
+// #2: []SLOCriteria { Criteria{"<500ms","<+10%"}}
+// #3: []SLOCriteria { ["<1000ms","<+20%" }}
+// #4: 1
+// #5: true
 func ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []*keptn.SLOCriteria, []*keptn.SLOCriteria, int, bool) {
 	nameValueSplits := strings.Split(customName, ";")
 
@@ -673,9 +652,7 @@ func ParsePassAndWarningFromString(customName string, defaultPass []string, defa
 	return sliName, passCriteria, warnCriteria, weight, keySli
 }
 
-/**
- * Parses a text that can be used in a Markdown tile to specify global SLO properties
- */
+// ParseMarkdownConfiguration parses a text that can be used in a Markdown tile to specify global SLO properties
 func ParseMarkdownConfiguration(markdown string, slo *keptn.ServiceLevelObjectives) {
 	markdownSplits := strings.Split(markdown, ";")
 
@@ -723,9 +700,7 @@ func ParseMarkdownConfiguration(markdown string, slo *keptn.ServiceLevelObjectiv
 	}
 }
 
-/**
- * make sure we have a valid indicator name by getting rid of special characters
- */
+// cleanIndicatorName makes sure we have a valid indicator name by getting rid of special characters
 func cleanIndicatorName(indicatorName string) string {
 	// TODO: check more than just blanks
 	indicatorName = strings.ReplaceAll(indicatorName, " ", "_")
@@ -740,7 +715,7 @@ func cleanIndicatorName(indicatorName string) string {
  * This function here tries to come up with a better matching algorithm
  * WHILE NOT PERFECT - HERE IS THE FIRST IMPLEMENTATION
  */
-func isMatchingMetricId(singleResultMetricID string, queryMetricID string) bool {
+func isMatchingMetricID(singleResultMetricID string, queryMetricID string) bool {
 	if strings.Compare(singleResultMetricID, queryMetricID) == 0 {
 		return true
 	}
@@ -754,9 +729,9 @@ func isMatchingMetricId(singleResultMetricID string, queryMetricID string) bool 
 		if strings.Contains(singleResultMetricID, ":") && strings.Contains(singleResultMetricID, ":") {
 			fmt.Printf("Just compare before first :\n")
 
-			fuzzyResultMetricId := strings.Split(singleResultMetricID, ":")[0]
+			fuzzyResultMetricID := strings.Split(singleResultMetricID, ":")[0]
 			fuzzyQueryMetricID := strings.Split(queryMetricID, ":")[0]
-			if strings.Compare(fuzzyResultMetricId, fuzzyQueryMetricID) == 0 {
+			if strings.Compare(fuzzyResultMetricID, fuzzyQueryMetricID) == 0 {
 				fmt.Printf("FUZZY MATCH!!\n")
 				return true
 			}
@@ -768,16 +743,15 @@ func isMatchingMetricId(singleResultMetricID string, queryMetricID string) bool 
 	return false
 }
 
-/**  Implements - https://github.com/keptn-contrib/dynatrace-sli-service/issues/60
-* Queries Dynatrace for the existance of a dashboard tagged with keptn_project:project, keptn_stage:stage, keptn_service:service, SLI
-* if this dashboard exists it will be parsed and a custom SLI_dashboard.yaml and an SLO_dashboard.yaml will be created
-* Returns:
-  #1: Link to Dashboard
-  #2: SLI
-  #3: ServiceLevelObjectives
-  #4: SLIResult
-  #5: Error
-*/
+// QueryDynatraceDashboardForSLIs implements - https://github.com/keptn-contrib/dynatrace-sli-service/issues/60
+// Queries Dynatrace for the existance of a dashboard tagged with keptn_project:project, keptn_stage:stage, keptn_service:service, SLI
+// if this dashboard exists it will be parsed and a custom SLI_dashboard.yaml and an SLO_dashboard.yaml will be created
+// Returns:
+//  #1: Link to Dashboard
+//  #2: SLI
+//  #3: ServiceLevelObjectives
+//  #4: SLIResult
+//  #5: Error
 func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
 	dashboardJSON, err := ph.loadDynatraceDashboard(project, stage, service, dashboard)
 	if err != nil {
@@ -788,7 +762,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 		return "", nil, nil, nil, nil, nil
 	}
 
-	// we generate our own SLIResult array based on the dashboard configuration
+	// generate our own SLIResult array based on the dashboard configuration
 	var sliResults []*keptn.SLIResult
 	dashboardSLI := &SLI{}
 	dashboardSLI.Indicators = make(map[string]string)
@@ -798,7 +772,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 		Comparison: &keptn.SLOComparison{CompareWith: "single_result", IncludeResultWithScore: "pass", NumberOfComparisonResults: 1, AggregateFunction: "avg"},
 	}
 
-	// Lets parse the dashboards title and get total score pass and warning
+	// parse the dashboards title and get total score pass and warning
 	managementZoneFilter := ""
 	if dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone != nil {
 		managementZoneFilter = fmt.Sprintf(",mzId(%s)", dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID)
@@ -940,7 +914,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 					fmt.Printf("received query result\n")
 					for _, singleResult := range queryResult.Result {
 						fmt.Printf("Processing result for %s\n", singleResult.MetricID)
-						if isMatchingMetricId(singleResult.MetricID, metricID) {
+						if isMatchingMetricID(singleResult.MetricID, metricID) {
 							dataResultCount := len(singleResult.Data)
 							if dataResultCount == 0 {
 								fmt.Printf("No data for this metric!\n")
@@ -1093,9 +1067,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 	return dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, nil
 }
 
-/**
- * Queries a single metric value from Dynatrace API
- */
+// GetSLIValue queries a single metric value from Dynatrace API
 func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter) (float64, error) {
 	// first we get the query from the SLI configuration based on its logical name
 	fmt.Printf("Getting SLI config for %s\n", metric)
@@ -1124,7 +1096,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	if result != nil {
 		for _, i := range result.Result {
 
-			if isMatchingMetricId(i.MetricID, metricID) {
+			if isMatchingMetricID(i.MetricID, metricID) {
 				metricIDExists = true
 
 				if len(i.Data) != 1 {
@@ -1145,10 +1117,9 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	return scaleData(metricID, "", actualMetricValue), nil
 }
 
-// scales data based on the timeseries identifier (e.g., service.responsetime needs to be scaled from microseconds
-// to milliseocnds)
-func scaleData(metricId string, unit string, value float64) float64 {
-	if (strings.Compare(unit, "MicroSecond") == 0) || strings.Contains(metricId, "builtin:service.response.time") {
+// scales data based on the timeseries identifier (e.g., service.responsetime needs to be scaled from microseconds to milliseocnds)
+func scaleData(metricID string, unit string, value float64) float64 {
+	if (strings.Compare(unit, "MicroSecond") == 0) || strings.Contains(metricID, "builtin:service.response.time") {
 		// scale from microseconds to milliseconds
 		return value / 1000.0
 	}
@@ -1158,9 +1129,11 @@ func scaleData(metricId string, unit string, value float64) float64 {
 		return value / 1024
 	}
 
-	/* if strings.Compare(unit, "NanoSecond") {
+	/*
+		if strings.Compare(unit, "NanoSecond") {
 
-	}*/
+		}
+	*/
 
 	return value
 }

@@ -183,9 +183,7 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 	return fileContent, nil
 }
 
-//
-// Loads dynatrace.conf for the current service
-//
+// GetDynatraceConfig loads dynatrace.conf for the current service
 func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*DynatraceConfigFile, error) {
 
 	dynatraceConfFileContent, err := GetKeptnResource(keptnEvent, DynatraceConfigFilename, logger)
@@ -209,9 +207,7 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 	return dynatraceConfFile, nil
 }
 
-/*
- * Uploads a file to the Keptn Configuration Service
- */
+// UploadKeptnResource uploads a file to the Keptn Configuration Service
 func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent, logger *keptn.Logger) error {
 
 	logger.Info("Uploading remote file")
@@ -296,6 +292,7 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 	return dtCreds, nil
 }
 
+// ParseUnixTimestamp parses a time stamp into Unix foramt
 func ParseUnixTimestamp(timestamp string) (time.Time, error) {
 	parsedTime, err := time.Parse(time.RFC3339, timestamp)
 	if err == nil {
@@ -310,6 +307,7 @@ func ParseUnixTimestamp(timestamp string) (time.Time, error) {
 	return unix, nil
 }
 
+// TimestampToString converts time stamp into string
 func TimestampToString(time time.Time) string {
 	return strconv.FormatInt(time.Unix()*1000, 10)
 }
