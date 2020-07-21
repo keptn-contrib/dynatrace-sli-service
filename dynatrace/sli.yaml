@@ -1,8 +1,11 @@
----
-spec_version: '1.0'
+spec_version: ""
 indicators:
-    throughput:           "metricSelector=builtin:service.requestCount.total:merge(0):sum&entitySelector=tag($LABEL.dttag),type(SERVICE)"
-    error_rate:           "metricSelector=builtin:service.errors.total.count:merge(0):avg&entitySelector=tag($SERVICE),type(SERVICE)"
-    response_time_p50:    "metricSelector=builtin:service.response.time:merge(0):percentile(50)&entitySelector=tag($SERVICE),type(SERVICE)"
-    response_time_p90:    "metricSelector=builtin:service.response.time:merge(0):percentile(90)&entitySelector=tag($SERVICE),type(SERVICE)"
-    response_time_p95:    "metricSelector=builtin:service.response.time:merge(0):percentile(95)&entitySelector=tag($SERVICE),type(SERVICE)"
+  bounce_rate: "metricSelector=builtin:apps.web.bouncedSessionRatio:merge(2):merge(1):value:names;entitySelector=type(APPLICATION),mzId(3454183460044244211)"
+  camp_adoption: "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign='spring_sale'"
+  camp_bounces: "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign='spring_sale' and bounce = true"
+  camp_conv: "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign='spring_sale' and useraction.name like '*validate-creditcard*'"
+  ua_vc_Loading_of_page__blog_: "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /blog/));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)"
+  ua_vc_Loading_of_page__easytravel_home: "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /easytravel/home));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)"
+  ua_vc_Loading_of_page__easytravel_search: "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /easytravel/search));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)"
+  ua_vc_Loading_of_page__easytravel_signup: "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /easytravel/signup));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)"
+  vis_complete: "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg:names;entitySelector=type(APPLICATION),mzId(3454183460044244211)"

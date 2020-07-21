@@ -1,9 +1,13 @@
 package dynatrace
 
 import (
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
+
+	_ "github.com/keptn/go-utils/pkg/lib"
+	keptn "github.com/keptn/go-utils/pkg/lib"
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
 )
@@ -81,7 +85,7 @@ func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
 func TestTimestampToString(t *testing.T) {
 	dt := time.Now()
 
-	got := timestampToString(dt)
+	got := common.TimestampToString(dt)
 
 	expected := strconv.FormatInt(dt.Unix()*1000, 10)
 
@@ -92,7 +96,7 @@ func TestTimestampToString(t *testing.T) {
 
 // tests the parseUnixTimestamp with invalid params
 func TestParseInvalidUnixTimestamp(t *testing.T) {
-	_, err := parseUnixTimestamp("")
+	_, err := common.ParseUnixTimestamp("")
 
 	if err == nil {
 		t.Errorf("parseUnixTimestamp(\"\") did not return an error")
@@ -101,7 +105,7 @@ func TestParseInvalidUnixTimestamp(t *testing.T) {
 
 // tests the parseUnixTimestamp with valid params
 func TestParseValidUnixTimestamp(t *testing.T) {
-	got, err := parseUnixTimestamp("2019-10-24T15:44:27.152330783Z")
+	got, err := common.ParseUnixTimestamp("2019-10-24T15:44:27.152330783Z")
 
 	if err != nil {
 		t.Errorf("parseUnixTimestamp(\"2019-10-24T15:44:27.152330783Z\") returned error %s", err.Error())
@@ -125,5 +129,52 @@ func TestParseValidUnixTimestamp(t *testing.T) {
 
 	if got.Minute() != 44 {
 		t.Errorf("parseUnixTimestamp() returned minute %d, expected 44", got.Minute())
+	}
+}
+
+func TestParsePassAndWarningFromString(t *testing.T) {
+	type args struct {
+		customName string
+	}
+	tests := []struct {
+		name  string
+		args  args
+		want  string
+		want1 []*keptn.SLOCriteria
+		want2 []*keptn.SLOCriteria
+		want3 int
+		want4 bool
+	}{
+		{
+			name: "simple test",
+			args: args{
+				customName: "Some description;sli=teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%;weight=1;key=true",
+			},
+			want:  "teststep_rt",
+			want1: []*keptn.SLOCriteria{&keptn.SLOCriteria{Criteria: []string{"<500ms", "<+10%"}}},
+			want2: []*keptn.SLOCriteria{&keptn.SLOCriteria{Criteria: []string{"<1000ms", "<+20%"}}},
+			want3: 1,
+			want4: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, got2, got3, got4 := ParsePassAndWarningFromString(tt.args.customName, []string{}, []string{})
+			if got != tt.want {
+				t.Errorf("ParsePassAndWarningFromString() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("ParsePassAndWarningFromString() got1 = %v, want %v", got1, tt.want1)
+			}
+			if !reflect.DeepEqual(got2, tt.want2) {
+				t.Errorf("ParsePassAndWarningFromString() got2 = %v, want %v", got2, tt.want2)
+			}
+			if !reflect.DeepEqual(got3, tt.want3) {
+				t.Errorf("ParsePassAndWarningFromString() got2 = %v, want %v", got3, tt.want3)
+			}
+			if !reflect.DeepEqual(got4, tt.want4) {
+				t.Errorf("ParsePassAndWarningFromString() got2 = %v, want %v", got4, tt.want4)
+			}
+		})
 	}
 }

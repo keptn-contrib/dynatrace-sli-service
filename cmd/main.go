@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -23,10 +24,11 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
-	keptnevents "github.com/keptn/go-utils/pkg/events"
-	keptnutils "github.com/keptn/go-utils/pkg/utils"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	keptn "github.com/keptn/go-utils/pkg/lib"
+	// configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
+	// keptnevents "github.com/keptn/go-utils/pkg/events"
+	// keptnutils "github.com/keptn/go-utils/pkg/utils"
+	// v1 "k8s.io/client-go/kubernetes/typed/core/// "
 )
 
 const eventbroker = "EVENTBROKER"
@@ -74,39 +76,172 @@ func _main(args []string, env envConfig) int {
 	return 0
 }
 
+/**
+ * Handles Events
+ */
 func gotEvent(ctx context.Context, event cloudevents.Event) error {
 
 	switch event.Type() {
-	case keptnevents.InternalGetSLIEventType:
+	case keptn.InternalGetSLIEventType:
 		return retrieveMetrics(event)
 	default:
 		return errors.New("received unknown event type")
 	}
 }
 
+/**
+ * AG-27052020: When using keptn send event start-evaluation and clocks are not 100% in sync, e.g: workstation is 1-2 seconds off
+ *              we might run into the issue that we detect the endtime to be in the future. I ran into this problem after my laptop ran out of sync for about 1.5s
+ *              to circumvent this issue I am changing the check to also allow a time difference of up to 2 minutes (120 seconds). This shouldnt be a problem as our SLI Service retries the DYnatrace API anyway
+ * Here is the issue: https://github.com/keptn-contrib/dynatrace-sli-service/issues/55
+ */
+func ensureRightTimestamps(start string, end string) (time.Time, time.Time, error) {
+
+	startUnix, err := common.ParseUnixTimestamp(start)
+	if err != nil {
+		return time.Now(), time.Now(), errors.New("Error parsing start date: " + err.Error())
+	}
+	endUnix, err := common.ParseUnixTimestamp(end)
+	if err != nil {
+		return startUnix, time.Now(), errors.New("Error parsing end date: " + err.Error())
+	}
+
+	// ensure end time is not in the future
+	now := time.Now()
+	timeDiffInSeconds := now.Sub(endUnix).Seconds()
+	if timeDiffInSeconds < -120 { // used to be 0
+		fmt.Printf("ERROR: Supplied end-time %v is too far (>120seconds) in the future (now: %v - diff in sec: %v)\n", endUnix, now, timeDiffInSeconds)
+		return startUnix, endUnix, errors.New("end time must not be in the future")
+	}
+
+	// ensure start time is before end time
+	timeframeInSeconds := endUnix.Sub(startUnix).Seconds()
+	if timeframeInSeconds < 0 {
+		fmt.Printf("ERROR: Start time needs to be before end time\n")
+		return startUnix, endUnix, errors.New("start time needs to be before end time")
+	}
+
+	// AG-2020-07-16: Wait so Dynatrace has enough data but dont wait every time to shorten processing time
+	// if we have a very short evaluation window and the end timestampe is now then we need to give Dynatrace some time to make sure we have relevant data
+	// if the evalutaion timeframe is > 2 minutes we dont wait and just live with the fact that we may miss one minute or two at the end
+
+	waitForSeconds := 120.0        // by default lets make sure we are at least 120 seconds away from "now()"
+	if timeframeInSeconds >= 300 { // if our evaluated timeframe however is larger than 5 minutes its ok to continue right away. 5 minutes is the default timeframe for most evaluations
+		waitForSeconds = 0.0
+	} else if timeframeInSeconds >= 120 { // if the evaluation span is between 2 and 5 minutes make sure we at least have the last minute of data
+		waitForSeconds = 60.0
+	}
+
+	// log outpout if we are waiting
+	if time.Now().Sub(endUnix).Seconds() < waitForSeconds {
+		fmt.Printf("As the end date is too close to Now() we are going to wait to make sure we have all the data for the requested timeframe(start-end)\n")
+	}
+
+	// make sure the end timestamp is at least waitForSeconds seconds in the past such that dynatrace metrics API has processed data
+	for time.Now().Sub(endUnix).Seconds() < waitForSeconds {
+		// ToDo: this should be done in main.go
+		fmt.Printf("Sleeping for %d seconds... (waiting for Dynatrace Metrics API)\n", int(waitForSeconds-time.Now().Sub(endUnix).Seconds()))
+		time.Sleep(10 * time.Second)
+	}
+
+	return startUnix, endUnix, nil
+}
+
+/**
+ * Tries to find a dynatrace dashboard that matches our project. If so - returns the SLI, SLO and SLIResults
+ */
+func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, []*keptn.SLIResult, error) {
+	//
+	// Option 1: We query the data from a dashboard instead of the uploaded SLI.yaml
+	// ==============================================================================
+	// Lets see if we have a Dashboard in Dynatrace that we should parse
+	logger.Info("Query Dynatrace Dashboards to see if there is an SLI dashboard available")
+	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, dashboardConfig, startUnix, endUnix, customFilters, logger)
+	if err != nil {
+		return dashboardLinkAsLabel, sliResults, err
+	}
+
+	// lets store the dashboard as well
+	if dashboardJSON != nil {
+		logger.Info("Dynatrace Dashboard")
+		jsonAsByteArray, _ := json.MarshalIndent(dashboardJSON, "", "  ")
+
+		err := common.UploadKeptnResource(jsonAsByteArray, "dynatrace/dashboard.json", keptnEvent, logger)
+		if err != nil {
+			return dashboardLinkAsLabel, sliResults, err
+		}
+	}
+
+	// lets write the SLI to the config repo
+	if dashboardSLI != nil {
+		logger.Info("Generated SLI.yaml from Dynatrace Dashboard")
+		yamlAsByteArray, _ := yaml.Marshal(dashboardSLI)
+
+		err := common.UploadKeptnResource(yamlAsByteArray, "dynatrace/sli.yaml", keptnEvent, logger)
+		if err != nil {
+			return dashboardLinkAsLabel, sliResults, err
+		}
+	}
+
+	// lets write the SLO to the config repo
+	if dashboardSLO != nil {
+		logger.Info("Generated SLO.yaml from Dynatrace Dashboard")
+		yamlAsByteArray, _ := yaml.Marshal(dashboardSLO)
+
+		err := common.UploadKeptnResource(yamlAsByteArray, "slo.yaml", keptnEvent, logger)
+		if err != nil {
+			return dashboardLinkAsLabel, sliResults, err
+
+		}
+	}
+
+	// lets also write the result to a local file in local test mode
+	if sliResults != nil {
+		if common.RunLocal || common.RunLocalTest {
+			logger.Info("(RunLocal Output) Write SLIResult to sliresult.json")
+			jsonAsByteArray, _ := json.MarshalIndent(sliResults, "", "  ")
+
+			common.UploadKeptnResource(jsonAsByteArray, "sliresult.json", keptnEvent, logger)
+		}
+	}
+
+	return dashboardLinkAsLabel, sliResults, nil
+}
+
+/**
+ * Handles keptn.InternalGetSLIEventType
+ *
+ * First tries to find a Dynatrace dashboard and then parses it for SLIs and SLOs
+ * Second will go to parse the SLI.yaml and returns the SLI as passed in by the event
+ */
 func retrieveMetrics(event cloudevents.Event) error {
 	var shkeptncontext string
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
-	eventData := &keptnevents.InternalGetSLIEventData{}
+	eventData := &keptn.InternalGetSLIEventData{}
 	err := event.DataAs(eventData)
-
 	if err != nil {
 		return err
 	}
 
+	//
+	// Lets get a new Keptn Handler
+	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{
+		ConfigurationServiceURL: os.Getenv(configservice),
+	})
+	if err != nil {
+		return err
+	}
+
+	//
 	// do not continue if SLIProvider is not dynatrace
 	if eventData.SLIProvider != "dynatrace" {
 		return nil
 	}
 
-	stdLogger := keptnutils.NewLogger(shkeptncontext, event.Context.GetID(), "dynatrace-sli-service")
+	//
+	// Lets get a Logger
+	stdLogger := keptn.NewLogger(shkeptncontext, event.Context.GetID(), "dynatrace-sli-service")
 	stdLogger.Info("Retrieving Dynatrace timeseries metrics")
-
-	kubeClient, err := keptnutils.GetKubeAPI(true)
-	if err != nil && !(common.RunLocal || common.RunLocalTest) {
-		stdLogger.Error("could not create Kubernetes client")
-		return errors.New("could not create Kubernetes client")
-	}
 
 	//
 	// see if there is a dynatrace.conf.yaml
@@ -123,25 +258,25 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if dynatraceConfigFile != nil {
 		dtCreds = dynatraceConfigFile.DtCreds
 		stdLogger.Debug("Found dynatrace.conf.yaml with DTCreds: " + dtCreds)
+	} else {
+		dynatraceConfigFile = &common.DynatraceConfigFile{}
+		dynatraceConfigFile.Dashboard = ""
+		dynatraceConfigFile.DtCreds = "dynatrace"
 	}
-	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, kubeClient, stdLogger)
+	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
 
 	if err != nil {
 		stdLogger.Debug(err.Error())
 		stdLogger.Debug("Failed to fetch Dynatrace credentials, exiting.")
-		return err
+		// Implementing: https://github.com/keptn-contrib/dynatrace-sli-service/issues/49
+		return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
+			nil, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
+			eventData.Deployment, eventData.Labels, eventData.Indicators, err)
 	}
 
-	stdLogger.Info("Dynatrace credentials (Tenant, Token) received. Getting global custom queries ...")
-
-	// get custom metrics for project
-	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, kubeClient, stdLogger)
-	if err != nil {
-		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
-		stdLogger.Error(err.Error())
-		return err
-	}
-
+	//
+	// creating Dynatrace Handler which allows us to call the Dynatrace API
+	stdLogger.Info("Dynatrace credentials (Tenant, Token) received")
 	dynatraceHandler := dynatrace.NewDynatraceHandler(dtCredentials.Tenant,
 		keptnEvent,
 		map[string]string{
@@ -150,76 +285,124 @@ func retrieveMetrics(event cloudevents.Event) error {
 		eventData.CustomFilters,
 	)
 
-	if projectCustomQueries != nil {
-		dynatraceHandler.CustomQueries = projectCustomQueries
-	}
-
+	//
+	// parse start and end (which are datetime strings) and convert them into unix timestamps
+	startUnix, endUnix, err := ensureRightTimestamps(eventData.Start, eventData.End)
 	if err != nil {
-		return err
+		return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
+			nil, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
+			eventData.Deployment, eventData.Labels, eventData.Indicators, err)
 	}
 
-	if dynatraceHandler == nil {
-		stdLogger.Error("failed to get Dynatrace handler")
-		return nil
-	}
+	//
+	// THIS IS OUR RETURN OBJECT: sliResult
+	// Whether option 1 or option 2 - this will hold our SLIResults
+	var sliResults []*keptn.SLIResult
 
-	// create a new CloudEvent to store SLI Results in
-	var sliResults []*keptnevents.SLIResult
+	//
+	// Option 1 - see if we can get the data from a Dnatrace Dashboard
+	dashboardLinkAsLabel, sliResults, err := getDataFromDynatraceDashboard(dynatraceHandler, keptnEvent, startUnix, endUnix, dynatraceConfigFile.Dashboard, eventData.CustomFilters, stdLogger)
 
-	// query all indicators
-	for _, indicator := range eventData.Indicators {
-		stdLogger.Info("Fetching indicator: " + indicator)
-		sliValue, err := dynatraceHandler.GetSLIValue(indicator, eventData.Start, eventData.End, eventData.CustomFilters)
+	// IF we received data from processing the dashboard send it back - we are done here :-)
+	if sliResults != nil {
+		// add link to dynatrace dashboard to labels
+		if dashboardLinkAsLabel != "" {
+			if eventData.Labels == nil {
+				eventData.Labels = make(map[string]string)
+			}
+			eventData.Labels["Dashboard Link"] = dashboardLinkAsLabel
+		}
+
+		/* stdLogger.Info("Captured SLIResults from Dynatrace Dashboard")
+		jsonAsString, _ := json.Marshal(sliResults)
+		stdLogger.Info(string(jsonAsString)) */
+	} else {
+		//
+		// Option 2: We query the SLIs based on the definitions stored in SLI.yaml
+		// ========================================================================0
+		// get custom metrics for project
+		stdLogger.Info("Load indicators from SLI.yaml")
+		projectCustomQueries, err := getCustomQueries(keptnEvent, keptnHandler, stdLogger)
 		if err != nil {
+			stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
 			stdLogger.Error(err.Error())
-			// failed to fetch metric
-			sliResults = append(sliResults, &keptnevents.SLIResult{
-				Metric:  indicator,
-				Value:   0,
-				Success: false, // Mark as failure
-				Message: err.Error(),
-			})
-		} else {
-			// successfully fetched metric
-			sliResults = append(sliResults, &keptnevents.SLIResult{
-				Metric:  indicator,
-				Value:   sliValue,
-				Success: true, // mark as success
-			})
+			return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
+				nil, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
+				eventData.Deployment, eventData.Labels, eventData.Indicators, err)
 		}
+
+		// set our list of queries on the handler
+		if projectCustomQueries != nil {
+			dynatraceHandler.CustomQueries = projectCustomQueries
+		}
+
+		// query all indicators
+		for _, indicator := range eventData.Indicators {
+			stdLogger.Info("Fetching indicator: " + indicator)
+			sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix, eventData.CustomFilters)
+			if err != nil {
+				stdLogger.Error(err.Error())
+				// failed to fetch metric
+				sliResults = append(sliResults, &keptn.SLIResult{
+					Metric:  indicator,
+					Value:   0,
+					Success: false, // Mark as failure
+					Message: err.Error(),
+				})
+			} else {
+				// successfully fetched metric
+				sliResults = append(sliResults, &keptn.SLIResult{
+					Metric:  indicator,
+					Value:   sliValue,
+					Success: true, // mark as success
+				})
+			}
+		}
+
+		log.Println("Finished fetching metrics; Sending event now ...")
+
+		if common.RunLocal || common.RunLocalTest {
+			log.Println("(RunLocal Output) Here are the results:")
+			for _, v := range sliResults {
+				log.Println(fmt.Sprintf("%s:%.2f - Success: %t - Error: %s", v.Metric, v.Value, v.Success, v.Message))
+			}
+			return nil
+		}
+
 	}
 
-	log.Println("Finished fetching metrics; Sending event now ...")
-
-	if common.RunLocal || common.RunLocalTest {
-		log.Println("(RunLocal Output) Here are the results:")
-		for _, v := range sliResults {
-			log.Println(fmt.Sprintf("%s:%.2f - Success: %t - Error: %s", v.Metric, v.Value, v.Success, v.Message))
-		}
-		return nil
+	// now - lets see if we have captured any result values - if not - return send an error
+	err = nil
+	if sliResults == nil {
+		err = errors.New("Couldnt retrieve any SLI Results")
 	}
 
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
-		eventData.Deployment, eventData.Labels)
+		eventData.Deployment, eventData.Labels, eventData.Indicators, err)
 }
 
 /**
  * Loads SLIs from a local file and adds it to the SLI map
  */
-func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, logger *keptnutils.Logger) (map[string]string, error) {
-	localFileContent, err := ioutil.ReadFile(sliFilePath)
-	if err != nil {
-		logMessage := fmt.Sprintf("Couldn't load file content from %s", sliFilePath)
-		logger.Info(logMessage)
-		return nil, nil
-	}
-	logger.Info("Loaded LOCAL file " + sliFilePath)
-	fileContent := string(localFileContent)
+func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliFileContent string, logger *keptn.Logger) (map[string]string, error) {
 
-	if fileContent != "" {
-		sliConfig := configutils.SLIConfig{}
-		err := yaml.Unmarshal([]byte(fileContent), &sliConfig)
+	if sliFilePath != "" {
+		localFileContent, err := ioutil.ReadFile(sliFilePath)
+		if err != nil {
+			logMessage := fmt.Sprintf("Couldn't load file content from %s", sliFilePath)
+			logger.Info(logMessage)
+			return nil, nil
+		}
+		logger.Info("Loaded LOCAL file " + sliFilePath)
+		sliFileContent = string(localFileContent)
+	} else {
+		// we just take what was passed in the sliFileContent
+	}
+
+	if sliFileContent != "" {
+		sliConfig := keptn.SLIConfig{}
+		err := yaml.Unmarshal([]byte(sliFileContent), &sliConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -232,34 +415,37 @@ func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, logg
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
-func getCustomQueries(project string, stage string, service string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
-	logger.Info("Checking for custom SLI queries")
+func getCustomQueries(keptnEvent *common.BaseKeptnEvent, keptnHandler *keptn.Keptn, logger *keptn.Logger) (map[string]string, error) {
+	logger.Info(fmt.Sprintf("Checking for custom SLI queries for project=%s,stage=%s,service=%s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
 
+	var sliMap = map[string]string{}
 	if common.RunLocal || common.RunLocalTest {
-		var sliMap = map[string]string{}
-		sliMap, _ = addResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", logger)
+		sliMap, _ = addResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "", logger)
 		return sliMap, nil
 	}
 
-	endPoint, err := getServiceEndpoint(configservice)
-	if err != nil {
-		return nil, errors.New("Failed to retrieve endpoint of configuration-service. %s" + err.Error())
-	}
-
-	resourceHandler := configutils.NewResourceHandler(endPoint.String())
-	customQueries, err := resourceHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
+	sliContent, err := common.GetKeptnResource(keptnEvent, sliResourceURI, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	return customQueries, nil
+	sliMap, _ = addResourceContentToSLIMap(sliMap, "", sliContent, logger)
+	return sliMap, nil
+
+	// AG-2020-07-17 - after migrating to the new GoUtil SDK this function did no longer return the SLI Configuration - always returned "resource not found"
+	/* customQueries, err := keptnHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
+	if err != nil {
+		return nil, err
+	}
+
+	return customQueries, nil*/
 }
 
 /**
  * returns the DTCredentials
  * First looks at the passed secretName. If null validates if there is a dynatrace-credentials-%PROJECT% - if not - defaults to "dynatrace" global secret
  */
-func getDynatraceCredentials(secretName string, project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (*common.DTCredentials, error) {
+func getDynatraceCredentials(secretName string, project string, logger *keptn.Logger) (*common.DTCredentials, error) {
 
 	secretNames := []string{secretName, fmt.Sprintf("dynatrace-credentials-%s", project), "dynatrace-credentials", "dynatrace"}
 
@@ -273,7 +459,9 @@ func getDynatraceCredentials(secretName string, project string, kubeClient v1.Co
 		}
 
 		if dtCredentials != nil {
-			logger.Info(" -> credentials found, returning...")
+			// lets validate if the tenant URL is
+
+			logger.Info(fmt.Sprintf(" -> credentials found, returning (%s) ...", dtCredentials.Tenant))
 			return dtCredentials, nil
 		}
 	}
@@ -283,14 +471,42 @@ func getDynatraceCredentials(secretName string, project string, kubeClient v1.Co
 	return nil, errors.New("Couldn't find any dynatrace specific secrets in namespace keptn")
 }
 
+/**
+ * Sends the SLI Done Event. If err != nil it will send an error message
+ */
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
-	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string,
-	teststrategy string, deploymentStrategy string, deployment string, labels map[string]string) error {
+	service string, stage string, indicatorValues []*keptn.SLIResult, start string, end string,
+	teststrategy string, deploymentStrategy string, deployment string, labels map[string]string, indicators []string, err error) error {
 
 	source, _ := url.Parse("dynatrace-sli-service")
 	contentType := "application/json"
 
-	getSLIEvent := keptnevents.InternalGetSLIDoneEventData{
+	// if an error was set - the indicators will be set to failed and error message is set to each
+	if err != nil {
+		errMessage := err.Error()
+
+		if (indicatorValues == nil) || (len(indicatorValues) == 0) {
+			if indicators == nil || len(indicators) == 0 {
+				indicators = []string{"no metric"}
+			}
+
+			for _, indicatorName := range indicators {
+				indicatorValues = []*keptn.SLIResult{
+					{
+						Metric: indicatorName,
+						Value:  0.0,
+					},
+				}
+			}
+		}
+
+		for _, indicator := range indicatorValues {
+			indicator.Success = false
+			indicator.Message = errMessage
+		}
+	}
+
+	getSLIEvent := keptn.InternalGetSLIDoneEventData{
 		Project:            project,
 		Service:            service,
 		Stage:              stage,
@@ -306,7 +522,7 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		Context: cloudevents.EventContextV02{
 			ID:          uuid.New().String(),
 			Time:        &types.Timestamp{Time: time.Now()},
-			Type:        keptnevents.InternalGetSLIDoneEventType,
+			Type:        keptn.InternalGetSLIDoneEventType,
 			Source:      types.URLRef{URL: *source},
 			ContentType: &contentType,
 			Extensions:  map[string]interface{}{"shkeptncontext": shkeptncontext},
@@ -318,44 +534,13 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 }
 
 func sendEvent(event cloudevents.Event) error {
-	endPoint, err := getServiceEndpoint(eventbroker)
+
+	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{})
 	if err != nil {
-		return errors.New("Failed to retrieve endpoint of eventbroker. %s" + err.Error())
+		return err
 	}
 
-	if endPoint.Host == "" {
-		return errors.New("Host of eventbroker not set")
-	}
+	_ = keptnHandler.SendCloudEvent(event)
 
-	transport, err := cloudeventshttp.New(
-		cloudeventshttp.WithTarget(endPoint.String()),
-		cloudeventshttp.WithEncoding(cloudeventshttp.StructuredV02),
-	)
-	if err != nil {
-		return errors.New("Failed to create transport:" + err.Error())
-	}
-
-	c, err := client.New(transport)
-	if err != nil {
-		return errors.New("Failed to create HTTP client:" + err.Error())
-	}
-
-	if _, err := c.Send(context.Background(), event); err != nil {
-		return errors.New("Failed to send cloudevent:, " + err.Error())
-	}
 	return nil
-}
-
-// getServiceEndpoint gets an endpoint stored in an environment variable and sets http as default scheme
-func getServiceEndpoint(service string) (url.URL, error) {
-	url, err := url.Parse(os.Getenv(service))
-	if err != nil {
-		return *url, fmt.Errorf("Failed to retrieve value from ENVIRONMENT_VARIABLE: %s", service)
-	}
-
-	if url.Scheme == "" {
-		url.Scheme = "http"
-	}
-
-	return *url, nil
 }

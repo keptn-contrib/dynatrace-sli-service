@@ -1,0 +1,80 @@
+spec_version: ""
+filter: {}
+comparison:
+  compare_with: single_result
+  include_result_with_score: pass
+  number_of_comparison_results: 1
+  aggregate_function: avg
+objectives:
+- sli: ua_vc_Loading_of_page__easytravel_home
+  pass:
+  - criteria:
+    - <2000
+  warning:
+  - criteria:
+    - <3000
+  weight: 1
+  key_sli: false
+- sli: ua_vc_Loading_of_page__easytravel_signup
+  pass:
+  - criteria:
+    - <2000
+  warning:
+  - criteria:
+    - <3000
+  weight: 1
+  key_sli: false
+- sli: ua_vc_Loading_of_page__easytravel_search
+  pass:
+  - criteria:
+    - <2000
+  warning:
+  - criteria:
+    - <3000
+  weight: 1
+  key_sli: false
+- sli: ua_vc_Loading_of_page__blog_
+  pass:
+  - criteria:
+    - <2000
+  warning:
+  - criteria:
+    - <3000
+  weight: 1
+  key_sli: false
+- sli: bounce_rate
+  pass:
+  - criteria:
+    - <25
+  warning: []
+  weight: 1
+  key_sli: false
+- sli: camp_conv
+  pass: []
+  warning: []
+  weight: 1
+  key_sli: false
+- sli: vis_complete
+  pass:
+  - criteria:
+    - <4000
+  warning:
+  - criteria:
+    - <6000
+  weight: 1
+  key_sli: true
+- sli: camp_bounces
+  pass: []
+  warning: []
+  weight: 1
+  key_sli: false
+- sli: camp_adoption
+  pass:
+  - criteria:
+    - '>+10%'
+  warning: []
+  weight: 1
+  key_sli: false
+total_score:
+  pass: 90%
+  warning: 75%

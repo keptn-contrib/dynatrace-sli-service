@@ -6,16 +6,18 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"gopkg.in/yaml.v2"
 
-	configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
-
-	keptnutils "github.com/keptn/go-utils/pkg/utils"
+	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
+	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
+	keptn "github.com/keptn/go-utils/pkg/lib"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,6 +33,7 @@ const DynatraceConfigFilenameLOCAL = "dynatrace/_dynatrace.conf.yaml"
 type DynatraceConfigFile struct {
 	SpecVersion string `json:"spec_version" yaml:"spec_version"`
 	DtCreds     string `json:"dtCreds",omitempty yaml:"dtCreds",omitempty`
+	Dashboard   string `json:"dashboard",omitempty yaml:"dashboard",omitempty`
 }
 
 type DTCredentials struct {
@@ -135,41 +138,41 @@ func GetConfigurationServiceURL() string {
 }
 
 //
-// Loads dynatrace.conf for the current service
+// Downloads a resource from the Keptn Configuration Repo
 //
-func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptnutils.Logger) (*DynatraceConfigFile, error) {
+func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *keptn.Logger) (string, error) {
 
-	logger.Info("Loading dynatrace.conf.yaml")
+	logger.Info("Loading " + resourceURI)
 	// if we run in a runlocal mode we are just getting the file from the local disk
 	var fileContent string
 	if RunLocal {
-		localFileContent, err := ioutil.ReadFile(DynatraceConfigFilenameLOCAL)
+		localFileContent, err := ioutil.ReadFile(resourceURI)
 		if err != nil {
-			logMessage := fmt.Sprintf("No %s file found LOCALLY for service %s in stage %s in project %s", DynatraceConfigFilenameLOCAL, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project)
+			logMessage := fmt.Sprintf("No %s file found LOCALLY for service %s in stage %s in project %s", resourceURI, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project)
 			logger.Info(logMessage)
-			return nil, nil
+			return "", nil
 		}
-		logger.Info("Loaded LOCAL file " + DynatraceConfigFilenameLOCAL)
+		logger.Info("Loaded LOCAL file " + resourceURI)
 		fileContent = string(localFileContent)
 	} else {
-		resourceHandler := configutils.NewResourceHandler(GetConfigurationServiceURL())
+		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
 
 		// Lets search on SERVICE-LEVEL
-		keptnResourceContent, err := resourceHandler.GetServiceResource(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, DynatraceConfigFilename)
+		keptnResourceContent, err := resourceHandler.GetServiceResource(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI)
 		if err != nil || keptnResourceContent == nil || keptnResourceContent.ResourceContent == "" {
 			// Lets search on STAGE-LEVEL
-			keptnResourceContent, err = resourceHandler.GetStageResource(keptnEvent.Project, keptnEvent.Stage, DynatraceConfigFilename)
+			keptnResourceContent, err = resourceHandler.GetStageResource(keptnEvent.Project, keptnEvent.Stage, resourceURI)
 			if err != nil || keptnResourceContent == nil || keptnResourceContent.ResourceContent == "" {
 				// Lets search on PROJECT-LEVEL
-				keptnResourceContent, err = resourceHandler.GetProjectResource(keptnEvent.Project, DynatraceConfigFilename)
+				keptnResourceContent, err = resourceHandler.GetProjectResource(keptnEvent.Project, resourceURI)
 				if err != nil || keptnResourceContent == nil || keptnResourceContent.ResourceContent == "" {
-					logger.Debug(fmt.Sprintf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, DynatraceConfigFilename, err))
-					return nil, err
+					logger.Debug(fmt.Sprintf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI, err))
+					return "", err
 				}
 
-				logger.Debug("Found " + DynatraceConfigFilename + " on project level")
+				logger.Debug("Found " + resourceURI + " on project level")
 			} else {
-				logger.Debug("Found " + DynatraceConfigFilename + " on stage level")
+				logger.Debug("Found " + resourceURI + " on stage level")
 			}
 		} else {
 			logger.Debug("Found " + DynatraceConfigFilename + " on service level")
@@ -177,8 +180,20 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptnutils.Logger) (
 		fileContent = keptnResourceContent.ResourceContent
 	}
 
+	return fileContent, nil
+}
+
+// GetDynatraceConfig loads dynatrace.conf for the current service
+func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*DynatraceConfigFile, error) {
+
+	dynatraceConfFileContent, err := GetKeptnResource(keptnEvent, DynatraceConfigFilename, logger)
+
+	if err != nil {
+		return nil, err
+	}
+
 	// unmarshal the file
-	dynatraceConfFile, err := parseDynatraceConfigFile([]byte(fileContent))
+	dynatraceConfFile, err := parseDynatraceConfigFile([]byte(dynatraceConfFileContent))
 
 	if err != nil {
 		logMessage := fmt.Sprintf("Couldn't parse %s file found for service %s in stage %s in project %s. Error: %s", DynatraceConfigFilename, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project, err.Error())
@@ -192,6 +207,37 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptnutils.Logger) (
 	return dynatraceConfFile, nil
 }
 
+// UploadKeptnResource uploads a file to the Keptn Configuration Service
+func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent, logger *keptn.Logger) error {
+
+	logger.Info("Uploading remote file")
+	// if we run in a runlocal mode we are just getting the file from the local disk
+	if RunLocal || RunLocalTest {
+		err := ioutil.WriteFile(remoteResourceURI, contentToUpload, 0644)
+		if err != nil {
+			logMessage := fmt.Sprintf("Couldnt write local file %s", remoteResourceURI)
+			logger.Info(logMessage)
+			return err
+		}
+		logger.Info("Local file written " + remoteResourceURI)
+	} else {
+		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
+
+		// lets upload it
+		resources := []*keptnmodels.Resource{{ResourceContent: string(contentToUpload), ResourceURI: &remoteResourceURI}}
+		_, err := resourceHandler.CreateResources(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resources)
+		if err != nil {
+			logMessage := fmt.Sprintf("Couldnt upload remote resource %s: %s", remoteResourceURI, *err.Message)
+			logger.Error(logMessage)
+		}
+	}
+
+	return nil
+}
+
+/**
+ * parses the dynatrace.conf.yaml file that is passed as parameter
+ */
 func parseDynatraceConfigFile(input []byte) (*DynatraceConfigFile, error) {
 	dynatraceConfFile := &DynatraceConfigFile{}
 	err := yaml.Unmarshal([]byte(input), &dynatraceConfFile)
@@ -227,11 +273,11 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 			return nil, err
 		}
 
-        	// grabnerandi: remove check on DT_PAAS_TOKEN as it is not relevant for quality-gate-only use case
+		// grabnerandi: remove check on DT_PAAS_TOKEN as it is not relevant for quality-gate-only use case
 		if string(secret.Data["DT_TENANT"]) == "" || string(secret.Data["DT_API_TOKEN"]) == "" { //|| string(secret.Data["DT_PAAS_TOKEN"]) == "" {
 			return nil, errors.New("invalid or no Dynatrace credentials found. Need DT_TENANT & DT_API_TOKEN stored in secret!")
 		}
-		
+
 		dtCreds.Tenant = string(secret.Data["DT_TENANT"])
 		dtCreds.ApiToken = string(secret.Data["DT_API_TOKEN"])
 	}
@@ -244,4 +290,24 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 	}
 
 	return dtCreds, nil
+}
+
+// ParseUnixTimestamp parses a time stamp into Unix foramt
+func ParseUnixTimestamp(timestamp string) (time.Time, error) {
+	parsedTime, err := time.Parse(time.RFC3339, timestamp)
+	if err == nil {
+		return parsedTime, nil
+	}
+
+	timestampInt, err := strconv.ParseInt(timestamp, 10, 64)
+	if err != nil {
+		return time.Now(), err
+	}
+	unix := time.Unix(timestampInt, 0)
+	return unix, nil
+}
+
+// TimestampToString converts time stamp into string
+func TimestampToString(time time.Time) string {
+	return strconv.FormatInt(time.Unix()*1000, 10)
 }

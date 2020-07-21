@@ -1,0 +1,488 @@
+{
+    "metadata": {
+        "configurationVersions": [3],
+        "clusterVersion": "1.196.71.20200702-184254"
+    },
+    "id": "359160e8-cab6-46b1-a843-07d8451ee75d",
+    "dashboardMetadata": {
+        "name": "KQG;project=demolive;service=perfclinic;stage=qualitygate",
+        "shared": true,
+        "owner": "andreas.grabner@dynatrace.com",
+        "sharingDetails": {
+            "linkShared": true,
+            "published": false
+        },
+        "dashboardFilter": {
+            "timeframe": "Today",
+            "managementZone": {
+                "id": "3454183460044244211",
+                "name": "Angular EasyTravel"
+            }
+        },
+        "tags": ["SLI", "BizDevOps", "PerfClinic"]
+    },
+    "tiles": [{
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 0,
+            "left": 0,
+            "width": 1634,
+            "height": 38
+        },
+        "tileFilter": {},
+        "markdown": "KQG.Total.Pass=90%;KQG.Total.Warning=75%;KQG.Compare.WithScore=pass;KQG.Compare.Results=1;KQG.Compare.Function=avg"
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 76,
+            "left": 0,
+            "width": 532,
+            "height": 38
+        },
+        "tileFilter": {},
+        "markdown": "###Arrivals__________________________________________________________________________________________________________________________________________"
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 38,
+            "left": 0,
+            "width": 1102,
+            "height": 38
+        },
+        "tileFilter": {},
+        "markdown": "## Key Campaign Statistics_________________________________________________________________________________________________________________________"
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 456,
+            "left": 0,
+            "width": 1102,
+            "height": 38
+        },
+        "tileFilter": {},
+        "markdown": "## Landing Page Health____________________________________________________________________________________________________________________________________________________________________________________________________"
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 76,
+            "left": 836,
+            "width": 266,
+            "height": 38
+        },
+        "tileFilter": {},
+        "markdown": "###Converted_____________________________________________________________________________________________________"
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 76,
+            "left": 532,
+            "width": 304,
+            "height": 38
+        },
+        "tileFilter": {
+            "timeframe": "Last 2 hours"
+        },
+        "markdown": "###Arrivals_____________________________________________________________________________________________________"
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 266,
+            "left": 836,
+            "width": 266,
+            "height": 38
+        },
+        "tileFilter": {
+            "timeframe": "Last 2 hours"
+        },
+        "markdown": "###Bounced____________________________________________________________________________________________________"
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 266,
+            "left": 532,
+            "width": 304,
+            "height": 38
+        },
+        "tileFilter": {},
+        "markdown": "###Medium_____________________________________________________________________________________________________"
+    }, {
+        "name": "User Sessions Query",
+        "tileType": "DTAQL",
+        "configured": true,
+        "bounds": {
+            "top": 304,
+            "left": 532,
+            "width": 304,
+            "height": 152
+        },
+        "tileFilter": {},
+        "customName": "Campaign Medium",
+        "query": "select usersession.stringProperties.web_utm_medium, count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\" group by usersession.stringProperties.web_utm_medium",
+        "type": "PIE_CHART",
+        "limit": 50
+    }, {
+        "name": "Custom chart",
+        "tileType": "CUSTOM_CHARTING",
+        "configured": true,
+        "bounds": {
+            "top": 494,
+            "left": 0,
+            "width": 1102,
+            "height": 304
+        },
+        "tileFilter": {
+            "timeframe": "-14d"
+        },
+        "filterConfig": {
+            "type": "MIXED",
+            "customName": "Desktop Key User Actions - Median Time to Visually Complete (s);sli=ua_vc;pass=<2000;warning=<3000",
+            "defaultName": "Custom chart",
+            "chartConfig": {
+                "legendShown": true,
+                "type": "TOP_LIST",
+                "series": [{
+                    "metric": "builtin:apps.web.action.visuallyComplete.load.browser",
+                    "aggregation": "PERCENTILE",
+                    "percentile": 50,
+                    "type": "LINE",
+                    "entityType": "APPLICATION_METHOD",
+                    "dimensions": [{
+                        "id": "0",
+                        "name": "dt.entity.application_method",
+                        "values": [],
+                        "entityDimension": true
+                    }],
+                    "sortAscending": false,
+                    "sortColumn": true,
+                    "aggregationRate": "TOTAL"
+                }],
+                "resultMetadata": {
+                    "APPLICATION_METHOD-19A1061DCC107070¦APPLICATION_METHOD»APPLICATION_METHOD-19A1061DCC107070»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363794359,
+                        "customColor": "#a972cc"
+                    },
+                    "APPLICATION_METHOD-73A716DC1F171DC0¦APPLICATION_METHOD»APPLICATION_METHOD-73A716DC1F171DC0»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363797646,
+                        "customColor": "#debbf3"
+                    },
+                    "APPLICATION_METHOD-4F354806DE56DE2C¦APPLICATION_METHOD»APPLICATION_METHOD-4F354806DE56DE2C»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363780972,
+                        "customColor": "#a972cc"
+                    },
+                    "APPLICATION_METHOD-81CD2C23C65E3BA6¦APPLICATION_METHOD»APPLICATION_METHOD-81CD2C23C65E3BA6»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363775549,
+                        "customColor": "#debbf3"
+                    },
+                    "APPLICATION_METHOD-C515B8D32C3DEE6B¦APPLICATION_METHOD»APPLICATION_METHOD-C515B8D32C3DEE6B»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363791029,
+                        "customColor": "#debbf3"
+                    },
+                    "APPLICATION_METHOD-6A19210676C6D2BE¦APPLICATION_METHOD»APPLICATION_METHOD-6A19210676C6D2BE»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363771612,
+                        "customColor": "#debbf3"
+                    },
+                    "APPLICATION_METHOD-D42B61F65C2BF8EB¦APPLICATION_METHOD»APPLICATION_METHOD-D42B61F65C2BF8EB»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363799296,
+                        "customColor": "#a972cc"
+                    },
+                    "APPLICATION_METHOD-B858D784A5D045FB¦APPLICATION_METHOD»APPLICATION_METHOD-B858D784A5D045FB»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363802259,
+                        "customColor": "#a972cc"
+                    },
+                    "APPLICATION_METHOD-FE272340AF197C95¦APPLICATION_METHOD»APPLICATION_METHOD-FE272340AF197C95»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363782648,
+                        "customColor": "#a972cc"
+                    },
+                    "APPLICATION_METHOD-932D2881E522E579¦APPLICATION_METHOD»APPLICATION_METHOD-932D2881E522E579»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363787778,
+                        "customColor": "#debbf3"
+                    },
+                    "APPLICATION_METHOD-0CC318C6C7A98B4D¦APPLICATION_METHOD»APPLICATION_METHOD-0CC318C6C7A98B4D»true¦BROWSER»BROWSER-44C8EFE87C847CA6»truebuiltin:apps.web.action.visuallyComplete.load.browser|PERCENTILE|TOTAL|50|LINE|APPLICATION_METHOD": {
+                        "lastModified": 1591363778485,
+                        "customColor": "#debbf3"
+                    }
+                }
+            },
+            "filtersPerEntityType": {}
+        }
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 38,
+            "left": 1102,
+            "width": 532,
+            "height": 38
+        },
+        "tileFilter": {},
+        "markdown": "## Campaign Visitor Experience______________________________________________________________________________________________________________________________________________________________________________________________"
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 76,
+            "left": 1102,
+            "width": 532,
+            "height": 38
+        },
+        "tileFilter": {},
+        "markdown": "###Performance & Bounce Rate__________________________________________________________________________________________"
+    }, {
+        "name": "Custom chart",
+        "tileType": "CUSTOM_CHARTING",
+        "configured": true,
+        "bounds": {
+            "top": 114,
+            "left": 1102,
+            "width": 532,
+            "height": 152
+        },
+        "tileFilter": {},
+        "filterConfig": {
+            "type": "MIXED",
+            "customName": "Bounce rate;sli=bounce_rate;pass=<25",
+            "defaultName": "Custom chart",
+            "chartConfig": {
+                "legendShown": true,
+                "type": "TIMESERIES",
+                "series": [{
+                    "metric": "builtin:apps.web.bouncedSessionRatio",
+                    "aggregation": "NONE",
+                    "type": "LINE",
+                    "entityType": "APPLICATION",
+                    "dimensions": [{
+                        "id": "0",
+                        "name": "dt.entity.application",
+                        "values": [],
+                        "entityDimension": true
+                    }],
+                    "sortAscending": false,
+                    "sortColumn": true,
+                    "aggregationRate": "TOTAL"
+                }],
+                "resultMetadata": {}
+            },
+            "filtersPerEntityType": {}
+        }
+    }, {
+        "name": "Custom chart",
+        "tileType": "CUSTOM_CHARTING",
+        "configured": true,
+        "bounds": {
+            "top": 494,
+            "left": 1102,
+            "width": 532,
+            "height": 304
+        },
+        "tileFilter": {},
+        "filterConfig": {
+            "type": "MIXED",
+            "customName": "Actions per Session & Session Duration",
+            "defaultName": "Custom chart",
+            "chartConfig": {
+                "legendShown": true,
+                "type": "TIMESERIES",
+                "series": [{
+                    "metric": "builtin:apps.web.actionsPerSession",
+                    "aggregation": "AVG",
+                    "type": "BAR",
+                    "entityType": "APPLICATION",
+                    "dimensions": [{
+                        "id": "0",
+                        "name": "dt.entity.application",
+                        "values": [],
+                        "entityDimension": true
+                    }, {
+                        "id": "2",
+                        "name": "User type",
+                        "values": ["Real users"],
+                        "entityDimension": false
+                    }],
+                    "sortAscending": false,
+                    "sortColumn": false,
+                    "aggregationRate": "TOTAL"
+                }, {
+                    "metric": "builtin:apps.web.sessionDuration",
+                    "aggregation": "AVG",
+                    "type": "BAR",
+                    "entityType": "APPLICATION",
+                    "dimensions": [{
+                        "id": "0",
+                        "name": "dt.entity.application",
+                        "values": [],
+                        "entityDimension": true
+                    }, {
+                        "id": "2",
+                        "name": "User type",
+                        "values": ["Real users"],
+                        "entityDimension": false
+                    }],
+                    "sortAscending": false,
+                    "sortColumn": true,
+                    "aggregationRate": "TOTAL"
+                }],
+                "resultMetadata": {
+                    "APPLICATION-28F0F419E69C5BBD¦APPLICATION»APPLICATION-28F0F419E69C5BBD»true¦User type»Real users»falsebuiltin:apps.web.actionsPerSession|AVG|TOTAL|BAR|APPLICATION": {
+                        "lastModified": 1591368118093,
+                        "customColor": "#008cdb"
+                    },
+                    "APPLICATION-28F0F419E69C5BBD¦APPLICATION»APPLICATION-28F0F419E69C5BBD»truebuiltin:apps.web.actionDuration.load.browser|COUNT|TOTAL|BAR|APPLICATION": {
+                        "lastModified": 1591367540109,
+                        "customColor": "#b4e5f9"
+                    },
+                    "APPLICATION-28F0F419E69C5BBD¦APPLICATION»APPLICATION-28F0F419E69C5BBD»true¦User type»Real users»falsebuiltin:apps.web.sessionDuration|AVG|TOTAL|BAR|APPLICATION": {
+                        "lastModified": 1591368119958,
+                        "customColor": "#7c38a1"
+                    },
+                    "APPLICATION-28F0F419E69C5BBD¦APPLICATION»APPLICATION-28F0F419E69C5BBD»truebuiltin:apps.web.visuallyComplete.load.browser|AVG|TOTAL|LINE|APPLICATION": {
+                        "lastModified": 1591367537386,
+                        "customColor": "#7c38a1"
+                    },
+                    "APPLICATION-28F0F419E69C5BBD¦APPLICATION»APPLICATION-28F0F419E69C5BBD»truebuiltin:apps.web.bouncedSessionRatio|NONE|TOTAL|LINE|APPLICATION": {
+                        "lastModified": 1591367588536,
+                        "customColor": "#FF0000"
+                    }
+                }
+            },
+            "filtersPerEntityType": {}
+        }
+    }, {
+        "name": "Markdown",
+        "tileType": "MARKDOWN",
+        "configured": true,
+        "bounds": {
+            "top": 456,
+            "left": 1102,
+            "width": 532,
+            "height": 38
+        },
+        "tileFilter": {},
+        "markdown": "###Engagement_____________________________________________________________________________________________________________"
+    }, {
+        "name": "User Sessions Query",
+        "tileType": "DTAQL",
+        "configured": true,
+        "bounds": {
+            "top": 114,
+            "left": 836,
+            "width": 266,
+            "height": 152
+        },
+        "tileFilter": {
+            "timeframe": "-14d"
+        },
+        "customName": "Campaign Conversion;sli=camp_conv",
+        "query": "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\" and useraction.name like '*validate-creditcard*'",
+        "type": "SINGLE_VALUE",
+        "limit": 50
+    }, {
+        "name": "Custom chart",
+        "tileType": "CUSTOM_CHARTING",
+        "configured": true,
+        "bounds": {
+            "top": 304,
+            "left": 1102,
+            "width": 532,
+            "height": 152
+        },
+        "tileFilter": {},
+        "filterConfig": {
+            "type": "MIXED",
+            "customName": "Visually complete;sli=vis_complete;pass=<4000;warning=<6000;key=true;",
+            "defaultName": "Custom chart",
+            "chartConfig": {
+                "legendShown": true,
+                "type": "TIMESERIES",
+                "series": [{
+                    "metric": "builtin:apps.web.visuallyComplete.load.browser",
+                    "aggregation": "AVG",
+                    "type": "LINE",
+                    "entityType": "APPLICATION",
+                    "dimensions": [{
+                        "id": "0",
+                        "name": "dt.entity.application",
+                        "values": [],
+                        "entityDimension": true
+                    }],
+                    "sortAscending": false,
+                    "sortColumn": true,
+                    "aggregationRate": "TOTAL"
+                }],
+                "resultMetadata": {}
+            },
+            "filtersPerEntityType": {}
+        }
+    }, {
+        "name": "User Sessions Query",
+        "tileType": "DTAQL",
+        "configured": true,
+        "bounds": {
+            "top": 304,
+            "left": 836,
+            "width": 266,
+            "height": 152
+        },
+        "tileFilter": {
+            "timeframe": "-14d"
+        },
+        "customName": "Campaign Bounces;sli=camp_bounces",
+        "query": "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\" and bounce = true",
+        "type": "SINGLE_VALUE",
+        "limit": 50
+    }, {
+        "name": "User Sessions Query",
+        "tileType": "DTAQL",
+        "configured": true,
+        "bounds": {
+            "top": 114,
+            "left": 0,
+            "width": 532,
+            "height": 342
+        },
+        "tileFilter": {
+            "timeframe": "-14d"
+        },
+        "customName": "Campaign Adoption..",
+        "query": "select DATETIME(startTime, \"dd-MM\", \"hour\") as \"Start Time\",  count(internalUserId) as \"Campaign Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\" group by DATETIME(startTime, \"dd-MM\", \"hour\"), usersession.stringProperties.web_utm_campaign order by DATETIME(startTime, \"dd-MM\", \"hour\") desc",
+        "type": "COLUMN_CHART",
+        "visualizationConfig": {
+            "hasAxisBucketing": false
+        },
+        "limit": 50
+    }, {
+        "name": "User Sessions Query",
+        "tileType": "DTAQL",
+        "configured": true,
+        "bounds": {
+            "top": 114,
+            "left": 532,
+            "width": 304,
+            "height": 152
+        },
+        "tileFilter": {
+            "timeframe": "-14d"
+        },
+        "customName": "Campaign Adoption;sli=camp_adoption;pass=>+10%",
+        "query": "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\"",
+        "type": "SINGLE_VALUE",
+        "limit": 50
+    }]
+}
