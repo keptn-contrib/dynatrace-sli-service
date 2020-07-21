@@ -1,0 +1,24 @@
+{
+  "type": "sh.keptn.events.deployment-finished",
+  "contenttype": "application/json",
+  "specversion": "0.2",
+  "source": "start-campaign-event",
+  "data": {
+    "deploymentstrategy": "direct",
+    "tesstrategy" : "real-user",
+    "project": "demolive",
+    "service": "perfclinic",
+    "stage": "qualitygate",
+    "teststrategy": "",
+    "labels": {
+      "deploymentVersion" : "Campaign #252",
+      "deploymentProject" : "easyTravel Marketing Campaings",
+      "deploymentName" : "Starting Campaign #252",
+      "ciBackLink" : "https://marketo.com/campaignoverview?id=252",
+      "Campaign": "Campaign #252",
+      "Owner": "Klaus Enzenhofer",
+      "Volumne": "500000",
+      "Planned End" : "July 31st"
+    }
+  }
+}

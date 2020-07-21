@@ -899,6 +899,18 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 				if metricAggregation == "PERCENTILE" {
 					metricAggregation = fmt.Sprintf("%s(%f)", metricAggregation, series.Percentile)
 				}
+				// for rate measures such as failure rate we take average if it is "OF_INTEREST_RATIO"
+				if metricAggregation == "OF_INTEREST_RATIO" {
+					metricAggregation = "avg"
+				}
+				// for rate measures charting also provides the "OTHER_RATIO" option which is the inverse
+				// TODO: not supported via API - so we default to avg
+				if metricAggregation == "OTHER_RATIO" {
+					metricAggregation = "avg"
+				}
+
+				// TODO - handle aggregation rates -> probably doesnt make sense as we always evalute a short timeframe
+				// if series.AggregationRate
 
 				// lets create the metricSelector and entitySelector
 				// ATTENTION: adding :names so we also get the names of the dimensions and not just the entities. This means we get two values for each dimension

@@ -1,0 +1,47 @@
+[
+  {
+    "metric": "ua_vc_Loading_of_page__easytravel_home",
+    "value": 2514,
+    "success": true
+  },
+  {
+    "metric": "ua_vc_Loading_of_page__easytravel_signup",
+    "value": 2820,
+    "success": true
+  },
+  {
+    "metric": "ua_vc_Loading_of_page__easytravel_search",
+    "value": 888,
+    "success": true
+  },
+  {
+    "metric": "ua_vc_Loading_of_page__blog_",
+    "value": 2277.785714285714,
+    "success": true
+  },
+  {
+    "metric": "bounce_rate",
+    "value": 17.647058823529413,
+    "success": true
+  },
+  {
+    "metric": "camp_conv",
+    "value": 13,
+    "success": true
+  },
+  {
+    "metric": "vis_complete",
+    "value": 3080.803680981595,
+    "success": true
+  },
+  {
+    "metric": "camp_bounces",
+    "value": 8,
+    "success": true
+  },
+  {
+    "metric": "camp_adoption",
+    "value": 25,
+    "success": true
+  }
+]

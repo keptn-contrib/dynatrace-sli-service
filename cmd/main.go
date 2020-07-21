@@ -175,9 +175,9 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	// lets write the SLI to the config repo
 	if dashboardSLI != nil {
 		logger.Info("Generated SLI.yaml from Dynatrace Dashboard")
-		jsonAsByteArray, _ := json.MarshalIndent(dashboardSLI, "", "  ")
+		yamlAsByteArray, _ := yaml.Marshal(dashboardSLI)
 
-		err := common.UploadKeptnResource(jsonAsByteArray, "dynatrace/sli.yaml", keptnEvent, logger)
+		err := common.UploadKeptnResource(yamlAsByteArray, "dynatrace/sli.yaml", keptnEvent, logger)
 		if err != nil {
 			return dashboardLinkAsLabel, sliResults, err
 		}
@@ -186,9 +186,9 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	// lets write the SLO to the config repo
 	if dashboardSLO != nil {
 		logger.Info("Generated SLO.yaml from Dynatrace Dashboard")
-		jsonAsByteArray, _ := json.MarshalIndent(dashboardSLO, "", "  ")
+		yamlAsByteArray, _ := yaml.Marshal(dashboardSLO)
 
-		err := common.UploadKeptnResource(jsonAsByteArray, "slo.yaml", keptnEvent, logger)
+		err := common.UploadKeptnResource(yamlAsByteArray, "slo.yaml", keptnEvent, logger)
 		if err != nil {
 			return dashboardLinkAsLabel, sliResults, err
 
@@ -198,10 +198,10 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	// lets also write the result to a local file in local test mode
 	if sliResults != nil {
 		if common.RunLocal || common.RunLocalTest {
-			logger.Info("(RunLocal Output) Write SLIResult to sliresult.yaml")
+			logger.Info("(RunLocal Output) Write SLIResult to sliresult.json")
 			jsonAsByteArray, _ := json.MarshalIndent(sliResults, "", "  ")
 
-			common.UploadKeptnResource(jsonAsByteArray, "sliresult.yaml", keptnEvent, logger)
+			common.UploadKeptnResource(jsonAsByteArray, "sliresult.json", keptnEvent, logger)
 		}
 	}
 
@@ -313,9 +313,9 @@ func retrieveMetrics(event cloudevents.Event) error {
 			eventData.Labels["Dashboard Link"] = dashboardLinkAsLabel
 		}
 
-		stdLogger.Info("Captured SLIResults from Dynatrace Dashboard")
+		/* stdLogger.Info("Captured SLIResults from Dynatrace Dashboard")
 		jsonAsString, _ := json.Marshal(sliResults)
-		stdLogger.Info(string(jsonAsString))
+		stdLogger.Info(string(jsonAsString)) */
 	} else {
 		//
 		// Option 2: We query the SLIs based on the definitions stored in SLI.yaml

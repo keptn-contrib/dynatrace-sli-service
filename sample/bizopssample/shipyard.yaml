@@ -1,0 +1,4 @@
+stages:
+- name: "qualitygate"
+  deployment_strategy: "direct"
+  test_strategy: "performance"

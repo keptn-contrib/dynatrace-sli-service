@@ -1,14 +1,11 @@
-{
-  "SpecVersion": "",
-  "Indicators": {
-    "bounce_rate": "metricSelector=builtin:apps.web.bouncedSessionRatio:merge(2):merge(1):value:names;entitySelector=type(APPLICATION),mzId(3454183460044244211)",
-    "camp_adoption": "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\"",
-    "camp_bounces": "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\" and bounce = true",
-    "camp_conv": "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign = \"spring_sale\" and useraction.name like '*validate-creditcard*'",
-    "ua_vc_Loading_of_page__blog_": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /blog/));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)",
-    "ua_vc_Loading_of_page__easytravel_home": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /easytravel/home));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)",
-    "ua_vc_Loading_of_page__easytravel_search": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /easytravel/search));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)",
-    "ua_vc_Loading_of_page__easytravel_signup": "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /easytravel/signup));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)",
-    "vis_complete": "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg:names;entitySelector=type(APPLICATION),mzId(3454183460044244211)"
-  }
-}
+spec_version: ""
+indicators:
+  bounce_rate: "metricSelector=builtin:apps.web.bouncedSessionRatio:merge(2):merge(1):value:names;entitySelector=type(APPLICATION),mzId(3454183460044244211)"
+  camp_adoption: "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign='spring_sale'"
+  camp_bounces: "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign='spring_sale' and bounce = true"
+  camp_conv: "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign='spring_sale' and useraction.name like '*validate-creditcard*'"
+  ua_vc_Loading_of_page__blog_: "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /blog/));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)"
+  ua_vc_Loading_of_page__easytravel_home: "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /easytravel/home));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)"
+  ua_vc_Loading_of_page__easytravel_search: "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /easytravel/search));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)"
+  ua_vc_Loading_of_page__easytravel_signup: "metricSelector=builtin:apps.web.action.visuallyComplete.load.browser:merge(1):percentile(50.000000):names:filter(eq(dt.entity.application_method,Loading of page /easytravel/signup));entitySelector=type(APPLICATION_METHOD),mzId(3454183460044244211)"
+  vis_complete: "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg:names;entitySelector=type(APPLICATION),mzId(3454183460044244211)"
