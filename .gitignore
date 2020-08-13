@@ -22,11 +22,10 @@ _*
 
 # binaries (created by go build on Linux/OSX)
 main
-dynatrace-sli-service
 
 vendor
 
-dynatrace-sli-service
+cmd/dynatrace-sli-service
 test-events/get-sli-dynalive.http
 slo.yaml
 dynatrace/sli.yaml

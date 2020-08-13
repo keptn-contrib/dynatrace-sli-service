@@ -1,0 +1,13 @@
+replicaCount: 1
+
+namespace: keptn
+
+image:
+  repository: keptncontrib/dynatrace-sli-service:0.5.0
+
+service:
+  port: 8080
+
+serviceAccount:
+  create: true
+  annotations: {}

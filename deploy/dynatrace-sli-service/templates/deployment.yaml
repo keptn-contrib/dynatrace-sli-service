@@ -1,0 +1,71 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dynatrace-sli-service
+  namespace: keptn
+spec:
+  selector:
+    matchLabels:
+      run: dynatrace-sli-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: dynatrace-sli-service
+    spec:
+      serviceAccountName: keptn-dynatrace-sli-service
+      containers:
+        - name: dynatrace-sli-service
+          image: keptncontrib/dynatrace-sli-service:0.5.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          env:
+            - name: CONFIGURATION_SERVICE
+              value: 'http://configuration-service.keptn.svc.cluster.local:8080'
+            - name: EVENTBROKER
+              value: 'http://event-broker.keptn.svc.cluster.local/keptn'
+---
+## dynatrace-sli-service sh.keptn.internal.event.get-sli-distributor
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dynatrace-sli-service-monitoring-configure-distributor
+  namespace: keptn
+spec:
+  selector:
+    matchLabels:
+      run: distributor
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: distributor
+    spec:
+      containers:
+        - name: distributor
+          image: keptn/distributor:0.7.0
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          env:
+            - name: PUBSUB_URL
+              value: 'nats://keptn-nats-cluster'
+            - name: PUBSUB_TOPIC
+              value: 'sh.keptn.internal.event.get-sli'
+            - name: PUBSUB_RECIPIENT
+              value: 'dynatrace-sli-service'
