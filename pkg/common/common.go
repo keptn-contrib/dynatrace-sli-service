@@ -60,7 +60,7 @@ type BaseKeptnEvent struct {
 	Labels map[string]string
 }
 
-var namespace = setParameterValue(os.Getenv("POD_NAMESPACE"), "keptn")
+var namespace = os.Getenv("POD_NAMESPACE")
 
 func GetKubernetesClient() (*kubernetes.Clientset, error) {
 	if RunLocal || RunLocalTest {
@@ -312,11 +312,4 @@ func ParseUnixTimestamp(timestamp string) (time.Time, error) {
 // TimestampToString converts time stamp into string
 func TimestampToString(time time.Time) string {
 	return strconv.FormatInt(time.Unix()*1000, 10)
-}
-
-func setParameterValue(value string, defaultValue string) string {
-	if len(value) == 0 {
-		return defaultValue
-	}
-	return value
 }
