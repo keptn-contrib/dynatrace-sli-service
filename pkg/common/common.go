@@ -60,6 +60,8 @@ type BaseKeptnEvent struct {
 	Labels map[string]string
 }
 
+var namespace = setParameterValue(os.Getenv("POD_NAMESPACE"), "keptn")
+
 func GetKubernetesClient() (*kubernetes.Clientset, error) {
 	if RunLocal || RunLocalTest {
 		return nil, nil
@@ -81,7 +83,7 @@ func GetKeptnDomain() (string, error) {
 		return "", err
 	}
 
-	keptnDomainCM, errCM := kubeAPI.CoreV1().ConfigMaps("keptn").Get("keptn-domain", metav1.GetOptions{})
+	keptnDomainCM, errCM := kubeAPI.CoreV1().ConfigMaps(namespace).Get("keptn-domain", metav1.GetOptions{})
 	if errCM != nil {
 		return "", errors.New("Could not retrieve keptn-domain ConfigMap: " + errCM.Error())
 	}
@@ -267,7 +269,7 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 		if err != nil {
 			return nil, err
 		}
-		secret, err := kubeAPI.CoreV1().Secrets("keptn").Get(dynatraceSecretName, metav1.GetOptions{})
+		secret, err := kubeAPI.CoreV1().Secrets(namespace).Get(dynatraceSecretName, metav1.GetOptions{})
 
 		if err != nil {
 			return nil, err
@@ -310,4 +312,11 @@ func ParseUnixTimestamp(timestamp string) (time.Time, error) {
 // TimestampToString converts time stamp into string
 func TimestampToString(time time.Time) string {
 	return strconv.FormatInt(time.Unix()*1000, 10)
+}
+
+func setParameterValue(value string, defaultValue string) string {
+	if len(value) == 0 {
+		return defaultValue
+	}
+	return value
 }
