@@ -72,6 +72,10 @@ spec:
               value: 'http://configuration-service.keptn.svc.cluster.local:8080'
             - name: EVENTBROKER
               value: 'http://event-broker.keptn.svc.cluster.local/keptn'
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
 ---
 apiVersion: v1
 kind: Service
