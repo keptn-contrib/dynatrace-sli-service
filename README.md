@@ -36,10 +36,10 @@ By default, even if you do not specify a custom SLI.yaml, the following SLIs are
 To deploy the current version of the *dynatrace-sli-service* in your Keptn Kubernetes cluster, use the `deploy/*.yaml` files from this repository and apply them:
 
 ```console
-kubectl apply -f deploy/service.yaml
+kubectl apply -f deploy/service.yaml -n keptn
 ```
 
-This installs the *dynatrace-sli-service* together with a Keptn `distributor` into the `keptn` namespace, which you can verify using:
+This installs the *dynatrace-sli-service* into the `keptn` namespace, which you can verify using:
 
 ```console
 kubectl -n keptn get deployment dynatrace-sli-service -o wide
@@ -59,7 +59,7 @@ kubectl -n keptn set image deployment/dynatrace-sli-service dynatrace-sli-servic
 To delete a deployed *dynatrace-sli-service*, use the file `deploy/*.yaml` files from this repository and delete the Kubernetes resources:
 
 ```console
-kubectl delete -f deploy/service.yaml
+kubectl delete -f deploy/service.yaml -n keptn
 ```
 
 ## Setup
