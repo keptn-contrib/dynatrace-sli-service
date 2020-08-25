@@ -133,10 +133,10 @@ func ReplaceKeptnPlaceholders(input string, keptnEvent *BaseKeptnEvent) string {
 }
 
 func GetConfigurationServiceURL() string {
-	if os.Getenv("CONFIGURATION_SERVICE_URL") != "" {
-		return os.Getenv("CONFIGURATION_SERVICE_URL")
+	if os.Getenv("CONFIGURATION_SERVICE") != "" {
+		return os.Getenv("CONFIGURATION_SERVICE")
 	}
-	return "configuration-service.keptn.svc.cluster.local:8080"
+	return "configuration-service:8080"
 }
 
 //
@@ -254,7 +254,7 @@ func parseDynatraceConfigFile(input []byte) (*DynatraceConfigFile, error) {
 /**
  * Pulls the Dynatrace Credentials from the passed secret
  */
-func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
+func GetDTCredentials(dynatraceSecretName string, logger *keptn.Logger) (*DTCredentials, error) {
 	if dynatraceSecretName == "" {
 		return nil, nil
 	}
@@ -272,6 +272,7 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 		secret, err := kubeAPI.CoreV1().Secrets(namespace).Get(dynatraceSecretName, metav1.GetOptions{})
 
 		if err != nil {
+			logger.Error(fmt.Sprintf("Error fetching secret %s from namespace %s : %s", dynatraceSecretName, namespace, err.Error()))
 			return nil, err
 		}
 

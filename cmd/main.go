@@ -451,24 +451,17 @@ func getDynatraceCredentials(secretName string, project string, logger *keptn.Lo
 
 	for _, secret := range secretNames {
 		logger.Info(fmt.Sprintf("Trying to fetch secret containing Dynatrace credentials with name '%s'", secret))
-		dtCredentials, err := common.GetDTCredentials(secret)
-
-		// write in log if fetching Dynatrace Credentials failed
-		if err != nil {
-			logger.Error(fmt.Sprintf("Error fetching secret containing Dynatrace credentials with name '%s': %s", secret, err.Error()))
-		}
+		dtCredentials, _ := common.GetDTCredentials(secret, logger)
 
 		if dtCredentials != nil {
 			// lets validate if the tenant URL is
-
-			logger.Info(fmt.Sprintf(" -> credentials found, returning (%s) ...", dtCredentials.Tenant))
+			logger.Info(fmt.Sprintf("Secret with credentials found, returning (%s) ...", dtCredentials.Tenant))
 			return dtCredentials, nil
 		}
 	}
+	logger.Error("No Dynatrace credentials found")
 
-	logger.Error("No Dynatrace credentials found in namespace keptn")
-
-	return nil, errors.New("Couldn't find any dynatrace specific secrets in namespace keptn")
+	return nil, errors.New("Could not find any Dynatrace specific secrets")
 }
 
 /**
