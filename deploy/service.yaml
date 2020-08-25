@@ -3,7 +3,6 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: keptn-dynatrace-sli-service
-  namespace: keptn
   labels:
     "app": "keptn"
 ---
@@ -11,7 +10,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: keptn-dynatrace-sli-service-secrets
-  namespace: keptn
   labels:
     "app": "keptn"
 rules:
@@ -26,7 +24,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: keptn-dynatrace-sli-service-secrets
-  namespace: keptn
   labels:
     "app": "keptn"
 roleRef:
@@ -36,13 +33,11 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: keptn-dynatrace-sli-service
-    namespace: keptn
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dynatrace-sli-service
-  namespace: keptn
 spec:
   selector:
     matchLabels:
@@ -72,42 +67,10 @@ spec:
               value: 'http://configuration-service:8080'
             - name: EVENTBROKER
               value: 'http://event-broker/keptn'
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
+            - name: POD_NAMESPACE	
+              valueFrom:	
+                fieldRef:	
                   fieldPath: metadata.namespace
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: dynatrace-sli-service
-  namespace: keptn
-  labels:
-    run: dynatrace-sli-service
-spec:
-  ports:
-    - port: 8080
-      protocol: TCP
-  selector:
-    run: dynatrace-sli-service
----
-## dynatrace-sli-service sh.keptn.internal.event.get-sli-distributor
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: dynatrace-sli-service-monitoring-configure-distributor
-  namespace: keptn
-spec:
-  selector:
-    matchLabels:
-      run: distributor
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        run: distributor
-    spec:
-      containers:
         - name: distributor
           image: keptn/distributor:0.7.0
           ports:
@@ -126,3 +89,16 @@ spec:
               value: 'sh.keptn.internal.event.get-sli'
             - name: PUBSUB_RECIPIENT
               value: 'dynatrace-sli-service'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dynatrace-sli-service
+  labels:
+    run: dynatrace-sli-service
+spec:
+  ports:
+    - port: 8080
+      protocol: TCP
+  selector:
+    run: dynatrace-sli-service
