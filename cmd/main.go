@@ -266,7 +266,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
 
 	if err != nil {
-		stdLogger.Debug(err.Error())
+		stdLogger.Error(err.Error())
 		stdLogger.Debug("Failed to fetch Dynatrace credentials, exiting.")
 		// Implementing: https://github.com/keptn-contrib/dynatrace-sli-service/issues/49
 		return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
@@ -460,15 +460,12 @@ func getDynatraceCredentials(secretName string, project string, logger *keptn.Lo
 
 		if dtCredentials != nil {
 			// lets validate if the tenant URL is
-
-			logger.Info(fmt.Sprintf(" -> credentials found, returning (%s) ...", dtCredentials.Tenant))
+			logger.Info(fmt.Sprintf("Secret with credentials found, returning (%s) ...", dtCredentials.Tenant))
 			return dtCredentials, nil
 		}
 	}
 
-	logger.Error("No Dynatrace credentials found in namespace keptn")
-
-	return nil, errors.New("Couldn't find any dynatrace specific secrets in namespace keptn")
+	return nil, errors.New("Could not find any Dynatrace specific secrets")
 }
 
 /**

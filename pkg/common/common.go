@@ -133,10 +133,10 @@ func ReplaceKeptnPlaceholders(input string, keptnEvent *BaseKeptnEvent) string {
 }
 
 func GetConfigurationServiceURL() string {
-	if os.Getenv("CONFIGURATION_SERVICE_URL") != "" {
-		return os.Getenv("CONFIGURATION_SERVICE_URL")
+	if os.Getenv("CONFIGURATION_SERVICE") != "" {
+		return os.Getenv("CONFIGURATION_SERVICE")
 	}
-	return "configuration-service.keptn.svc.cluster.local:8080"
+	return "configuration-service:8080"
 }
 
 //
