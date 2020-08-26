@@ -254,7 +254,7 @@ func parseDynatraceConfigFile(input []byte) (*DynatraceConfigFile, error) {
 /**
  * Pulls the Dynatrace Credentials from the passed secret
  */
-func GetDTCredentials(dynatraceSecretName string, logger *keptn.Logger) (*DTCredentials, error) {
+func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 	if dynatraceSecretName == "" {
 		return nil, nil
 	}
@@ -272,7 +272,6 @@ func GetDTCredentials(dynatraceSecretName string, logger *keptn.Logger) (*DTCred
 		secret, err := kubeAPI.CoreV1().Secrets(namespace).Get(dynatraceSecretName, metav1.GetOptions{})
 
 		if err != nil {
-			logger.Error(fmt.Sprintf("Error fetching secret %s from namespace %s : %s", dynatraceSecretName, namespace, err.Error()))
 			return nil, err
 		}
 
