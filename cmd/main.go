@@ -259,11 +259,20 @@ func retrieveMetrics(event cloudevents.Event) error {
 		dtCreds = dynatraceConfigFile.DtCreds
 		stdLogger.Debug("Found dynatrace.conf.yaml with DTCreds: " + dtCreds)
 	} else {
+		stdLogger.Debug("Using default DTCreds: dynatrace as no custom dynatrace.conf.yaml was found!")
 		dynatraceConfigFile = &common.DynatraceConfigFile{}
 		dynatraceConfigFile.Dashboard = ""
 		dynatraceConfigFile.DtCreds = "dynatrace"
 	}
 	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
+
+	//
+	// grabnerandi - Aug 26th 2020
+	// Adding DtCreds as a label so users know which DtCreds was used
+	if eventData.Labels == nil {
+		eventData.Labels = make(map[string]string)
+	}
+	eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
 
 	if err != nil {
 		stdLogger.Error(err.Error())
@@ -377,6 +386,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 		err = errors.New("Couldnt retrieve any SLI Results")
 	}
 
+	//
+
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
 		eventData.Deployment, eventData.Labels, eventData.Indicators, err)
@@ -450,6 +461,10 @@ func getDynatraceCredentials(secretName string, project string, logger *keptn.Lo
 	secretNames := []string{secretName, fmt.Sprintf("dynatrace-credentials-%s", project), "dynatrace-credentials", "dynatrace"}
 
 	for _, secret := range secretNames {
+		if secret == "" {
+			continue
+		}
+
 		logger.Info(fmt.Sprintf("Trying to fetch secret containing Dynatrace credentials with name '%s'", secret))
 		dtCredentials, err := common.GetDTCredentials(secret)
 

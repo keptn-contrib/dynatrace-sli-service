@@ -976,6 +976,16 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 								// we use ":names" to find the right spot to add our custom dimension filter
 								dashboardSLI.Indicators[indicatorName] = strings.Replace(metricQuery, ":names", filterSLIDefinitionAggregatorValue, 1)
 
+								//
+								// grabnerandi - Aug 26th
+								// if passSLOs or warningSLOs are an empty list dont pass them at all. otherwise this will cause an issue with the lighthouse
+								if len(passSLOs) == 0 {
+									passSLOs = nil
+								}
+								if len(warningSLOs) == 0 {
+									warningSLOs = nil
+								}
+
 								// lets add the SLO definitin in case we need to generate an SLO.yaml
 								sloDefinition := &keptn.SLO{
 									SLI:     indicatorName,
