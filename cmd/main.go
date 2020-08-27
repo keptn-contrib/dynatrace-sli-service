@@ -258,6 +258,14 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if dynatraceConfigFile != nil {
 		dtCreds = dynatraceConfigFile.DtCreds
 		stdLogger.Debug("Found dynatrace.conf.yaml with DTCreds: " + dtCreds)
+
+		//
+		// grabnerandi - Aug 26th 2020
+		// Adding DtCreds as a label so users know which DtCreds was used
+		if eventData.Labels == nil {
+			eventData.Labels = make(map[string]string)
+		}
+		eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
 	} else {
 		stdLogger.Debug("Using default DTCreds: dynatrace as no custom dynatrace.conf.yaml was found!")
 		dynatraceConfigFile = &common.DynatraceConfigFile{}
@@ -265,14 +273,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 		dynatraceConfigFile.DtCreds = "dynatrace"
 	}
 	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
-
-	//
-	// grabnerandi - Aug 26th 2020
-	// Adding DtCreds as a label so users know which DtCreds was used
-	if eventData.Labels == nil {
-		eventData.Labels = make(map[string]string)
-	}
-	eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
 
 	if err != nil {
 		stdLogger.Error(err.Error())

@@ -207,9 +207,9 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 		// loaded an empty file
 		logger.Debug("Content of dynatrace.conf.yaml is empty!")
 		return nil, nil
-	} else {
-		logger.Debug("Content of dynatrace.conf.yaml: " + dynatraceConfFileContent)
 	}
+
+	logger.Debug("Content of dynatrace.conf.yaml: " + dynatraceConfFileContent)
 
 	// unmarshal the file
 	dynatraceConfFile, err := parseDynatraceConfigFile([]byte(dynatraceConfFileContent))
