@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
 
 	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
 	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
@@ -60,7 +60,16 @@ type BaseKeptnEvent struct {
 	Labels map[string]string
 }
 
-var namespace = os.Getenv("POD_NAMESPACE")
+var namespace = getPodNamespace()
+
+func getPodNamespace() string {
+	ns := os.Getenv("POD_NAMESPACE")
+	if ns == "" {
+		return "keptn"
+	}
+
+	return ns
+}
 
 func GetKubernetesClient() (*kubernetes.Clientset, error) {
 	if RunLocal || RunLocalTest {
@@ -168,7 +177,7 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 				// Lets search on PROJECT-LEVEL
 				keptnResourceContent, err = resourceHandler.GetProjectResource(keptnEvent.Project, resourceURI)
 				if err != nil || keptnResourceContent == nil || keptnResourceContent.ResourceContent == "" {
-					logger.Debug(fmt.Sprintf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI, err))
+					// logger.Debug(fmt.Sprintf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI, err))
 					return "", err
 				}
 
@@ -194,6 +203,14 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 		return nil, err
 	}
 
+	if dynatraceConfFileContent == "" {
+		// loaded an empty file
+		logger.Debug("Content of dynatrace.conf.yaml is empty!")
+		return nil, nil
+	}
+
+	logger.Debug("Content of dynatrace.conf.yaml: " + dynatraceConfFileContent)
+
 	// unmarshal the file
 	dynatraceConfFile, err := parseDynatraceConfigFile([]byte(dynatraceConfFileContent))
 
@@ -203,8 +220,8 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 		return nil, errors.New(logMessage)
 	}
 
-	logMessage := fmt.Sprintf("Loaded Config from dynatrace.conf.yaml:  %s", dynatraceConfFile)
-	logger.Info(logMessage)
+	// logMessage := fmt.Sprintf("Loaded Config from dynatrace.conf.yaml:  %s", dynatraceConfFile)
+	// logger.Info(logMessage)
 
 	return dynatraceConfFile, nil
 }
