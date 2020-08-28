@@ -779,8 +779,12 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 	}
 
 	// Dashboard Link
-	// lets also generate the dashboard link for that timeframe (gtf=c_START_END) as well as management zone (gt=MZID) to pass back as label to Keptn
-	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s;gf=%s", ph.ApiURL, dashboardJSON.ID, common.TimestampToString(startUnix), common.TimestampToString(endUnix), dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID)
+	// lets also generate the dashboard link for that timeframe (gtf=c_START_END) as well as management zone (gf=MZID) to pass back as label to Keptn
+	mgmtZone := ""
+	if dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone != nil {
+		mgmtZone = ";gf=" + dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID
+	}
+	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s%s", ph.ApiURL, dashboardJSON.ID, common.TimestampToString(startUnix), common.TimestampToString(endUnix), mgmtZone)
 	fmt.Printf("Dashboard Link: %s\n", dashboardLinkAsLabel)
 
 	// now lets iterate through the dashboard to find our SLIs
