@@ -51,7 +51,7 @@ spec:
       serviceAccountName: keptn-dynatrace-sli-service
       containers:
         - name: dynatrace-sli-service
-          image: keptncontrib/dynatrace-sli-service:7c464d2
+          image: keptncontrib/dynatrace-sli-service:0.6.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -72,7 +72,7 @@ spec:
                 fieldRef:	
                   fieldPath: metadata.namespace
         - name: distributor
-          image: keptn/distributor:0.7.0
+          image: keptn/distributor:0.7.1
           ports:
             - containerPort: 8080
           resources:
