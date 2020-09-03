@@ -12,7 +12,7 @@ require (
 	github.com/gophercloud/gophercloud v0.6.0 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/keptn/go-utils v0.7.0
+	github.com/keptn/go-utils v0.7.1
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/net v0.0.0-20191021144547-ec77196f6094
