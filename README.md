@@ -346,6 +346,13 @@ This should work with any existing Keptn project you have. Just make sure you ha
 Then create a dashboard as explained above that the *dynatrace-sli-service* can match to your project/service/stage. 
 
 If you start from scratch and you have never run an evaluation in your project make sure you upload an empty SLO.yaml to your service. Why? Because otherwise the Lighthouse service will skip evaluation and never triggers the *dynatrace-sli-service*. This is just a one time initialization effort.
+Here is an empty slo.yaml you can use:
+```
+---
+spec_version: '0.1.0'
+comparison:
+objectives:
+```
 
 Also check out the samples folder of this repo with some additional helper files and the exported dashboard from the example above.
 
