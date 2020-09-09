@@ -17,7 +17,7 @@ import (
 
 	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
 	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
-	keptn "github.com/keptn/go-utils/pkg/lib"
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -151,7 +151,7 @@ func GetConfigurationServiceURL() string {
 //
 // Downloads a resource from the Keptn Configuration Repo
 //
-func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *keptn.Logger) (string, error) {
+func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *keptncommon.Logger) (string, error) {
 
 	logger.Info("Loading " + resourceURI)
 	// if we run in a runlocal mode we are just getting the file from the local disk
@@ -195,7 +195,7 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 }
 
 // GetDynatraceConfig loads dynatrace.conf for the current service
-func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*DynatraceConfigFile, error) {
+func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptncommon.Logger) (*DynatraceConfigFile, error) {
 
 	dynatraceConfFileContent, err := GetKeptnResource(keptnEvent, DynatraceConfigFilename, logger)
 
@@ -227,7 +227,7 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 }
 
 // UploadKeptnResource uploads a file to the Keptn Configuration Service
-func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent, logger *keptn.Logger) error {
+func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent, logger *keptncommon.Logger) error {
 
 	logger.Info("Uploading remote file")
 	// if we run in a runlocal mode we are just getting the file from the local disk

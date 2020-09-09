@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -752,7 +753,7 @@ func isMatchingMetricID(singleResultMetricID string, queryMetricID string) bool 
 //  #3: ServiceLevelObjectives
 //  #4: SLIResult
 //  #5: Error
-func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
+func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptncommon.Logger) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
 	dashboardJSON, err := ph.loadDynatraceDashboard(project, stage, service, dashboard)
 	if err != nil {
 		return "", nil, nil, nil, nil, err
