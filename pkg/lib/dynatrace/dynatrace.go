@@ -890,11 +890,18 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 				// TODO - handle aggregation rates -> probably doesnt make sense as we always evalute a short timeframe
 				// if series.AggregationRate
 
+				// lets get the true entity type as the one in the dashboard might not be accurate, e.g: IOT might be used instead of CUSTOM_DEVICE
+				// so - if the metric definition has EntityTypes defined we take the first one
+				entityType := series.EntityType
+				if len(metricDefinition.EntityType) > 0 {
+					entityType = metricDefinition.EntityType[0]
+				}
+
 				// lets create the metricSelector and entitySelector
 				// ATTENTION: adding :names so we also get the names of the dimensions and not just the entities. This means we get two values for each dimension
 				metricQuery := fmt.Sprintf("metricSelector=%s%s%s:%s:names;entitySelector=type(%s)%s",
 					series.Metric, mergeAggregator, filterAggregator, strings.ToLower(metricAggregation),
-					series.EntityType, managementZoneFilter)
+					entityType, managementZoneFilter)
 
 				// lets build the Dynatrace API Metric query for the proposed timeframe and additonal filters!
 				fullMetricQuery, metricID := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix, customFilters)
