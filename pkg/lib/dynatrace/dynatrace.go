@@ -609,22 +609,34 @@ func ParsePassAndWarningFromString(customName string, defaultPass []string, defa
 	warnCriteria := []*keptn.SLOCriteria{}
 
 	for i := 0; i < len(nameValueSplits); i++ {
-		nameValueSplit := strings.Split(nameValueSplits[i], "=")
-		switch nameValueSplit[0] {
+		// need to adapt this in order to parse texts like this where we have an = in the expression itself - so we cant use this for the actual separation of name=value
+		// Response time (P95);sli=svc_rt_p95;pass=<+10%,<600
+		// Host Disk Queue Length (max);sli=host_disk_queue;pass=<=0;warning=<1;key=false
+
+		// nameValueSplit := strings.Split(nameValueSplits[i], "=")
+		nameValueDividerIndex := strings.Index(nameValueSplits[i], "=")
+		if nameValueDividerIndex < 0 {
+			continue
+		}
+
+		nameString := nameValueSplits[i][:nameValueDividerIndex]
+		valueString := nameValueSplits[i][nameValueDividerIndex+1:]
+		switch nameString /*nameValueSplit[0]*/ {
 		case "sli":
-			sliName = nameValueSplit[1]
+			// sliName = nameValueSplit[1]
+			sliName = valueString
 		case "pass":
 			passCriteria = append(passCriteria, &keptn.SLOCriteria{
-				Criteria: strings.Split(nameValueSplit[1], ","),
+				Criteria: strings.Split(valueString /*nameValueSplit[1]*/, ","),
 			})
 		case "warning":
 			warnCriteria = append(warnCriteria, &keptn.SLOCriteria{
-				Criteria: strings.Split(nameValueSplit[1], ","),
+				Criteria: strings.Split(valueString /*nameValueSplit[1]*/, ","),
 			})
 		case "key":
-			keySli, _ = strconv.ParseBool(nameValueSplit[1])
+			keySli, _ = strconv.ParseBool(valueString /*nameValueSplit[1]*/)
 		case "weight":
-			weight, _ = strconv.Atoi(nameValueSplit[1])
+			weight, _ = strconv.Atoi(valueString /*nameValueSplit[1]*/)
 		}
 	}
 
