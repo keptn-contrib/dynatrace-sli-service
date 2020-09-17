@@ -12,9 +12,9 @@ DYNATRACE_ENDPOINT=$DYNATRACE_TENANT/api/config/v1/dashboards
 DYNATRACE_TOKEN=********
 
 KEPTN_ENDPOINT=********
-KEPTN_PROJECT=sockshop
-KEPTN_SERVICE=carts
-KEPTN_STAGE=hardening
+KEPTN_PROJECT=sampleproject
+KEPTN_SERVICE=sampleservice
+KEPTN_STAGE=qualitygates
 KEPTN_BRIDGE_PROJECT=$KEPTN_ENDPOINT/bridge/project/$KEPTN_PROJECT
 ```
 
