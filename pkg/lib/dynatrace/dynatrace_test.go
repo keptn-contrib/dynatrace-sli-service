@@ -156,6 +156,28 @@ func TestParsePassAndWarningFromString(t *testing.T) {
 			want3: 1,
 			want4: true,
 		},
+		{
+			name: "test with = in pass/warn expression",
+			args: args{
+				customName: "Host Disk Queue Length (max);sli=host_disk_queue;pass=<=0;warning=<1;key=false",
+			},
+			want:  "host_disk_queue",
+			want1: []*keptn.SLOCriteria{&keptn.SLOCriteria{Criteria: []string{"<=0"}}},
+			want2: []*keptn.SLOCriteria{&keptn.SLOCriteria{Criteria: []string{"<1"}}},
+			want3: 1,
+			want4: false,
+		},
+		{
+			name: "test weight",
+			args: args{
+				customName: "Host CPU %;sli=host_cpu;pass=<20;warning=<50;key=false;weight=2",
+			},
+			want:  "host_cpu",
+			want1: []*keptn.SLOCriteria{&keptn.SLOCriteria{Criteria: []string{"<20"}}},
+			want2: []*keptn.SLOCriteria{&keptn.SLOCriteria{Criteria: []string{"<50"}}},
+			want3: 2,
+			want4: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
