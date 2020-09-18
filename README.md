@@ -356,6 +356,13 @@ objectives:
 
 Also check out the samples folder of this repo with some additional helper files and the exported dashboard from the example above.
 
+## Development
+
+* Get dependencies: `go mod download`
+* Build locally: `go build -v -o dynatrace-sli-service ./cmd/`
+* Run tests: `go test -race -v ./...`
+* Run local: `ENV=local ./dynatrace-sli-service`
+
 ## Known Limitations
 
 * The Dynatrace Metrics API provides data with the "eventually consistency" approach. Therefore, the metrics data retrieved can be incomplete or even contain inconsistencies in case of time frames that are within two hours of the current datetime. Usually, it takes a minute to catch up, but in extreme situations this might not be enough. We try to mitigate that by delaying the API Call to the metrics API by 60 seconds.
