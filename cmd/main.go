@@ -110,15 +110,13 @@ func ensureRightTimestamps(start string, end string) (time.Time, time.Time, erro
 	now := time.Now()
 	timeDiffInSeconds := now.Sub(endUnix).Seconds()
 	if timeDiffInSeconds < -120 { // used to be 0
-		fmt.Printf("ERROR: Supplied end-time %v is too far (>120seconds) in the future (now: %v - diff in sec: %v)\n", endUnix, now, timeDiffInSeconds)
-		return startUnix, endUnix, errors.New("end time must not be in the future")
+		return startUnix, endUnix, fmt.Errorf("error validating time range: Supplied end-time %v is too far (>120seconds) in the future (now: %v - diff in sec: %v)\n", endUnix, now, timeDiffInSeconds)
 	}
 
 	// ensure start time is before end time
 	timeframeInSeconds := endUnix.Sub(startUnix).Seconds()
 	if timeframeInSeconds < 0 {
-		fmt.Printf("ERROR: Start time needs to be before end time\n")
-		return startUnix, endUnix, errors.New("start time needs to be before end time")
+		return startUnix, endUnix, errors.New("error validating time range: start time needs to be before end time")
 	}
 
 	// AG-2020-07-16: Wait so Dynatrace has enough data but dont wait every time to shorten processing time
@@ -158,7 +156,7 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	logger.Info("Query Dynatrace Dashboards to see if there is an SLI dashboard available")
 	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, dashboardConfig, startUnix, endUnix, customFilters, logger)
 	if err != nil {
-		return dashboardLinkAsLabel, sliResults, err
+		return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not query Dynatrace dashboard for SLIs: %v", err)
 	}
 
 	// lets store the dashboard as well
@@ -168,7 +166,7 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 
 		err := common.UploadKeptnResource(jsonAsByteArray, "dynatrace/dashboard.json", keptnEvent, logger)
 		if err != nil {
-			return dashboardLinkAsLabel, sliResults, err
+			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store dynatrace/dashboard.json : %v", err)
 		}
 	}
 
@@ -179,7 +177,7 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 
 		err := common.UploadKeptnResource(yamlAsByteArray, "dynatrace/sli.yaml", keptnEvent, logger)
 		if err != nil {
-			return dashboardLinkAsLabel, sliResults, err
+			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store dynatrace/sli.yaml : %v", err)
 		}
 	}
 
@@ -190,8 +188,7 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 
 		err := common.UploadKeptnResource(yamlAsByteArray, "slo.yaml", keptnEvent, logger)
 		if err != nil {
-			return dashboardLinkAsLabel, sliResults, err
-
+			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store slo.yaml : %v", err)
 		}
 	}
 
@@ -298,6 +295,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	// parse start and end (which are datetime strings) and convert them into unix timestamps
 	startUnix, endUnix, err := ensureRightTimestamps(eventData.Start, eventData.End)
 	if err != nil {
+		stdLogger.Error(err.Error())
 		return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 			nil, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
 			eventData.Deployment, eventData.Labels, eventData.Indicators, err)
@@ -311,6 +309,10 @@ func retrieveMetrics(event cloudevents.Event) error {
 	//
 	// Option 1 - see if we can get the data from a Dnatrace Dashboard
 	dashboardLinkAsLabel, sliResults, err := getDataFromDynatraceDashboard(dynatraceHandler, keptnEvent, startUnix, endUnix, dynatraceConfigFile.Dashboard, eventData.CustomFilters, stdLogger)
+	if err != nil {
+		// log the error, but continue with loading sli.yaml
+		stdLogger.Error(err.Error())
+	}
 
 	// IF we received data from processing the dashboard send it back - we are done here :-)
 	if sliResults != nil {
@@ -333,7 +335,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 		stdLogger.Info("Load indicators from SLI.yaml")
 		projectCustomQueries, err := getCustomQueries(keptnEvent, keptnHandler, stdLogger)
 		if err != nil {
-			stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
 			stdLogger.Error(err.Error())
 			return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 				nil, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
@@ -437,7 +438,7 @@ func getCustomQueries(keptnEvent *common.BaseKeptnEvent, keptnHandler *keptn.Kep
 
 	sliContent, err := common.GetKeptnResource(keptnEvent, sliResourceURI, logger)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not load %s in project %s: %v", sliResourceURI, keptnEvent.Project, err)
 	}
 
 	sliMap, _ = addResourceContentToSLIMap(sliMap, "", sliContent, logger)

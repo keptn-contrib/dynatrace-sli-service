@@ -326,10 +326,10 @@ func (ph *Handler) loadDynatraceDashboard(project string, stage string, service 
 	err = json.Unmarshal(body, &dashboardJSON)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not decode response payload: %v", err)
 	}
 
-	return dashboardJSON, err
+	return dashboardJSON, nil
 }
 
 // ExecuteMetricAPIDescribe calls the /metrics/<metricID> API call to retrieve Metric Definition Details
@@ -755,7 +755,7 @@ func isMatchingMetricID(singleResultMetricID string, queryMetricID string) bool 
 func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
 	dashboardJSON, err := ph.loadDynatraceDashboard(project, stage, service, dashboard)
 	if err != nil {
-		return "", nil, nil, nil, nil, err
+		return "", nil, nil, nil, nil, fmt.Errorf("could not load Dynatrace dashboard: %v", err)
 	}
 
 	if dashboardJSON == nil {
@@ -1094,8 +1094,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	fmt.Printf("Getting SLI config for %s\n", metric)
 	metricsQuery, err := ph.getTimeseriesConfig(metric)
 	if err != nil {
-		fmt.Printf("Error when fetching timeseries config: %s\n", err.Error())
-		return 0, err
+		return 0, fmt.Errorf("Error when fetching timeseries config: %s\n", err.Error())
 	}
 
 	// now we are enriching it with all the additonal parameters, e.g: time, filters ...
@@ -1105,8 +1104,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	result, err := ph.ExecuteMetricsAPIQuery(metricsQuery)
 
 	if err != nil {
-		fmt.Println("Error from Execute Metrics API Query: " + err.Error())
-		return 0, err
+		return 0, fmt.Errorf("error from Execute Metrics API Query: %s\n", err.Error())
 	}
 
 	var (
