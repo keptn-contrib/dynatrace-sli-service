@@ -95,7 +95,7 @@ func gotEvent(ctx context.Context, event cloudevents.Event) error {
  *              to circumvent this issue I am changing the check to also allow a time difference of up to 2 minutes (120 seconds). This shouldnt be a problem as our SLI Service retries the DYnatrace API anyway
  * Here is the issue: https://github.com/keptn-contrib/dynatrace-sli-service/issues/55
  */
-func ensureRightTimestamps(start string, end string) (time.Time, time.Time, error) {
+func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterface) (time.Time, time.Time, error) {
 
 	startUnix, err := common.ParseUnixTimestamp(start)
 	if err != nil {
@@ -132,13 +132,13 @@ func ensureRightTimestamps(start string, end string) (time.Time, time.Time, erro
 
 	// log outpout if we are waiting
 	if time.Now().Sub(endUnix).Seconds() < waitForSeconds {
-		fmt.Printf("As the end date is too close to Now() we are going to wait to make sure we have all the data for the requested timeframe(start-end)\n")
+		logger.Debug(fmt.Sprintf("As the end date is too close to Now() we are going to wait to make sure we have all the data for the requested timeframe(start-end)\n"))
 	}
 
 	// make sure the end timestamp is at least waitForSeconds seconds in the past such that dynatrace metrics API has processed data
 	for time.Now().Sub(endUnix).Seconds() < waitForSeconds {
 		// ToDo: this should be done in main.go
-		fmt.Printf("Sleeping for %d seconds... (waiting for Dynatrace Metrics API)\n", int(waitForSeconds-time.Now().Sub(endUnix).Seconds()))
+		logger.Debug(fmt.Sprintf("Sleeping for %d seconds... (waiting for Dynatrace Metrics API)\n", int(waitForSeconds-time.Now().Sub(endUnix).Seconds())))
 		time.Sleep(10 * time.Second)
 	}
 
@@ -282,17 +282,13 @@ func retrieveMetrics(event cloudevents.Event) error {
 	//
 	// creating Dynatrace Handler which allows us to call the Dynatrace API
 	stdLogger.Info("Dynatrace credentials (Tenant, Token) received")
-	dynatraceHandler := dynatrace.NewDynatraceHandler(dtCredentials.Tenant,
-		keptnEvent,
-		map[string]string{
-			"Authorization": "Api-Token " + dtCredentials.ApiToken,
-		},
-		eventData.CustomFilters,
-	)
+	dynatraceHandler := dynatrace.NewDynatraceHandler(dtCredentials.Tenant, keptnEvent, map[string]string{
+		"Authorization": "Api-Token " + dtCredentials.ApiToken,
+	}, eventData.CustomFilters, shkeptncontext, event.ID())
 
 	//
 	// parse start and end (which are datetime strings) and convert them into unix timestamps
-	startUnix, endUnix, err := ensureRightTimestamps(eventData.Start, eventData.End)
+	startUnix, endUnix, err := ensureRightTimestamps(eventData.Start, eventData.End, stdLogger)
 	if err != nil {
 		stdLogger.Error(err.Error())
 		return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,

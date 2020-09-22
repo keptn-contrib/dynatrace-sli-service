@@ -19,14 +19,9 @@ func TestCreateNewDynatraceHandler(t *testing.T) {
 	keptnEvent.Service = "carts"
 	keptnEvent.DeploymentStrategy = "direct"
 
-	dh := NewDynatraceHandler(
-		"dynatrace",
-		keptnEvent,
-		map[string]string{
-			"Authorization": "Api-Token " + "test",
-		},
-		nil,
-	)
+	dh := NewDynatraceHandler("dynatrace", keptnEvent, map[string]string{
+		"Authorization": "Api-Token " + "test",
+	}, nil, "", "")
 
 	if dh.ApiURL != "dynatrace" {
 		t.Errorf("dh.ApiURL=%s; want dynatrace", dh.ApiURL)
@@ -56,14 +51,9 @@ func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
 	keptnEvent.Service = "carts"
 	keptnEvent.DeploymentStrategy = ""
 
-	dh := NewDynatraceHandler(
-		"dynatrace",
-		keptnEvent,
-		map[string]string{
-			"Authorization": "Api-Token " + "test",
-		},
-		nil,
-	)
+	dh := NewDynatraceHandler("dynatrace", keptnEvent, map[string]string{
+		"Authorization": "Api-Token " + "test",
+	}, nil, "", "")
 
 	got, err := dh.getTimeseriesConfig("foobar")
 

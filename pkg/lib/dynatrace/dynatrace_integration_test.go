@@ -67,7 +67,7 @@ func TestGetSLIValue(t *testing.T) {
 	keptnEvent.DeploymentStrategy = ""
 
 	// dh := NewDynatraceHandler("http://dynatrace", "sockshop", "dev", "carts", nil, nil, "")
-	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil, "", "")
 	dh.HTTPClient = httpClient
 
 	start := time.Unix(1571649084, 0).UTC()
@@ -116,7 +116,7 @@ func TestGetSLIValueWithOldandNewCustomQueryFormat(t *testing.T) {
 	keptnEvent.Service = "carts"
 	keptnEvent.DeploymentStrategy = ""
 
-	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil, "", "")
 	dh.HTTPClient = httpClient
 
 	// overwrite custom queries with the new format (starting with metricSelector=)
@@ -181,7 +181,7 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 	keptnEvent.Service = "carts"
 	keptnEvent.DeploymentStrategy = ""
 
-	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil, "", "")
 	dh.HTTPClient = httpClient
 
 	start := time.Unix(1571649084, 0).UTC()
@@ -230,7 +230,7 @@ func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 	keptnEvent.Service = "carts"
 	keptnEvent.DeploymentStrategy = ""
 
-	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil, "", "")
 	dh.HTTPClient = httpClient
 
 	start := time.Unix(1571649084, 0).UTC()
@@ -329,7 +329,7 @@ func TestGetSLISleep(t *testing.T) {
 	keptnEvent.Service = "carts"
 	keptnEvent.DeploymentStrategy = ""
 
-	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil, "", "")
 	dh.HTTPClient = httpClient
 
 	start := time.Now().Add(-5 * time.Minute)
@@ -357,7 +357,7 @@ func TestGetSLIValueWithErrorResponse(t *testing.T) {
 	keptnEvent.Service = "carts"
 	keptnEvent.DeploymentStrategy = ""
 
-	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil)
+	dh := NewDynatraceHandler("http://dynatrace", keptnEvent, nil, nil, "", "")
 	dh.HTTPClient = httpClient
 
 	start := time.Unix(1571649084, 0).UTC()
