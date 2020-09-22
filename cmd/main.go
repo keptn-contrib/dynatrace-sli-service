@@ -272,8 +272,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
 
 	if err != nil {
-		stdLogger.Error(err.Error())
-		stdLogger.Debug("Failed to fetch Dynatrace credentials, exiting.")
+		stdLogger.Error("Failed to fetch Dynatrace credentials: " + err.Error())
 		// Implementing: https://github.com/keptn-contrib/dynatrace-sli-service/issues/49
 		return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 			nil, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
@@ -386,8 +385,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if sliResults == nil {
 		err = errors.New("Couldnt retrieve any SLI Results")
 	}
-
-	//
 
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
