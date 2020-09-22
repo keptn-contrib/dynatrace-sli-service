@@ -132,7 +132,7 @@ func ensureRightTimestamps(start string, end string) (time.Time, time.Time, erro
 		waitForSeconds = 60.0
 	}
 
-	// log outpout if we are waiting
+	// log output while we are waiting
 	if time.Now().Sub(endUnix).Seconds() < waitForSeconds {
 		fmt.Printf("As the end date is too close to Now() we are going to wait to make sure we have all the data for the requested timeframe(start-end)\n")
 	}
