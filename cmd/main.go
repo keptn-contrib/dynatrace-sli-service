@@ -150,11 +150,6 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
  */
 func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, []*keptn.SLIResult, error) {
 
-	if !dynatrace.GetFetchSloSliFromDashboardConfig() {
-		logger.Info("Skip SLO/SLI fetch from a Dynatrace dashboard")
-		return "", nil, nil
-	}
-
 	//
 	// Option 1: We query the data from a dashboard instead of the uploaded SLI.yaml
 	// ==============================================================================
