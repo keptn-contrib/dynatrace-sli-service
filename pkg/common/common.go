@@ -234,9 +234,7 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 	if RunLocal || RunLocalTest {
 		err := ioutil.WriteFile(remoteResourceURI, contentToUpload, 0644)
 		if err != nil {
-			logMessage := fmt.Sprintf("Couldnt write local file %s", remoteResourceURI)
-			logger.Info(logMessage)
-			return err
+			return fmt.Errorf("Couldnt write local file %s: %v", remoteResourceURI, err)
 		}
 		logger.Info("Local file written " + remoteResourceURI)
 	} else {
@@ -246,8 +244,7 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 		resources := []*keptnmodels.Resource{{ResourceContent: string(contentToUpload), ResourceURI: &remoteResourceURI}}
 		_, err := resourceHandler.CreateResources(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resources)
 		if err != nil {
-			logMessage := fmt.Sprintf("Couldnt upload remote resource %s: %s", remoteResourceURI, *err.Message)
-			logger.Error(logMessage)
+			return fmt.Errorf("Couldnt upload remote resource %s: %s", remoteResourceURI, *err.Message)
 		}
 	}
 
@@ -284,12 +281,12 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 	} else {
 		kubeAPI, err := GetKubernetesClient()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error retrieving Dynatrace credentials: could not initialize Kubernetes client: %v", err)
 		}
 		secret, err := kubeAPI.CoreV1().Secrets(namespace).Get(dynatraceSecretName, metav1.GetOptions{})
 
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error retrieving Dynatrace credentials: could not retrieve secret %s: %v", dynatraceSecretName, err)
 		}
 
 		// grabnerandi: remove check on DT_PAAS_TOKEN as it is not relevant for quality-gate-only use case

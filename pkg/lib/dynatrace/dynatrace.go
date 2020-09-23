@@ -200,16 +200,18 @@ type Handler struct {
 	Headers       map[string]string
 	CustomQueries map[string]string
 	CustomFilters []*keptn.SLIFilter
+	Logger        keptn.LoggerInterface
 }
 
 // NewDynatraceHandler returns a new dynatrace handler that interacts with the Dynatrace REST API
-func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, headers map[string]string, customFilters []*keptn.SLIFilter) *Handler {
+func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, headers map[string]string, customFilters []*keptn.SLIFilter, keptnContext string, eventID string) *Handler {
 	ph := &Handler{
 		ApiURL:        apiURL,
 		KeptnEvent:    keptnEvent,
 		HTTPClient:    &http.Client{},
 		Headers:       headers,
 		CustomFilters: customFilters,
+		Logger:        keptn.NewLogger(keptnContext, eventID, "dynatrace-sli-service"),
 	}
 
 	return ph
@@ -221,7 +223,7 @@ func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, heade
 func (ph *Handler) findDynatraceDashboard(project string, stage string, service string) (string, error) {
 	// Lets query the list of all Dashboards and find the one that matches project, stage, service based on the title (in the future - we can do it via tags)
 	// create dashboard query URL and set additional headers
-	fmt.Printf("Query all dashboards\n")
+	ph.Logger.Debug(fmt.Sprintf("Query all dashboards\n"))
 	dashboardAPIUrl := ph.ApiURL + fmt.Sprintf("/api/config/v1/dashboards")
 	req, err := http.NewRequest("GET", dashboardAPIUrl, nil)
 	for headerName, headerValue := range ph.Headers {
@@ -239,7 +241,7 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 		return "", fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
 	}
 
-	fmt.Println("Request finished, parsing dashboard list response body...")
+	ph.Logger.Debug("Request finished, parsing dashboard list response body...")
 	body, _ := ioutil.ReadAll(resp.Body)
 	dashboardsJSON := &DynatraceDashboards{}
 
@@ -256,7 +258,7 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 
 		// lets see if the dashboard matches our name
 		if strings.HasPrefix(strings.ToLower(dashboard.Name), "kqg;") {
-			fmt.Println("Analyzing if Dashboard matches: " + dashboard.Name)
+			ph.Logger.Debug("Analyzing if Dashboard matches: " + dashboard.Name)
 
 			nameSplits := strings.Split(dashboard.Name, ";")
 
@@ -276,7 +278,7 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 			}
 
 			if dashboardMatch {
-				fmt.Println("Found Dashboard Match: " + dashboard.ID)
+				ph.Logger.Debug("Found Dashboard Match: " + dashboard.ID)
 				return dashboard.ID, nil
 			}
 		}
@@ -299,7 +301,7 @@ func (ph *Handler) loadDynatraceDashboard(project string, stage string, service 
 	}
 
 	// create dashboard query URL and set additional headers
-	fmt.Printf("Query dashboard with ID: %s\n", dashboard)
+	ph.Logger.Debug(fmt.Sprintf("Query dashboard with ID: %s\n", dashboard))
 	dashboardAPIUrl := ph.ApiURL + fmt.Sprintf("/api/config/v1/dashboards/%s", dashboard)
 	req, err := http.NewRequest("GET", dashboardAPIUrl, nil)
 	for headerName, headerValue := range ph.Headers {
@@ -317,19 +319,19 @@ func (ph *Handler) loadDynatraceDashboard(project string, stage string, service 
 		return nil, fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
 	}
 
-	fmt.Println("Request finished, parsing dashboard response body...")
+	ph.Logger.Debug("Request finished, parsing dashboard response body...")
 	body, _ := ioutil.ReadAll(resp.Body)
-	// fmt.Println(string(body))
+
 	dashboardJSON := &DynatraceDashboard{}
 
 	// parse json
 	err = json.Unmarshal(body, &dashboardJSON)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not decode response payload: %v", err)
 	}
 
-	return dashboardJSON, err
+	return dashboardJSON, nil
 }
 
 // ExecuteMetricAPIDescribe calls the /metrics/<metricID> API call to retrieve Metric Definition Details
@@ -350,11 +352,11 @@ func (ph *Handler) ExecuteMetricAPIDescribe(metricID string) (*MetricDefinition,
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("Request finished, parsing body...")
+	ph.Logger.Debug("Request finished, parsing body...")
 
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	fmt.Println(string(body) + "\n")
+	ph.Logger.Debug(string(body) + "\n")
 
 	// parse response json
 	var result MetricDefinition
@@ -395,11 +397,11 @@ func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceResult
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("Request finished, parsing body...")
+	ph.Logger.Debug("Request finished, parsing body...")
 
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	fmt.Println(string(body) + "\n")
+	ph.Logger.Debug(string(body) + "\n")
 
 	// parse response json
 	var result DynatraceResult
@@ -445,11 +447,11 @@ func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("Request finished, parsing body...")
+	ph.Logger.Debug(("Request finished, parsing body..."))
 
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	fmt.Println(string(body) + "\n")
+	ph.Logger.Debug(string(body) + "\n")
 
 	// parse response json
 	var result DTUSQLResult
@@ -479,7 +481,7 @@ func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
 
 // BuildDynatraceUSQLQuery builds a USQL query based on the incoming values
 func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, endUnix time.Time) string {
-	fmt.Printf("Finalize USQL query for %s\n", query)
+	ph.Logger.Debug(fmt.Sprintf("Finalize USQL query for %s\n", query))
 
 	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
 	usql := ph.replaceQueryParameters(query)
@@ -504,7 +506,7 @@ func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, en
 	}
 
 	u.RawQuery = q.Encode()
-	fmt.Println("Final USQL Query=", u.String())
+	ph.Logger.Debug(fmt.Sprintf("Final USQL Query=%s", u.String()))
 
 	return u.String()
 }
@@ -516,13 +518,13 @@ func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, en
 //  #2: MetricID that this query will return, e.g: builtin:host.cpu
 //  #3: error
 func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter) (string, string) {
-	fmt.Printf("Finalize query for %s\n", metricquery)
+	ph.Logger.Debug(fmt.Sprintf("Finalize query for %s\n", metricquery))
 
 	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
 	metricquery = ph.replaceQueryParameters(metricquery)
 
 	if strings.HasPrefix(metricquery, "?metricSelector=") {
-		fmt.Printf("COMPATIBILITY WARNING: Provided query string %s is not compatible. Auto-removing the ? in front (see %s for details).\n", metricquery, MetricsAPIOldFormatNewFormatDoc)
+		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Provided query string %s is not compatible. Auto-removing the ? in front (see %s for details).\n", metricquery, MetricsAPIOldFormatNewFormatDoc))
 		metricquery = strings.Replace(metricquery, "?metricSelector=", "metricSelector=", 1)
 	}
 
@@ -537,7 +539,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 		// new format without "?" -> everything within the query string are query parameters
 		metricQueryParams = querySplit[0]
 	} else {
-		fmt.Printf("COMPATIBILITY WARNING: Your query %s still uses the old format (see %s for details).\n", metricQueryParams, MetricsAPIOldFormatNewFormatDoc)
+		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Your query %s still uses the old format (see %s for details).\n", metricQueryParams, MetricsAPIOldFormatNewFormatDoc))
 		// old format with "?" - everything left of the ? is the identifier, everything right are query params
 		metricSelector = querySplit[0]
 
@@ -553,9 +555,6 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 		"from":       common.TimestampToString(startUnix),
 		"to":         common.TimestampToString(endUnix),
 	}
-	// fmt.Println("Query Params initially:")
-	// fmt.Println(queryParams)
-
 	// append queryParams to targetURL
 	u, _ := url.Parse(targetURL)
 	q, _ := url.ParseQuery(u.RawQuery)
@@ -569,10 +568,10 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 
 	// compatibility with old scope=... custom queries
 	if scopeData != "" {
-		fmt.Printf("COMPATIBILITY WARNING: You are still using scope=... - querying the new metrics API requires use of entitySelector=... instead (see %s for details).", MetricsAPIOldFormatNewFormatDoc)
+		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: You are still using scope=... - querying the new metrics API requires use of entitySelector=... instead (see %s for details).", MetricsAPIOldFormatNewFormatDoc))
 		// scope is no longer supported in the new API, it needs to be called "entitySelector" and contain type(SERVICE)
 		if !strings.Contains(scopeData, "type(SERVICE)") {
-			fmt.Printf("COMPATIBILITY WARNING: Automatically adding type(SERVICE) to entitySelector=... for compatibility with the new Metrics API (see %s for details).", MetricsAPIOldFormatNewFormatDoc)
+			ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Automatically adding type(SERVICE) to entitySelector=... for compatibility with the new Metrics API (see %s for details).", MetricsAPIOldFormatNewFormatDoc))
 			scopeData = fmt.Sprintf("%s,type(SERVICE)", scopeData)
 		}
 		// add scope as entitySelector
@@ -585,7 +584,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 	}
 
 	u.RawQuery = q.Encode()
-	fmt.Println("Final Query=", u.String())
+	ph.Logger.Debug(fmt.Sprintf("Final Query=%s", u.String()))
 
 	return u.String(), metricSelector
 }
@@ -715,24 +714,24 @@ func cleanIndicatorName(indicatorName string) string {
  * This function here tries to come up with a better matching algorithm
  * WHILE NOT PERFECT - HERE IS THE FIRST IMPLEMENTATION
  */
-func isMatchingMetricID(singleResultMetricID string, queryMetricID string) bool {
+func (ph *Handler) isMatchingMetricID(singleResultMetricID string, queryMetricID string) bool {
 	if strings.Compare(singleResultMetricID, queryMetricID) == 0 {
 		return true
 	}
 
 	// lets do some basic fuzzy matching
 	if strings.Contains(singleResultMetricID, "~") {
-		fmt.Printf("Need Fuzzy Matching between %s and %s\n", singleResultMetricID, queryMetricID)
+		ph.Logger.Debug(fmt.Sprintf("Need Fuzzy Matching between %s and %s\n", singleResultMetricID, queryMetricID))
 
 		//
 		// lets just see whether everything until the first : matches
 		if strings.Contains(singleResultMetricID, ":") && strings.Contains(singleResultMetricID, ":") {
-			fmt.Printf("Just compare before first :\n")
+			ph.Logger.Debug(fmt.Sprintf("Just compare before first :\n"))
 
 			fuzzyResultMetricID := strings.Split(singleResultMetricID, ":")[0]
 			fuzzyQueryMetricID := strings.Split(queryMetricID, ":")[0]
 			if strings.Compare(fuzzyResultMetricID, fuzzyQueryMetricID) == 0 {
-				fmt.Printf("FUZZY MATCH!!\n")
+				ph.Logger.Debug(fmt.Sprintf("FUZZY MATCH!!\n"))
 				return true
 			}
 		}
@@ -755,7 +754,7 @@ func isMatchingMetricID(singleResultMetricID string, queryMetricID string) bool 
 func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
 	dashboardJSON, err := ph.loadDynatraceDashboard(project, stage, service, dashboard)
 	if err != nil {
-		return "", nil, nil, nil, nil, err
+		return "", nil, nil, nil, nil, fmt.Errorf("could not load Dynatrace dashboard: %v", err)
 	}
 
 	if dashboardJSON == nil {
@@ -785,7 +784,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 		mgmtZone = ";gf=" + dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID
 	}
 	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s%s", ph.ApiURL, dashboardJSON.ID, common.TimestampToString(startUnix), common.TimestampToString(endUnix), mgmtZone)
-	fmt.Printf("Dashboard Link: %s\n", dashboardLinkAsLabel)
+	ph.Logger.Debug(fmt.Sprintf("Dashboard Link: %s\n", dashboardLinkAsLabel))
 
 	// now lets iterate through the dashboard to find our SLIs
 	for _, tile := range dashboardJSON.Tiles {
@@ -813,13 +812,13 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 		// first - lets figure out if this tile should be included in SLI validation or not - we parse the title and look for "sli=sliname"
 		baseIndicatorName, passSLOs, warningSLOs, weight, keySli := ParsePassAndWarningFromString(tileTitle, []string{}, []string{})
 		if baseIndicatorName == "" {
-			fmt.Printf("Chart Tile %s - NOT included as name doesnt include sli=SLINAME\n", tileTitle)
+			logger.Debug(fmt.Sprintf("Chart Tile %s - NOT included as name doesnt include sli=SLINAME\n", tileTitle))
 			continue
 		}
 
 		// only interested in custom charts
 		if tile.TileType == "CUSTOM_CHARTING" {
-			fmt.Printf("Processing custom chart tile %s, sli=%s", tileTitle, baseIndicatorName)
+			logger.Debug(fmt.Sprintf("Processing custom chart tile %s, sli=%s", tileTitle, baseIndicatorName))
 
 			// we can potentially have multiple series on that chart
 			for _, series := range tile.FilterConfig.ChartConfig.Series {
@@ -827,7 +826,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 				// Lets query the metric definition as we need to know how many dimension the metric has
 				metricDefinition, err := ph.ExecuteMetricAPIDescribe(series.Metric)
 				if err != nil {
-					fmt.Printf("Error retrieving Metric Description for %s: %s\n", series.Metric, err.Error())
+					logger.Debug(fmt.Sprintf("Error retrieving Metric Description for %s: %s\n", series.Metric, err.Error()))
 					continue
 				}
 
@@ -845,10 +844,10 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 					metricDimIxAsString := strconv.Itoa(metricDimIx)
 					// lets check if this dimension is in the chart
 					for _, seriesDim := range series.Dimensions {
-						fmt.Printf("seriesDim.id: %s; metricDimIx: %s\n", seriesDim.ID, metricDimIxAsString)
+						logger.Debug(fmt.Sprintf("seriesDim.id: %s; metricDimIx: %s\n", seriesDim.ID, metricDimIxAsString))
 						if strings.Compare(seriesDim.ID, metricDimIxAsString) == 0 {
 							// this is a dimension we want to keep and not merge
-							fmt.Printf("not merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name)
+							logger.Debug(fmt.Sprintf("not merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name))
 							doMergeDimension = false
 
 							// lets check if we need to apply a dimension filter
@@ -864,7 +863,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 
 					if doMergeDimension {
 						// this is a dimension we want to merge as it is not split by in the chart
-						fmt.Printf("merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name)
+						logger.Debug(fmt.Sprintf("merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name))
 						mergeAggregator = mergeAggregator + fmt.Sprintf(":merge(%d)", metricDimIx)
 					}
 				}
@@ -922,13 +921,13 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 					dashboardSLI.Indicators[baseIndicatorName] = metricQuery
 				} else {
 					// SUCCESS-CASE: we retrieved values - now we interate through the results and create an indicator result for every dimension
-					fmt.Printf("received query result\n")
+					logger.Debug(fmt.Sprintf("received query result\n"))
 					for _, singleResult := range queryResult.Result {
-						fmt.Printf("Processing result for %s\n", singleResult.MetricID)
-						if isMatchingMetricID(singleResult.MetricID, metricID) {
+						logger.Debug(fmt.Sprintf("Processing result for %s\n", singleResult.MetricID))
+						if ph.isMatchingMetricID(singleResult.MetricID, metricID) {
 							dataResultCount := len(singleResult.Data)
 							if dataResultCount == 0 {
-								fmt.Printf("No data for this metric!\n")
+								logger.Debug(fmt.Sprintf("No data for this metric!\n"))
 							}
 							for _, singleDataEntry := range singleResult.Data {
 								//
@@ -946,7 +945,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 									dimensionCount := len(singleDataEntry.Dimensions)
 									dimensionIncrement := 2
 									if dimensionCount != (len(series.Dimensions) * 2) {
-										fmt.Printf("DIDNT RECEIVE ID and Names. Lets assume we just received the dimension IDs")
+										logger.Debug(fmt.Sprintf("DIDNT RECEIVE ID and Names. Lets assume we just received the dimension IDs"))
 										dimensionIncrement = 1
 									}
 
@@ -973,8 +972,8 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 								value = scaleData(metricDefinition.MetricID, metricDefinition.Unit, value)
 
 								// we got our metric, slos and the value
-								// fmt.Printf("%s: pass=%s, warning=%s, value=%0.2f\n", indicatorName, passSLOs, warningSLOs, dimensionValue)
-								fmt.Printf("%s: %0.2f\n", indicatorName, value)
+
+								logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, value))
 
 								// lets add the value to our SLIResult array
 								sliResults = append(sliResults, &keptn.SLIResult{
@@ -1008,7 +1007,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 								dashboardSLO.Objectives = append(dashboardSLO.Objectives, sloDefinition)
 							}
 						} else {
-							fmt.Printf("Retrieving unintened metric %s while expecting %s\n", singleResult.MetricID, metricID)
+							logger.Debug(fmt.Sprintf("Retrieving unintened metric %s while expecting %s\n", singleResult.MetricID, metricID))
 						}
 					}
 				}
@@ -1046,7 +1045,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 						dimensionName = rowValue[0].(string)
 						dimensionValue = rowValue[len(rowValue)-1].(float64)
 					} else {
-						fmt.Printf("USQL Tile Type %s currently not supported!", tile.Type)
+						ph.Logger.Debug(fmt.Sprintf("USQL Tile Type %s currently not supported!", tile.Type))
 						continue
 					}
 
@@ -1058,8 +1057,8 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 					if dimensionName != "" {
 						indicatorName = indicatorName + "_" + dimensionName
 					}
-					// fmt.Printf("%s: pass=%s, warning=%s, value=%0.2f\n", indicatorName, passSLOs, warningSLOs, dimensionValue)
-					fmt.Printf("%s: %0.2f\n", indicatorName, dimensionValue)
+
+					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, dimensionValue))
 
 					// lets add the value to our SLIResult array
 					sliResults = append(sliResults, &keptn.SLIResult{
@@ -1091,22 +1090,20 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 // GetSLIValue queries a single metric value from Dynatrace API
 func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter) (float64, error) {
 	// first we get the query from the SLI configuration based on its logical name
-	fmt.Printf("Getting SLI config for %s\n", metric)
+	ph.Logger.Debug(fmt.Sprintf("Getting SLI config for %s\n", metric))
 	metricsQuery, err := ph.getTimeseriesConfig(metric)
 	if err != nil {
-		fmt.Printf("Error when fetching timeseries config: %s\n", err.Error())
-		return 0, err
+		return 0, fmt.Errorf("Error when fetching timeseries config: %s\n", err.Error())
 	}
 
 	// now we are enriching it with all the additonal parameters, e.g: time, filters ...
 	metricsQuery, metricID := ph.BuildDynatraceMetricsQuery(metricsQuery, startUnix, endUnix, customFilters)
 
-	fmt.Println("trying to fetch metric", metricID)
+	ph.Logger.Debug(fmt.Sprintf("trying to fetch metric %s", metricID))
 	result, err := ph.ExecuteMetricsAPIQuery(metricsQuery)
 
 	if err != nil {
-		fmt.Println("Error from Execute Metrics API Query: " + err.Error())
-		return 0, err
+		return 0, fmt.Errorf("error from Execute Metrics API Query: %s\n", err.Error())
 	}
 
 	var (
@@ -1117,7 +1114,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	if result != nil {
 		for _, i := range result.Result {
 
-			if isMatchingMetricID(i.MetricID, metricID) {
+			if ph.isMatchingMetricID(i.MetricID, metricID) {
 				metricIDExists = true
 
 				if len(i.Data) != 1 {
