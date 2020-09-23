@@ -506,7 +506,7 @@ func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, en
 	}
 
 	u.RawQuery = q.Encode()
-	ph.Logger.Debug(fmt.Sprintf("Final USQL Query=", u.String()))
+	ph.Logger.Debug(fmt.Sprintf("Final USQL Query=%s", u.String()))
 
 	return u.String()
 }
@@ -584,7 +584,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 	}
 
 	u.RawQuery = q.Encode()
-	ph.Logger.Debug(fmt.Sprintf("Final Query=", u.String()))
+	ph.Logger.Debug(fmt.Sprintf("Final Query=%s", u.String()))
 
 	return u.String(), metricSelector
 }
@@ -1099,7 +1099,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	// now we are enriching it with all the additonal parameters, e.g: time, filters ...
 	metricsQuery, metricID := ph.BuildDynatraceMetricsQuery(metricsQuery, startUnix, endUnix, customFilters)
 
-	ph.Logger.Debug(fmt.Sprintf("trying to fetch metric", metricID))
+	ph.Logger.Debug(fmt.Sprintf("trying to fetch metric %s", metricID))
 	result, err := ph.ExecuteMetricsAPIQuery(metricsQuery)
 
 	if err != nil {
