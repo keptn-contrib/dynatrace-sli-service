@@ -1,6 +1,7 @@
 package dynatrace
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -205,10 +206,13 @@ type Handler struct {
 
 // NewDynatraceHandler returns a new dynatrace handler that interacts with the Dynatrace REST API
 func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, headers map[string]string, customFilters []*keptn.SLIFilter, keptnContext string, eventID string) *Handler {
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: !IsHttpSSLVerificationEnabled()},
+	}
 	ph := &Handler{
 		ApiURL:        apiURL,
 		KeptnEvent:    keptnEvent,
-		HTTPClient:    &http.Client{},
+		HTTPClient:    &http.Client{Transport: tr},
 		Headers:       headers,
 		CustomFilters: customFilters,
 		Logger:        keptn.NewLogger(keptnContext, eventID, "dynatrace-sli-service"),
