@@ -352,12 +352,16 @@ func (ph *Handler) loadDynatraceDashboard(project string, stage string, service 
 	}
 
 	// We have a valid Dashboard UUID - now lets query it!
-	ph.Logger.Debug(fmt.Sprintf("Query dashboard with ID: %s\n", dashboard))
+	ph.Logger.Debug(fmt.Sprintf("Query dashboard with ID: %s", dashboard))
 	dashboardAPIUrl := ph.ApiURL + fmt.Sprintf("/api/config/v1/dashboards/%s", dashboard)
 	resp, body, err := ph.executeDynatraceREST("GET", dashboardAPIUrl, nil)
 
-	if resp == nil || err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		return nil, dashboard, err
+	}
+
+	if resp == nil || resp.StatusCode != 200 {
+		return nil, dashboard, fmt.Errorf("No valid response came back")
 	}
 
 	// parse json
@@ -517,7 +521,7 @@ func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, en
 //  #1: Finalized Dynatrace API Query
 //  #2: MetricID that this query will return, e.g: builtin:host.cpu
 //  #3: error
-func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter) (string, string) {
+func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time.Time, endUnix time.Time) (string, string) {
 	ph.Logger.Debug(fmt.Sprintf("Finalize query for %s\n", metricquery))
 
 	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
@@ -589,7 +593,10 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 	return u.String(), metricSelector
 }
 
-// ParsePassAndWarningFromString takes a value such as "Some description;sli=teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%;weight=1;key=true"
+// ParsePassAndWarningFromString takes a value such as
+// Example 1: Some description;sli=teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%;weight=1;key=true
+// Example 2: Response time (P95);sli=svc_rt_p95;pass=<+10%,<600
+// Example 3: Host Disk Queue Length (max);sli=host_disk_queue;pass=<=0;warning=<1;key=false
 // can also take a value like "KQG;project=myproject;pass=90%;warning=75%;"
 // This will return
 // #1: teststep_rt
@@ -607,17 +614,16 @@ func ParsePassAndWarningFromString(customName string, defaultPass []string, defa
 	passCriteria := []*keptn.SLOCriteria{}
 	warnCriteria := []*keptn.SLOCriteria{}
 
+	// lets iterate through all name-value pairs which are seprated through ";" to extract keys such as warning, pass, weight, key, sli
 	for i := 0; i < len(nameValueSplits); i++ {
-		// need to adapt this in order to parse texts like this where we have an = in the expression itself - so we cant use this for the actual separation of name=value
-		// Response time (P95);sli=svc_rt_p95;pass=<+10%,<600
-		// Host Disk Queue Length (max);sli=host_disk_queue;pass=<=0;warning=<1;key=false
 
-		// nameValueSplit := strings.Split(nameValueSplits[i], "=")
 		nameValueDividerIndex := strings.Index(nameValueSplits[i], "=")
 		if nameValueDividerIndex < 0 {
 			continue
 		}
 
+		// for each name=value pair we get the name as first part of the string until the first =
+		// the value is the after that =
 		nameString := nameValueSplits[i][:nameValueDividerIndex]
 		valueString := nameValueSplits[i][nameValueDividerIndex+1:]
 		switch nameString /*nameValueSplit[0]*/ {
@@ -763,7 +769,7 @@ func (ph *Handler) isMatchingMetricID(singleResultMetricID string, queryMetricID
 //  #3: ServiceLevelObjectives
 //  #4: SLIResult
 //  #5: Error
-func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
+func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, logger *keptn.Logger) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
 	dashboardJSON, dashboard, err := ph.loadDynatraceDashboard(project, stage, service, dashboard)
 	if err != nil {
 		return "", nil, nil, nil, nil, fmt.Errorf("Could not load Dynatrace dashboard %s - %v", dashboard, err)
@@ -776,6 +782,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 	// generate our own SLIResult array based on the dashboard configuration
 	var sliResults []*keptn.SLIResult
 	dashboardSLI := &SLI{}
+	dashboardSLI.SpecVersion = "0.1.4"
 	dashboardSLI.Indicators = make(map[string]string)
 	dashboardSLO := &keptn.ServiceLevelObjectives{
 		Objectives: []*keptn.SLO{},
@@ -786,8 +793,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 	// if there is a dashboard management zone filter get them for both the queries as well as for the dashboard link
 	managementZoneFilter := ""
 	mgmtZone := ""
-	if dashboardJSON.DashboardMetadata != nil &&
-		dashboardJSON.DashboardMetadata.DashboardFilter != nil && dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone != nil {
+	if dashboardJSON.DashboardMetadata.DashboardFilter != nil && dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone != nil {
 		managementZoneFilter = fmt.Sprintf(",mzId(%s)", dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID)
 		mgmtZone = ";gf=" + dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID
 	}
@@ -913,11 +919,13 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 					entityType, managementZoneFilter)
 
 				// lets build the Dynatrace API Metric query for the proposed timeframe and additonal filters!
-				fullMetricQuery, metricID := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix, customFilters)
+				fullMetricQuery, metricID := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix)
 
 				// Lets run the Query and iterate through all data per dimension. Each Dimension will become its own indicator
 				queryResult, err := ph.ExecuteMetricsAPIQuery(fullMetricQuery)
 				if err != nil {
+					logger.Debug(fmt.Sprintf("No result for query: %v", err))
+
 					// ERROR-CASE: Metric API return no values or an error
 					// we couldnt query data - so - we return the error back as part of our SLIResults
 					sliResults = append(sliResults, &keptn.SLIResult{
@@ -1088,7 +1096,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 }
 
 // GetSLIValue queries a single metric value from Dynatrace API
-func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.Time, customFilters []*keptn.SLIFilter) (float64, error) {
+func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.Time) (float64, error) {
 	// first we get the query from the SLI configuration based on its logical name
 	ph.Logger.Debug(fmt.Sprintf("Getting SLI config for %s\n", metric))
 	metricsQuery, err := ph.getTimeseriesConfig(metric)
@@ -1097,7 +1105,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	}
 
 	// now we are enriching it with all the additonal parameters, e.g: time, filters ...
-	metricsQuery, metricID := ph.BuildDynatraceMetricsQuery(metricsQuery, startUnix, endUnix, customFilters)
+	metricsQuery, metricID := ph.BuildDynatraceMetricsQuery(metricsQuery, startUnix, endUnix)
 
 	ph.Logger.Debug(fmt.Sprintf("trying to fetch metric %s", metricID))
 	result, err := ph.ExecuteMetricsAPIQuery(metricsQuery)

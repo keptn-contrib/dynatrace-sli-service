@@ -1,11 +1,10 @@
 {
     "result": [
     {
-        "metricId": "builtin:tech.generic.processCount",
+        "metricId": "builtin:tech.generic.processCount:merge(0):avg:names",
         "data": [
           {
             "dimensions": [
-              "PROCESS_GROUP_INSTANCE-24A949AB19EC17CB"
             ],
             "timestamps": [
               1600950300000
@@ -34,7 +33,7 @@
     },
 
     {
-        "metricId": "builtin:tech.generic.mem.workingSetSize",
+        "metricId": "builtin:tech.generic.mem.workingSetSize:merge(0):avg:names",
         "data": [
           {
             "dimensions": [
@@ -51,7 +50,7 @@
     },
     
     {
-        "metricId": "builtin:tech.generic.cpu.usage",
+        "metricId": "builtin:tech.generic.cpu.usage:merge(0):avg:names",
         "data": [
           {
             "dimensions": [
@@ -68,7 +67,7 @@
     },
     
     {
-        "metricId": "builtin:service.errors.server.rate",
+        "metricId": "builtin:service.errors.server.rate:merge(0):avg:names",
         "data": [
           {
             "dimensions": [
@@ -85,7 +84,7 @@
     },
     
     {
-        "metricId": "builtin:service.requestCount.total",
+        "metricId": "builtin:service.requestCount.total:merge(0):value:names",
         "data": [
           {
             "dimensions": [
@@ -102,7 +101,7 @@
     },
     
     {
-        "metricId": "builtin:host.cpu.usage",
+        "metricId": "builtin:host.cpu.usage:merge(0):avg:names",
         "data": [
           {
             "dimensions": [
@@ -119,7 +118,7 @@
     },
     
     {
-        "metricId": "builtin:host.mem.usage",
+        "metricId": "builtin:host.mem.usage:merge(0):avg:names",
         "data": [
           {
             "dimensions": [
@@ -136,7 +135,7 @@
     },
     
     {
-        "metricId": "builtin:host.disk.queueLength",
+        "metricId": "builtin:host.disk.queueLength:merge(1):merge(0):max:names",
         "data": [
           {
             "dimensions": [
@@ -153,7 +152,7 @@
     },
     
     {
-        "metricId": "builtin:service.nonDbChildCallCount",
+        "metricId": "builtin:service.nonDbChildCallCount:merge(0):value:names",
         "data": [
           {
             "dimensions": [

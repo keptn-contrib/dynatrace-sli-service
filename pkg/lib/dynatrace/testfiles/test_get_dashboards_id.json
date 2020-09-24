@@ -5,7 +5,7 @@
       ],
       "clusterVersion": "1.202.80.20200921-133947"
     },
-    "id": "845ac2ea-4eac-4e84-88e8-fce3280e964a",
+    "id": "12345678-1111-4444-8888-123456789012",
     "dashboardMetadata": {
       "name": "KQG;project=qualitygate;service=evalservice;stage=qualitystage",
       "shared": false,

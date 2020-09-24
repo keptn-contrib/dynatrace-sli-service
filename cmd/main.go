@@ -148,14 +148,14 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
 /**
  * Tries to find a dynatrace dashboard that matches our project. If so - returns the SLI, SLO and SLIResults
  */
-func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string, customFilters []*keptn.SLIFilter, logger *keptn.Logger) (string, []*keptn.SLIResult, error) {
+func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string, logger *keptn.Logger) (string, []*keptn.SLIResult, error) {
 
 	//
 	// Option 1: We query the data from a dashboard instead of the uploaded SLI.yaml
 	// ==============================================================================
 	// Lets see if we have a Dashboard in Dynatrace that we should parse
 	logger.Info("Query Dynatrace Dashboards to see if there is an SLI dashboard available")
-	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, dashboardConfig, startUnix, endUnix, customFilters, logger)
+	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, dashboardConfig, startUnix, endUnix, logger)
 	if err != nil {
 		return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not query Dynatrace dashboard for SLIs: %v", err)
 	}
@@ -304,7 +304,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	//
 	// Option 1 - see if we can get the data from a Dnatrace Dashboard
-	dashboardLinkAsLabel, sliResults, err := getDataFromDynatraceDashboard(dynatraceHandler, keptnEvent, startUnix, endUnix, dynatraceConfigFile.Dashboard, eventData.CustomFilters, stdLogger)
+	dashboardLinkAsLabel, sliResults, err := getDataFromDynatraceDashboard(dynatraceHandler, keptnEvent, startUnix, endUnix, dynatraceConfigFile.Dashboard, stdLogger)
 	if err != nil {
 		// log the error, but continue with loading sli.yaml
 		stdLogger.Error(err.Error())
@@ -345,7 +345,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		// query all indicators
 		for _, indicator := range eventData.Indicators {
 			stdLogger.Info("Fetching indicator: " + indicator)
-			sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix, eventData.CustomFilters)
+			sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix)
 			if err != nil {
 				stdLogger.Error(err.Error())
 				// failed to fetch metric

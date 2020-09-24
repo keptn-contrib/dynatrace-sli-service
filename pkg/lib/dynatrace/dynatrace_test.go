@@ -34,11 +34,12 @@ func testingDynatraceHTTPClient() (*http.Client, string, func()) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		urlToResponseFileMap := map[string]string{
+		// we handle these if the URLs are a full match
+		completeUrlMatchToResponseFileMap := map[string]string{
 			"/api/config/v1/dashboards":                                      "./testfiles/test_get_dashboards.json",
 			"/api/config/v1/dashboards/12345678-1111-4444-8888-123456789012": "./testfiles/test_get_dashboards_id.json",
 			"/api/v2/metrics/builtin:tech.generic.processCount":              "./testfiles/test_get_metrics_processcount.json",
-			"/api/v2/metrics/builtin:service.response.time":                  "./testfiles/test_get_metrics_svcrespnsetime.json",
+			"/api/v2/metrics/builtin:service.response.time":                  "./testfiles/test_get_metrics_svcresponsetime.json",
 			"/api/v2/metrics/builtin:tech.generic.mem.workingSetSize":        "./testfiles/test_get_metrics_workingsetsize.json",
 			"/api/v2/metrics/builtin:tech.generic.cpu.usage":                 "./testfiles/test_get_metrics_cpuusage.json",
 			"/api/v2/metrics/builtin:service.errors.server.rate":             "./testfiles/test_get_metrics_errorrate.json",
@@ -47,27 +48,40 @@ func testingDynatraceHTTPClient() (*http.Client, string, func()) {
 			"/api/v2/metrics/builtin:host.mem.usage":                         "./testfiles/test_get_metrics_hostmemusage.json",
 			"/api/v2/metrics/builtin:host.disk.queueLength":                  "./testfiles/test_get_metrics_hostdiskqueue.json",
 			"/api/v2/metrics/builtin:service.nonDbChildCallCount":            "./testfiles/test_get_metrics_nondbcallcount.json",
-			"/api/v2/metrics/query":                                          "./testfiles/test_get_metrics_query.json",
 		}
 
-		for url, file := range urlToResponseFileMap {
-			if strings.Compare(r.URL.Path, url) == 0 {
+		log.Println("Mock for: " + r.URL.Path)
+
+		// we handle these if the URL "starts with"
+		startsWithUrlToResponseFileMap := map[string]string{
+			"/api/v2/metrics/query": "./testfiles/test_get_metrics_query.json",
+		}
+
+		for url, file := range completeUrlMatchToResponseFileMap {
+			if strings.Compare(url, r.URL.Path) == 0 {
+				log.Println("Found Mock: " + url + " --> " + file)
 				localFileContent, err := ioutil.ReadFile(file)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					io.WriteString(w, "couldnt load local test file "+file)
+					log.Println("couldnt load local test file " + file)
 					return
 				}
 				w.WriteHeader(http.StatusOK)
 				w.Write(localFileContent)
 				return
 			}
+		}
 
+		for url, file := range startsWithUrlToResponseFileMap {
 			if strings.Index(r.URL.Path, url) == 0 {
+				log.Println("Found Mock: " + url + " --> " + file)
+
 				localFileContent, err := ioutil.ReadFile(file)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					io.WriteString(w, "couldnt load local test file "+file)
+					log.Println("couldnt load local test file " + file)
 					return
 				}
 				w.WriteHeader(http.StatusOK)
@@ -256,7 +270,7 @@ func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
 
 	startTime := time.Unix(1571649084, 0).UTC()
 	endTime := time.Unix(1571649085, 0).UTC()
-	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dh.QueryDynatraceDashboardForSLIs(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, common.DynatraceConfigDashboardQUERY, startTime, endTime, nil, stdLogger)
+	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dh.QueryDynatraceDashboardForSLIs(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, common.DynatraceConfigDashboardQUERY, startTime, endTime, stdLogger)
 
 	if dashboardLinkAsLabel == "" {
 		t.Errorf("No dashboard link label generated")
@@ -476,4 +490,90 @@ func TestParsePassAndWarningFromString(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseMarkdownConfiguration(t *testing.T) {
+
+	dashboardSLO1 := &keptn.ServiceLevelObjectives{
+		Objectives: []*keptn.SLO{},
+		TotalScore: &keptn.SLOScore{Pass: "", Warning: ""},
+		Comparison: &keptn.SLOComparison{CompareWith: "", IncludeResultWithScore: "", NumberOfComparisonResults: 0, AggregateFunction: ""},
+	}
+
+	// first run - single result
+	ParseMarkdownConfiguration("KQG.Total.Pass=90%;KQG.Total.Warning=70%;KQG.Compare.WithScore=pass;KQG.Compare.Results=1;KQG.Compare.Function=avg", dashboardSLO1)
+
+	if dashboardSLO1.TotalScore.Pass != "90%" {
+		t.Errorf("Total Pass not 90% - is " + dashboardSLO1.TotalScore.Pass)
+	}
+	if dashboardSLO1.TotalScore.Warning != "70%" {
+		t.Errorf("Total Pass not 70% - is " + dashboardSLO1.TotalScore.Warning)
+	}
+	if dashboardSLO1.Comparison.CompareWith != "single_result" {
+		t.Errorf("CompareWith not single_result - is " + dashboardSLO1.Comparison.CompareWith)
+	}
+	if dashboardSLO1.Comparison.IncludeResultWithScore != "pass" {
+		t.Errorf("IncludeResultWithScore not pass - is " + dashboardSLO1.Comparison.IncludeResultWithScore)
+	}
+	if dashboardSLO1.Comparison.NumberOfComparisonResults != 1 {
+		t.Errorf("NumberOfComparisonResults not 1 - but its %d ", dashboardSLO1.Comparison.NumberOfComparisonResults)
+	}
+	if dashboardSLO1.Comparison.AggregateFunction != "avg" {
+		t.Errorf("AggregateFunction not avg - is " + dashboardSLO1.Comparison.AggregateFunction)
+	}
+
+	// second run - multiple results
+	dashboardSLO2 := &keptn.ServiceLevelObjectives{
+		Objectives: []*keptn.SLO{},
+		TotalScore: &keptn.SLOScore{Pass: "", Warning: ""},
+		Comparison: &keptn.SLOComparison{CompareWith: "", IncludeResultWithScore: "", NumberOfComparisonResults: 0, AggregateFunction: ""},
+	}
+	ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=p50", dashboardSLO2)
+
+	if dashboardSLO2.TotalScore.Pass != "50%" {
+		t.Errorf("Total Pass not 50% - is " + dashboardSLO2.TotalScore.Pass)
+	}
+	if dashboardSLO2.TotalScore.Warning != "40%" {
+		t.Errorf("Total Pass not 40% - is " + dashboardSLO2.TotalScore.Warning)
+	}
+	if dashboardSLO2.Comparison.CompareWith != "several_results" {
+		t.Errorf("CompareWith not several_results - is " + dashboardSLO2.Comparison.CompareWith)
+	}
+	if dashboardSLO2.Comparison.IncludeResultWithScore != "pass" {
+		t.Errorf("IncludeResultWithScore not pass - is " + dashboardSLO2.Comparison.IncludeResultWithScore)
+	}
+	if dashboardSLO2.Comparison.NumberOfComparisonResults != 3 {
+		t.Errorf("NumberOfComparisonResults not 3 - but its %d ", dashboardSLO2.Comparison.NumberOfComparisonResults)
+	}
+	if dashboardSLO2.Comparison.AggregateFunction != "p50" {
+		t.Errorf("AggregateFunction not p50 - is " + dashboardSLO2.Comparison.AggregateFunction)
+	}
+
+	// third run - invalid functionresults
+	dashboardSLO3 := &keptn.ServiceLevelObjectives{
+		Objectives: []*keptn.SLO{},
+		TotalScore: &keptn.SLOScore{Pass: "", Warning: ""},
+		Comparison: &keptn.SLOComparison{CompareWith: "", IncludeResultWithScore: "", NumberOfComparisonResults: 0, AggregateFunction: ""},
+	}
+	ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=INVALID", dashboardSLO3)
+
+	if dashboardSLO3.TotalScore.Pass != "50%" {
+		t.Errorf("Total Pass not 50% - is " + dashboardSLO3.TotalScore.Pass)
+	}
+	if dashboardSLO3.TotalScore.Warning != "40%" {
+		t.Errorf("Total Pass not 40% - is " + dashboardSLO3.TotalScore.Warning)
+	}
+	if dashboardSLO3.Comparison.CompareWith != "several_results" {
+		t.Errorf("CompareWith not several_results - is " + dashboardSLO3.Comparison.CompareWith)
+	}
+	if dashboardSLO3.Comparison.IncludeResultWithScore != "pass" {
+		t.Errorf("IncludeResultWithScore not pass - is " + dashboardSLO3.Comparison.IncludeResultWithScore)
+	}
+	if dashboardSLO3.Comparison.NumberOfComparisonResults != 3 {
+		t.Errorf("NumberOfComparisonResults not 3 - but its %d ", dashboardSLO3.Comparison.NumberOfComparisonResults)
+	}
+	if dashboardSLO3.Comparison.AggregateFunction != "avg" {
+		t.Errorf("AggregateFunction not avg - is " + dashboardSLO3.Comparison.AggregateFunction)
+	}
+
 }
