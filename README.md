@@ -34,18 +34,23 @@ By default, even if you do not specify a custom SLI.yaml, the following SLIs are
 
 ### Deploy in your Kubernetes cluster
 
-To deploy the current version of the *dynatrace-sli-service* in your Keptn Kubernetes cluster, use the `deploy/*.yaml` files from this repository and apply them:
+* The `dynatrace-sli-service` by default validates the SSL certificate of the Dynatrace API.
+  If your Dynatrace API only has a self-signed certificate, you can disable the SSL certificate check
+  by setting the environment variable `HTTP_SSL_VERIFY` (default `true`) specified in the manifest available under `deploy/service.yaml` to `false`.
 
-```console
-kubectl apply -f deploy/service.yaml -n keptn
-```
+* To deploy the current version of the *dynatrace-sli-service* in your Kubernetes cluster, use the `deploy/service.yaml` file from this repository and apply it.
+Please use the same namespace for the *dynatrace-sli-service* as you are using for Keptn.
 
-This installs the *dynatrace-sli-service* into the `keptn` namespace, which you can verify using:
+    ```console
+    kubectl apply -f deploy/service.yaml -n keptn
+    ```
 
-```console
-kubectl -n keptn get deployment dynatrace-sli-service -o wide
-kubectl -n keptn get pods -l run=dynatrace-sli-service
-```
+* This installs the *dynatrace-sli-service* into the `keptn` namespace, which you can verify using:
+
+    ```console
+    kubectl -n keptn get deployment dynatrace-sli-service -o wide
+    kubectl -n keptn get pods -l run=dynatrace-sli-service
+    ```
 
 ### Up- or Downgrading
 
