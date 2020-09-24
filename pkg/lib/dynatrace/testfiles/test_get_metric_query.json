@@ -1,0 +1,172 @@
+{
+    "result": [
+    {
+        "metricId": "builtin:tech.generic.processCount",
+        "data": [
+          {
+            "dimensions": [
+              "PROCESS_GROUP_INSTANCE-24A949AB19EC17CB"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              1.0
+            ]
+          }
+        ]
+    },
+    {
+        "metricId": "builtin:service.response.time",
+        "data": [
+          {
+            "dimensions": [
+              "SERVICE-123456"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              0.04146322688540897
+            ]
+          }
+        ]
+    },
+
+    {
+        "metricId": "builtin:tech.generic.mem.workingSetSize",
+        "data": [
+          {
+            "dimensions": [
+              "PROCESS_GROUP_INSTANCE-24A949AB19EC17CB"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              0.04146322688540897
+            ]
+          }
+        ]
+    },
+    
+    {
+        "metricId": "builtin:tech.generic.cpu.usage",
+        "data": [
+          {
+            "dimensions": [
+              "PROCESS_GROUP_INSTANCE-24A949AB19EC17CB"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              0.04146322688540897
+            ]
+          }
+        ]
+    },
+    
+    {
+        "metricId": "builtin:service.errors.server.rate",
+        "data": [
+          {
+            "dimensions": [
+              "SERVICE-24A949AB19EC17CB"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              0.04146322688540897
+            ]
+          }
+        ]
+    },
+    
+    {
+        "metricId": "builtin:service.requestCount.total",
+        "data": [
+          {
+            "dimensions": [
+              "SERVICE-24A949AB19EC17CB"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              0.04146322688540897
+            ]
+          }
+        ]
+    },
+    
+    {
+        "metricId": "builtin:host.cpu.usage",
+        "data": [
+          {
+            "dimensions": [
+              "HOST-24A949AB19EC17CB"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              0.04146322688540897
+            ]
+          }
+        ]
+    },
+    
+    {
+        "metricId": "builtin:host.mem.usage",
+        "data": [
+          {
+            "dimensions": [
+              "HOST-24A949AB19EC17CB"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              0.04146322688540897
+            ]
+          }
+        ]
+    },
+    
+    {
+        "metricId": "builtin:host.disk.queueLength",
+        "data": [
+          {
+            "dimensions": [
+              "HOST-24A949AB19EC17CB"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              0.04146322688540897
+            ]
+          }
+        ]
+    },
+    
+    {
+        "metricId": "builtin:service.nonDbChildCallCount",
+        "data": [
+          {
+            "dimensions": [
+              "SERVICE-24A949AB19EC17CB"
+            ],
+            "timestamps": [
+              1600950300000
+            ],
+            "values": [
+              0.04146322688540897
+            ]
+          }
+        ]
+    }   
+    ]
+}

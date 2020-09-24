@@ -1,30 +1,312 @@
 package dynatrace
 
 import (
+	"io"
+	"io/ioutil"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"crypto/tls"
+	"crypto/x509"
+	"log"
+	"net"
+	"net/http"
+	"net/http/httptest"
+
 	_ "github.com/keptn/go-utils/pkg/lib"
 	keptn "github.com/keptn/go-utils/pkg/lib"
+	"golang.org/x/net/context"
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
 )
 
-func TestCreateNewDynatraceHandler(t *testing.T) {
-	keptnEvent := &common.BaseKeptnEvent{}
-	keptnEvent.Project = "sockshop"
-	keptnEvent.Stage = "dev"
-	keptnEvent.Service = "carts"
-	keptnEvent.DeploymentStrategy = "direct"
+const QUALITYGATE_DASHBOARD_ID = "12345678-1111-4444-8888-123456789012"
+const QUALITYGATE_PROJECT = "qualitygate"
+const QUALTIYGATE_SERVICE = "evalservice"
+const QUALITYGATE_STAGE = "qualitystage"
 
-	dh := NewDynatraceHandler("dynatrace", keptnEvent, map[string]string{
+// Mocking Http Responses
+// testingDynatraceHTTPClient builds a test client with a httptest server that responds to specific Dynatrace REST API Calls
+func testingDynatraceHTTPClient() (*http.Client, string, func()) {
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		urlToResponseFileMap := map[string]string{
+			"/api/config/v1/dashboards":                                      "./testfiles/test_get_dashboards.json",
+			"/api/config/v1/dashboards/12345678-1111-4444-8888-123456789012": "./testfiles/test_get_dashboards_id.json",
+			"/api/v2/metrics/builtin:tech.generic.processCount":              "./testfiles/test_get_metrics_processcount.json",
+			"/api/v2/metrics/builtin:service.response.time":                  "./testfiles/test_get_metrics_svcrespnsetime.json",
+			"/api/v2/metrics/builtin:tech.generic.mem.workingSetSize":        "./testfiles/test_get_metrics_workingsetsize.json",
+			"/api/v2/metrics/builtin:tech.generic.cpu.usage":                 "./testfiles/test_get_metrics_cpuusage.json",
+			"/api/v2/metrics/builtin:service.errors.server.rate":             "./testfiles/test_get_metrics_errorrate.json",
+			"/api/v2/metrics/builtin:service.requestCount.total":             "./testfiles/test_get_metrics_requestcount.json",
+			"/api/v2/metrics/builtin:host.cpu.usage":                         "./testfiles/test_get_metrics_hostcpuusage.json",
+			"/api/v2/metrics/builtin:host.mem.usage":                         "./testfiles/test_get_metrics_hostmemusage.json",
+			"/api/v2/metrics/builtin:host.disk.queueLength":                  "./testfiles/test_get_metrics_hostdiskqueue.json",
+			"/api/v2/metrics/builtin:service.nonDbChildCallCount":            "./testfiles/test_get_metrics_nondbcallcount.json",
+			"/api/v2/metrics/query":                                          "./testfiles/test_get_metrics_query.json",
+		}
+
+		for url, file := range urlToResponseFileMap {
+			if strings.Compare(r.URL.Path, url) == 0 {
+				localFileContent, err := ioutil.ReadFile(file)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					io.WriteString(w, "couldnt load local test file "+file)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+				w.Write(localFileContent)
+				return
+			}
+
+			if strings.Index(r.URL.Path, url) == 0 {
+				localFileContent, err := ioutil.ReadFile(file)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					io.WriteString(w, "couldnt load local test file "+file)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+				w.Write(localFileContent)
+				return
+			}
+		}
+
+		// if nothing matches we have a bad URL
+		w.WriteHeader(http.StatusBadRequest)
+	})
+
+	server := httptest.NewTLSServer(handler)
+
+	cert, err := x509.ParseCertificate(server.TLS.Certificates[0].Certificate[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	certpool := x509.NewCertPool()
+	certpool.AddCert(cert)
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, network, _ string) (net.Conn, error) {
+				return net.Dial(network, server.Listener.Addr().String())
+			},
+			TLSClientConfig: &tls.Config{
+				RootCAs: certpool,
+			},
+		},
+	}
+
+	return client, server.URL, server.Close
+}
+
+/**
+ * This function will create a new HTTP Server for handling Dynatrace REST Calls.
+ * It returns the Dynatrace Handler as well as the httpClient, mocked server url and the teardown method
+ * ATTENTION: When using this method you have to call the "teardown" method that is returned in the last parameter
+ */
+func testingGetDynatraceHandler(project string, stage string, service string, deployment string, test string) (*Handler, *http.Client, string, func()) {
+	httpClient, url, teardown := testingDynatraceHTTPClient()
+
+	keptnEvent := &common.BaseKeptnEvent{}
+	keptnEvent.Project = project
+	keptnEvent.Stage = stage
+	keptnEvent.Service = service
+	keptnEvent.DeploymentStrategy = deployment
+	keptnEvent.TestStrategy = test
+
+	dh := NewDynatraceHandler(url, keptnEvent, map[string]string{
 		"Authorization": "Api-Token " + "test",
 	}, nil, "", "")
 
-	if dh.ApiURL != "dynatrace" {
-		t.Errorf("dh.ApiURL=%s; want dynatrace", dh.ApiURL)
+	dh.HTTPClient = httpClient
+
+	return dh, httpClient, url, teardown
+}
+
+func TestExecuteDynatraceREST(t *testing.T) {
+	dh, _, url, teardown := testingGetDynatraceHandler("sockshop", "dev", "carts", "", "")
+	defer teardown()
+
+	resp, body, err := dh.executeDynatraceREST("GET", url+"/api/config/v1/dashboards", nil)
+
+	if resp == nil || resp.StatusCode != 200 {
+		t.Errorf("Dynatrace REST not returning http 200 status")
+	}
+
+	if body == nil {
+		t.Errorf("No body returned by Dynatrace REST")
+	}
+
+	if err != nil {
+		t.Errorf("%+v\n", err)
+	}
+}
+
+func TestExecuteDynatraceRESTBadRequest(t *testing.T) {
+	dh, _, url, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	defer teardown()
+
+	resp, _, _ := dh.executeDynatraceREST("GET", url+"/BADAPI", nil)
+
+	if resp == nil || resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("Dynatrace REST not returning http 400")
+	}
+}
+
+func TestFindDynatraceDashboardSuccess(t *testing.T) {
+	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	defer teardown()
+
+	dashboardID, err := dh.findDynatraceDashboard(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if dashboardID != QUALITYGATE_DASHBOARD_ID {
+		t.Errorf("findDynatraceDashboard not finding quality gate dashboard")
+	}
+}
+
+func TestFindDynatraceDashboardNoneExistingDashboard(t *testing.T) {
+	dh, _, _, teardown := testingGetDynatraceHandler("BAD_PROJECT", QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	defer teardown()
+
+	dashboardID, err := dh.findDynatraceDashboard("BAD_PROJECT", QUALITYGATE_STAGE, QUALTIYGATE_SERVICE)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if dashboardID != "" {
+		t.Errorf("findDynatraceDashboard found a dashboard that should not have been found: " + dashboardID)
+	}
+}
+
+func TestLoadDynatraceDashboardWithQUERY(t *testing.T) {
+	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	defer teardown()
+
+	// this should load the dashboard
+	dashboardJSON, dashboard, err := dh.loadDynatraceDashboard(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, common.DynatraceConfigDashboardQUERY)
+
+	if dashboardJSON == nil {
+		t.Errorf("Didnt query dashboard for quality gate project even though it shoudl exist: " + dashboard)
+	}
+
+	if dashboard != QUALITYGATE_DASHBOARD_ID {
+		t.Errorf("Didnt query the dashboard that matches the project/stage/service names: " + dashboard)
+	}
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestLoadDynatraceDashboardWithID(t *testing.T) {
+	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	defer teardown()
+
+	// this should load the dashboard
+	dashboardJSON, dashboard, err := dh.loadDynatraceDashboard(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, QUALITYGATE_DASHBOARD_ID)
+
+	if dashboardJSON == nil {
+		t.Errorf("Didnt query dashboard for quality gate project even though it should exist by ID")
+	}
+
+	if dashboard != QUALITYGATE_DASHBOARD_ID {
+		t.Errorf("loadDynatraceDashboard should return the passed in dashboard id")
+	}
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestLoadDynatraceDashboardWithEmptyDashboard(t *testing.T) {
+	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	defer teardown()
+
+	// this should load the dashboard
+	dashboardJSON, dashboard, err := dh.loadDynatraceDashboard(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "")
+
+	if dashboardJSON != nil {
+		t.Errorf("No dashboard should be loaded if no dashboard is passed")
+	}
+
+	if dashboard != "" {
+		t.Errorf("dashboard should be empty as by default we dont load a dashboard")
+	}
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
+	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	defer teardown()
+
+	stdLogger := keptn.NewLogger("context", "TESTID", "dynatrace-sli-service")
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dh.QueryDynatraceDashboardForSLIs(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, common.DynatraceConfigDashboardQUERY, startTime, endTime, nil, stdLogger)
+
+	if dashboardLinkAsLabel == "" {
+		t.Errorf("No dashboard link label generated")
+	}
+
+	if dashboardJSON == nil {
+		t.Errorf("No Dashboard JSON returned")
+	}
+
+	// validate the SLIs - there should be 9 SLIs coming back
+	if dashboardSLI == nil {
+		t.Errorf("No SLI returned")
+	}
+	if len(dashboardSLI.Indicators) != 9 {
+		t.Errorf("Excepted 9 SLIs to come back. Only got %d", len(dashboardSLI.Indicators))
+	}
+
+	// validate the SLOs
+	if dashboardSLO == nil {
+		t.Errorf("No SLO return")
+	}
+	if len(dashboardSLO.Objectives) != 9 {
+		t.Errorf("Excepted 9 SLOs to come back. Only got %d", len(dashboardSLO.Objectives))
+	}
+	if dashboardSLO.TotalScore.Pass != "90%" || dashboardSLO.TotalScore.Warning != "70%" {
+		t.Errorf("Total Warning and Pass Scores not as expected. Got %s (pass) and %s (warning)", dashboardSLO.TotalScore.Pass, dashboardSLO.TotalScore.Warning)
+	}
+	if dashboardSLO.Comparison.CompareWith != "single_result" || dashboardSLO.Comparison.IncludeResultWithScore != "pass" || dashboardSLO.Comparison.NumberOfComparisonResults != 1 || dashboardSLO.Comparison.AggregateFunction != "avg" {
+		t.Errorf("Incorrect Comparisons: %s, %s, %d, %s", dashboardSLO.Comparison.CompareWith, dashboardSLO.Comparison.IncludeResultWithScore, dashboardSLO.Comparison.NumberOfComparisonResults, dashboardSLO.Comparison.AggregateFunction)
+	}
+
+	// validate the SLI Results
+	if sliResults == nil {
+		t.Errorf("No SLI Results returned")
+	}
+	if len(sliResults) != 9 {
+		t.Errorf("Excepted 9 SLI Results to come back. Only got %d", len(sliResults))
+	}
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateNewDynatraceHandler(t *testing.T) {
+	dh, _, url, teardown := testingGetDynatraceHandler("sockshop", "dev", "carts", "direct", "")
+	defer teardown()
+
+	if dh.ApiURL != url {
+		t.Errorf("dh.ApiURL=%s; want %s", dh.ApiURL, url)
 	}
 
 	if dh.KeptnEvent.Project != "sockshop" {
@@ -45,15 +327,8 @@ func TestCreateNewDynatraceHandler(t *testing.T) {
 
 // Test that unsupported metrics return an error
 func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
-	keptnEvent := &common.BaseKeptnEvent{}
-	keptnEvent.Project = "sockshop"
-	keptnEvent.Stage = "dev"
-	keptnEvent.Service = "carts"
-	keptnEvent.DeploymentStrategy = ""
-
-	dh := NewDynatraceHandler("dynatrace", keptnEvent, map[string]string{
-		"Authorization": "Api-Token " + "test",
-	}, nil, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler("sockshop", "dev", "carts", "", "")
+	defer teardown()
 
 	got, err := dh.getTimeseriesConfig("foobar")
 
@@ -119,6 +394,18 @@ func TestParseValidUnixTimestamp(t *testing.T) {
 
 	if got.Minute() != 44 {
 		t.Errorf("parseUnixTimestamp() returned minute %d, expected 44", got.Minute())
+	}
+}
+
+func TestScaleData(t *testing.T) {
+	if scaleData("", "MicroSecond", 1000000.0) != 1000.0 {
+		t.Errorf("scaleData incorrectly scales MicroSecond")
+	}
+	if scaleData("", "Byte", 1024.0) != 1.0 {
+		t.Errorf("scaleData incorrectly scales Bytes")
+	}
+	if scaleData("builtin:service.response.time", "", 1000000.0) != 1000.0 {
+		t.Errorf("scaleData incorrectly scales builtin:service.response.time")
 	}
 }
 

@@ -29,6 +29,7 @@ var RunLocalTest = (os.Getenv("ENV") == "localtest")
  */
 const DynatraceConfigFilename = "dynatrace/dynatrace.conf.yaml"
 const DynatraceConfigFilenameLOCAL = "dynatrace/_dynatrace.conf.yaml"
+const DynatraceConfigDashboardQUERY = "query"
 
 type DynatraceConfigFile struct {
 	SpecVersion string `json:"spec_version" yaml:"spec_version"`
