@@ -151,10 +151,11 @@ func GetConfigurationServiceURL() string {
 
 //
 // Downloads a resource from the Keptn Configuration Repo
+// In RunLocal mode it gets it from the local disk
+// In normal mode it first tries to find it on service level, then stage and then project level
 //
 func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *keptn.Logger) (string, error) {
 
-	logger.Info("Loading " + resourceURI)
 	// if we run in a runlocal mode we are just getting the file from the local disk
 	var fileContent string
 	if RunLocal {
@@ -187,7 +188,7 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 				logger.Debug("Found " + resourceURI + " on stage level")
 			}
 		} else {
-			logger.Debug("Found " + DynatraceConfigFilename + " on service level")
+			logger.Debug("Found " + resourceURI + " on service level")
 		}
 		fileContent = keptnResourceContent.ResourceContent
 	}
@@ -210,19 +211,14 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 		return nil, nil
 	}
 
-	logger.Debug("Content of dynatrace.conf.yaml: " + dynatraceConfFileContent)
-
 	// unmarshal the file
 	dynatraceConfFile, err := parseDynatraceConfigFile([]byte(dynatraceConfFileContent))
 
 	if err != nil {
-		logMessage := fmt.Sprintf("Couldn't parse %s file found for service %s in stage %s in project %s. Error: %s", DynatraceConfigFilename, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project, err.Error())
+		logMessage := fmt.Sprintf("Couldn't parse %s file found for service %s in stage %s in project %s. Error: %s; Content: %s", DynatraceConfigFilename, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project, err.Error(), dynatraceConfFileContent)
 		logger.Error(logMessage)
 		return nil, errors.New(logMessage)
 	}
-
-	// logMessage := fmt.Sprintf("Loaded Config from dynatrace.conf.yaml:  %s", dynatraceConfFile)
-	// logger.Info(logMessage)
 
 	return dynatraceConfFile, nil
 }

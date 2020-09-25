@@ -229,17 +229,21 @@ func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, heade
  * Returns the Response Object, the body byte array, error
  */
 func (ph *Handler) executeDynatraceREST(httpMethod string, requestUrl string, addHeaders map[string]string) (*http.Response, []byte, error) {
+
+	// new request to our URL
 	req, err := http.NewRequest(httpMethod, requestUrl, nil)
+
+	// add our default headers, e.g: authentication
 	for headerName, headerValue := range ph.Headers {
 		req.Header.Set(headerName, headerValue)
 	}
+
+	// add any additionally passed headers
 	if addHeaders != nil {
 		for addHeaderName, addHeaderValue := range addHeaders {
 			req.Header.Set(addHeaderName, addHeaderValue)
 		}
 	}
-
-	ph.Logger.Debug("executeDynatraceREST: " + httpMethod + ":" + requestUrl)
 
 	// perform the request
 	resp, err := ph.HTTPClient.Do(req)
@@ -270,7 +274,7 @@ func IsValidUUID(uuid string) bool {
 func (ph *Handler) findDynatraceDashboard(project string, stage string, service string) (string, error) {
 	// Lets query the list of all Dashboards and find the one that matches project, stage, service based on the title (in the future - we can do it via tags)
 	// create dashboard query URL and set additional headers
-	ph.Logger.Debug(fmt.Sprintf("Query all dashboards\n"))
+	// ph.Logger.Debug(fmt.Sprintf("Query all dashboards\n"))
 
 	dashboardAPIUrl := ph.ApiURL + fmt.Sprintf("/api/config/v1/dashboards")
 	resp, body, err := ph.executeDynatraceREST("GET", dashboardAPIUrl, nil)
@@ -279,10 +283,8 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 		return "", err
 	}
 
-	// ph.Logger.Debug("Request finished, parsing dashboard list response body...")
-	dashboardsJSON := &DynatraceDashboards{}
-
 	// parse json
+	dashboardsJSON := &DynatraceDashboards{}
 	err = json.Unmarshal(body, &dashboardsJSON)
 
 	if err != nil {
@@ -295,8 +297,6 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 
 		// lets see if the dashboard matches our name
 		if strings.HasPrefix(strings.ToLower(dashboard.Name), "kqg;") {
-			ph.Logger.Debug("Analyzing if Dashboard matches: " + dashboard.Name)
-
 			nameSplits := strings.Split(dashboard.Name, ";")
 
 			// now lets see if we can find all our name/value pairs for project, service & stage
@@ -315,7 +315,6 @@ func (ph *Handler) findDynatraceDashboard(project string, stage string, service 
 			}
 
 			if dashboardMatch {
-				ph.Logger.Debug("Found Dashboard Match: " + dashboard.ID)
 				return dashboard.ID, nil
 			}
 		}
@@ -338,6 +337,11 @@ func (ph *Handler) loadDynatraceDashboard(project string, stage string, service 
 	// Option 1: Query dashboards
 	if dashboard == common.DynatraceConfigDashboardQUERY {
 		dashboard, _ = ph.findDynatraceDashboard(project, stage, service)
+		if dashboard == "" {
+			ph.Logger.Debug(fmt.Sprintf("dashboard option query but couldnt find KQG dashboard for %s.%s.%s", project, stage, service))
+		} else {
+			ph.Logger.Debug(fmt.Sprintf("dashboard option query for %s.%s.%s found dashboard=%s", project, stage, service, dashboard))
+		}
 	}
 
 	// Option 2: there is no dashboard we should query
@@ -522,8 +526,6 @@ func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, en
 //  #2: MetricID that this query will return, e.g: builtin:host.cpu
 //  #3: error
 func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time.Time, endUnix time.Time) (string, string) {
-	ph.Logger.Debug(fmt.Sprintf("Finalize query for %s\n", metricquery))
-
 	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
 	metricquery = ph.replaceQueryParameters(metricquery)
 
@@ -772,7 +774,7 @@ func (ph *Handler) isMatchingMetricID(singleResultMetricID string, queryMetricID
 func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, service string, dashboard string, startUnix time.Time, endUnix time.Time, logger *keptn.Logger) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
 	dashboardJSON, dashboard, err := ph.loadDynatraceDashboard(project, stage, service, dashboard)
 	if err != nil {
-		return "", nil, nil, nil, nil, fmt.Errorf("Could not load Dynatrace dashboard %s - %v", dashboard, err)
+		return "", nil, nil, nil, nil, fmt.Errorf("Error while processing dashboard config '%s' - %v", dashboard, err)
 	}
 
 	if dashboardJSON == nil {
@@ -939,7 +941,6 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(project string, stage string, 
 					dashboardSLI.Indicators[baseIndicatorName] = metricQuery
 				} else {
 					// SUCCESS-CASE: we retrieved values - now we interate through the results and create an indicator result for every dimension
-					logger.Debug(fmt.Sprintf("received query result\n"))
 					for _, singleResult := range queryResult.Result {
 						logger.Debug(fmt.Sprintf("Processing result for %s\n", singleResult.MetricID))
 						if ph.isMatchingMetricID(singleResult.MetricID, metricID) {
@@ -1199,15 +1200,15 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 	switch metric {
 	case Throughput:
 		// ?metricSelector=builtin:service.requestCount.total:merge(0):count&
-		return "builtin:service.requestCount.total:merge(0):sum?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
+		return "metricSelector=builtin:service.requestCount.total:merge(0):sum&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ErrorRate:
-		return "builtin:service.errors.total.count:merge(0):avg?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
+		return "metricSelector=builtin:service.errors.total.count:merge(0):avg&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP50:
-		return "builtin:service.response.time:merge(0):percentile(50)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
+		return "metricSelector=builtin:service.response.time:merge(0):percentile(50)&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP90:
-		return "builtin:service.response.time:merge(0):percentile(90)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
+		return "metricSelector=builtin:service.response.time:merge(0):percentile(90)&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP95:
-		return "builtin:service.response.time:merge(0):percentile(95)?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
+		return "metricSelector=builtin:service.response.time:merge(0):percentile(95)&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	default:
 		fmt.Sprintf("Unknown metric %s\n", metric)
 		return "", fmt.Errorf("unsupported SLI metric %s", metric)

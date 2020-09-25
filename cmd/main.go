@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
@@ -154,7 +155,6 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	// Option 1: We query the data from a dashboard instead of the uploaded SLI.yaml
 	// ==============================================================================
 	// Lets see if we have a Dashboard in Dynatrace that we should parse
-	logger.Info("Query Dynatrace Dashboards to see if there is an SLI dashboard available")
 	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, dashboardConfig, startUnix, endUnix, logger)
 	if err != nil {
 		return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not query Dynatrace dashboard for SLIs: %v", err)
@@ -162,7 +162,6 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 
 	// lets store the dashboard as well
 	if dashboardJSON != nil {
-		logger.Info("Dynatrace Dashboard")
 		jsonAsByteArray, _ := json.MarshalIndent(dashboardJSON, "", "  ")
 
 		err := common.UploadKeptnResource(jsonAsByteArray, "dynatrace/dashboard.json", keptnEvent, logger)
@@ -173,7 +172,6 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 
 	// lets write the SLI to the config repo
 	if dashboardSLI != nil {
-		logger.Info("Generated SLI.yaml from Dynatrace Dashboard")
 		yamlAsByteArray, _ := yaml.Marshal(dashboardSLI)
 
 		err := common.UploadKeptnResource(yamlAsByteArray, "dynatrace/sli.yaml", keptnEvent, logger)
@@ -184,7 +182,6 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 
 	// lets write the SLO to the config repo
 	if dashboardSLO != nil {
-		logger.Info("Generated SLO.yaml from Dynatrace Dashboard")
 		yamlAsByteArray, _ := yaml.Marshal(dashboardSLO)
 
 		err := common.UploadKeptnResource(yamlAsByteArray, "slo.yaml", keptnEvent, logger)
@@ -239,7 +236,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	//
 	// Lets get a Logger
 	stdLogger := keptn.NewLogger(shkeptncontext, event.Context.GetID(), "dynatrace-sli-service")
-	stdLogger.Info("Retrieving Dynatrace timeseries metrics")
+	stdLogger.Info(fmt.Sprintf("Processing sh.keptn.internal.event.get-sli for %s.%s.%s", eventData.Project, eventData.Stage, eventData.Service))
 
 	//
 	// see if there is a dynatrace.conf.yaml
@@ -256,20 +253,20 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if dynatraceConfigFile != nil {
 		dtCreds = dynatraceConfigFile.DtCreds
 		stdLogger.Debug("Found dynatrace.conf.yaml with DTCreds: " + dtCreds)
-
-		//
-		// grabnerandi - Aug 26th 2020
-		// Adding DtCreds as a label so users know which DtCreds was used
-		if eventData.Labels == nil {
-			eventData.Labels = make(map[string]string)
-		}
-		eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
 	} else {
 		stdLogger.Debug("Using default DTCreds: dynatrace as no custom dynatrace.conf.yaml was found!")
 		dynatraceConfigFile = &common.DynatraceConfigFile{}
 		dynatraceConfigFile.Dashboard = ""
 		dynatraceConfigFile.DtCreds = "dynatrace"
 	}
+
+	//
+	// Adding DtCreds as a label so users know which DtCreds was used
+	if eventData.Labels == nil {
+		eventData.Labels = make(map[string]string)
+	}
+	eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
+
 	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
 
 	if err != nil {
@@ -327,15 +324,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 		//
 		// Option 2: We query the SLIs based on the definitions stored in SLI.yaml
 		// ========================================================================0
-		// get custom metrics for project
-		stdLogger.Info("Load indicators from SLI.yaml")
-		projectCustomQueries, err := getCustomQueries(keptnEvent, keptnHandler, stdLogger)
-		if err != nil {
-			stdLogger.Error(err.Error())
-			return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
-				nil, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
-				eventData.Deployment, eventData.Labels, eventData.Indicators, err)
-		}
+		// get custom metrics for project if they exist
+		projectCustomQueries, _ := getCustomQueries(keptnEvent, keptnHandler, stdLogger)
 
 		// set our list of queries on the handler
 		if projectCustomQueries != nil {
@@ -365,7 +355,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 			}
 		}
 
-		log.Println("Finished fetching metrics; Sending event now ...")
+		stdLogger.Info("Finished fetching metrics; Sending SLIDone event now ...")
 
 		if common.RunLocal || common.RunLocalTest {
 			log.Println("(RunLocal Output) Here are the results:")
@@ -420,36 +410,32 @@ func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliF
 	return SLIs, nil
 }
 
-// getCustomQueries returns custom queries as stored in configuration store
+/**
+ * getCustomQueries loads custom SLIs from dynatrace/sli.yaml
+ * if there is no sli.yaml it will just return an empty map
+ */
 func getCustomQueries(keptnEvent *common.BaseKeptnEvent, keptnHandler *keptn.Keptn, logger *keptn.Logger) (map[string]string, error) {
-	logger.Info(fmt.Sprintf("Checking for custom SLI queries for project=%s,stage=%s,service=%s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
-
 	var sliMap = map[string]string{}
 	if common.RunLocal || common.RunLocalTest {
 		sliMap, _ = addResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "", logger)
 		return sliMap, nil
 	}
 
+	// load dynatrace/sli.yaml - if its there we add it to the sliMap
 	sliContent, err := common.GetKeptnResource(keptnEvent, sliResourceURI, logger)
 	if err != nil {
-		return nil, fmt.Errorf("could not load %s in project %s: %v", sliResourceURI, keptnEvent.Project, err)
+		logger.Info(fmt.Sprintf("No custom SLI queries for project=%s,stage=%s,service=%s found as no dynatrace/sli.yaml in repo. Going with default!", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
+	} else {
+		logger.Info(fmt.Sprintf("Found custom SLI queries in dynatrace/sli.yaml for project=%s,stage=%s,service=%s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
+		sliMap, _ = addResourceContentToSLIMap(sliMap, "", sliContent, logger)
 	}
 
-	sliMap, _ = addResourceContentToSLIMap(sliMap, "", sliContent, logger)
 	return sliMap, nil
-
-	// AG-2020-07-17 - after migrating to the new GoUtil SDK this function did no longer return the SLI Configuration - always returned "resource not found"
-	/* customQueries, err := keptnHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
-	if err != nil {
-		return nil, err
-	}
-
-	return customQueries, nil*/
 }
 
 /**
  * returns the DTCredentials
- * First looks at the passed secretName. If null validates if there is a dynatrace-credentials-%PROJECT% - if not - defaults to "dynatrace" global secret
+ * First looks at the passed secretName. If null, validates if there is a dynatrace-credentials-%PROJECT% - if not - defaults to "dynatrace" global secret
  */
 func getDynatraceCredentials(secretName string, project string, logger *keptn.Logger) (*common.DTCredentials, error) {
 
@@ -460,22 +446,16 @@ func getDynatraceCredentials(secretName string, project string, logger *keptn.Lo
 			continue
 		}
 
-		logger.Info(fmt.Sprintf("Trying to fetch secret containing Dynatrace credentials with name '%s'", secret))
 		dtCredentials, err := common.GetDTCredentials(secret)
 
-		// write in log if fetching Dynatrace Credentials failed
-		if err != nil {
-			logger.Error(fmt.Sprintf("Error fetching secret containing Dynatrace credentials with name '%s': %s", secret, err.Error()))
-		}
-
-		if dtCredentials != nil {
+		if err == nil && dtCredentials != nil {
 			// lets validate if the tenant URL is
-			logger.Info(fmt.Sprintf("Secret with credentials found, returning (%s) ...", dtCredentials.Tenant))
+			logger.Info(fmt.Sprintf("Secret '%s' with credentials found, returning (%s) ...", secret, dtCredentials.Tenant))
 			return dtCredentials, nil
 		}
 	}
 
-	return nil, errors.New("Could not find any Dynatrace specific secrets")
+	return nil, errors.New("Could not find any Dynatrace specific secrets with the following names: " + strings.Join(secretNames, ","))
 }
 
 /**
@@ -540,6 +520,9 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 	return sendEvent(event)
 }
 
+/**
+ * sends cloud event back to keptn
+ */
 func sendEvent(event cloudevents.Event) error {
 
 	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{})
