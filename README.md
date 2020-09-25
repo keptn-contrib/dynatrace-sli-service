@@ -3,9 +3,13 @@
 [![Build Status](https://travis-ci.org/keptn-contrib/dynatrace-sli-service.svg?branch=master)](https://travis-ci.org/keptn-contrib/dynatrace-sli-service)
 [![Go Report Card](https://goreportcard.com/badge/github.com/keptn-contrib/dynatrace-sli-service)](https://goreportcard.com/report/github.com/keptn-contrib/dynatrace-sli-service)
 
-The *dynatrace-sli-service* is a [Keptn](https://keptn.sh) service that is responsible for retrieving the values of Keptn-supported SLIs from a Dynatrace Metrics API endpoint.
+The *dynatrace-sli-service* is a [Keptn](https://keptn.sh) service that is responsible for retrieving the values of SLIs from your Dynatrace Tenant via the Dynatrace Metrics v2 API endpoint. For that it handles the Keptn Event *sh.keptn.internal.event.get-sli* which gets executed as part of a quality gate evaluation!
 
-By default, even if you do not specify a custom SLI.yaml, the following SLIs are automatically supported:
+The *dynatrace-sli-service* provides the capabilty to connect to different Dynatrace Tenants for your Keptn projects, stages or services. It also allows you to either define SLIs through the sli.yaml or through a Dynatrace dashboard and all of this is configurable through `dynatrace.conf.yaml`:
+
+![](./images/dynatracesliserviceoverview.png)
+
+By default, even if you do not specify a custom SLI.yaml, the following SLIs are automatically supported and the *dynatrace-sli-service* will return values for these metrics (=SLIs):
 
  - Throughput
  - Error rate
@@ -13,11 +17,15 @@ By default, even if you do not specify a custom SLI.yaml, the following SLIs are
  - Response time p90
  - Response time p95
 
- These metrics are queried from a Dynatrace-monitored service entity with the tags `keptn_project`, `keptn_service`, `keptn_stage` & `keptn_deployment`.
+ By default these metrics (SLIs) are queried from a Dynatrace-monitored service entity with the tags `keptn_project`, `keptn_service`, `keptn_stage` & `keptn_deployment`.
 ![](./images/defaultdynatracetags.png)
 
- You can, however, define your custom SLI.yaml where you are free in defining your list of metrics coming from all monitored entities in Dynatrace (APPLICATION, SERVICE, PROCESS GROUP INSTANCE, HOST, CUSTOM DEVICE). More details on that are provided below.
+As highlighted above, the *dynatrace-sli-service* also provides the following capabilities
+* Connecting to different Dynatrace Tenants (SaaS or Managed) depending on Keptn Project, Stage or Service
+* Defining a custom list of SLIs based on the Dynatrace Metrics API v2 in your SLI.yaml
+* Visually defining SLIs & SLOs through a Dynatrace Dashboard instead of SLI.yaml and SLO.yaml
 
+As *dynatrace-sli-service* uses the Metrics API v2 this opens up your SLIs to any metric in Dynatrace: Application, Service, Process Groups, Host, Custom Devices, Calculated Service Metrics, External Metrics ...
 
 ## Compatibility Matrix
 
@@ -32,6 +40,8 @@ By default, even if you do not specify a custom SLI.yaml, the following SLIs are
 
 ## Installation
 
+As any Keptn Service the *dynatrace-sli-service* needs to be installed on the k8s cluster where you have installed Keptn!
+
 ### Deploy in your Kubernetes cluster
 
 * The `dynatrace-sli-service` by default validates the SSL certificate of the Dynatrace API.
@@ -39,7 +49,7 @@ By default, even if you do not specify a custom SLI.yaml, the following SLIs are
   by setting the environment variable `HTTP_SSL_VERIFY` (default `true`) specified in the manifest available under `deploy/service.yaml` to `false`.
 
 * To deploy the current version of the *dynatrace-sli-service* in your Kubernetes cluster, use the `deploy/service.yaml` file from this repository and apply it.
-Please use the same namespace for the *dynatrace-sli-service* as you are using for Keptn.
+Please use the same namespace for the *dynatrace-sli-service* as you are using for Keptn, e.g: keptn.
 
     ```console
     kubectl apply -f deploy/service.yaml -n keptn
@@ -68,44 +78,103 @@ To delete a deployed *dynatrace-sli-service*, use the file `deploy/*.yaml` files
 kubectl delete -f deploy/service.yaml -n keptn
 ```
 
-## Setup
+## Pre-Requisits: Dynatrace Tenant URL & API Token
 
-By default, the *dynatrace-sli-service* will use the same Dynatrace tenant and API token as provided for the [dynatrace-service](https://github.com/keptn-contrib/dynatrace-service).
-In case you do not use the *dynatrace-service*, or if you want to use another Dynatrace tenant for a certain project, a secret containing the tenant ID and API token has to be deployed into the `keptn` namespace. 
+In order for the *dynatrace-sli-service* to connect to Dynatrace you need to provide a Dynatrace Tenant URL and a Dynatrace API Token. In our examples below we use the best practice to export these values in the environment variables DT_TENANT and DT_API_TOKEN as explained in the [Keptn documentation for Dynatrace](https://keptn.sh/docs/0.7.x/monitoring/dynatrace/install/)
+
+## Configuration of project- & Keptn-wide Dynatrace credentials
+
+The *dynatrace-sli-service* uses the same implementation as the [dynatrace-service](https://github.com/keptn-contrib/dynatrace-service) when it comes to connecting to your Dynatrace Tenant (SaaS or Managed). Both services are pulling Dynatrace Tenant URL and Dynatrace API Token from k8s secrets stored in the same namespace as where your *dynatrace-xx-service* is installed.
+
+Both services give you the option to configure project-wide-default or keptn-wide-default credentials. For project-wide, the secret needs to be named  *dynatrace-credentials-YOURPROJECT*. For keptn-wide the secret can either be called *dynatrace-credentials* or just *dynatrace*.
+
+The following is an example to define a secret for a Keptn project called sockshop:
 
 ```console
-kubectl create secret generic dynatrace-credentials-<project> -n "keptn" --from-literal="DT_TENANT=$DT_TENANT" --from-literal="DT_API_TOKEN=$DT_API_TOKEN"
+kubectl create secret generic dynatrace-credentials-sockshop -n "keptn" --from-literal="DT_TENANT=$DT_TENANT" --from-literal="DT_API_TOKEN=$DT_API_TOKEN"
 ```
 
-**Note:** There is a naming convention for the secret because this can be configured per **project**. Therefore, the secret has to have the name `dynatrace-credentials-<project>`.
+And here is an example to specify a keptn wide default secret that is used in case there is no project wide secret defined for a particular Keptn project
 
-**Using different Dynatrace environment per stage or service**
+```console
+kubectl create secret generic dynatrace -n "keptn" --from-literal="DT_TENANT=$DT_TENANT" --from-literal="DT_API_TOKEN=$DT_API_TOKEN"
+```
 
-If you have multiple Dynatrace environments, e.g., to separately monitor pre-production and production environments, and therefore want the *dynatrace-sli-service* to connect to that respective Dynatrace environment when pulling SLI metrics for a specific Keptn stage or service you can do the following:
+## Configurations of Credentials through dynatrace.conf.yaml
 
-1. Create a secret for your additional Dynatrace environments in the same way as explained above and store them under a meaningful name, e.g: `dynatrace-preprod` or `dynatrace-prod`:
+While project and keptn wide credentials give a certain flexibility - it has its drawbacks that have asked for more fine grained control over Dynatrace Credential Management as well as configuraing the behavior of other features of the *dynatrace-sli-service* on a project, service and stage level. This is why its important to understand and use `dynatrace.conf.yaml` 
 
-   ```
-   kubectl create secret generic dynatrace-preprod -n "keptn" --from-literal="DT_TENANT=$DT_TENANT" --from-literal="DT_API_TOKEN=$DT_API_TOKEN"
-   ```
+When the *dynatrace-sli-service* is processing a *sh.keptn.internal.event.get-sli* it looks for the file called `dynatrace/dynatrace.conf.yaml` in the Keptn Configuration Repository. It first looks for it on service, then stage and then project level. This conf file is also used by the *dynatrace-service*. For the *dynatrace-sli-service* it allows you to configure the following behavior:
+* Which k8s secret to use to pull Dynatrace Tenant Credentials (DT_TENANT & DT_API_TOKEN)
+* Whether to pull SLI/SLO information from a Dynatrace dashboard or use the stored sli.yaml and slo.yaml in the Keptn Configuration Repository
 
-2. Define a `dynatrace.conf.yaml` resource file, which allows you to specify a DTCreds value which has to be name of the secret, e.g.: `dynatrace-preprod`
+Here is an example `dynatrace.conf.yaml`
+```yaml
+---
+spec_version: '0.1.0'
+dtCreds: dynatrace-preprod
+dashboard: query
+```
 
-   ```yaml
-   spec_version: '0.1.0'
-   dtCreds: dynatrace-preprod
-   ```
+To upload this to your keptn project you can for instance use the keptn cli:
+```console
+keptn add-resource --project=yourproject --stage=yourstage --resource=./dynatrace.conf.yaml --resourceUri=dynatrace/dynatrace.conf.yaml
+```
 
-3. Upload that `dynatrace.conf.yaml` to your Keptn project, stage, or service via [keptn add-resource](https://keptn.sh/docs/0.7.x/reference/cli/commands/keptn_add-resource/) into the dynatace folder, e.g: here is an example to upload it to a specific stage which means the *dynatrace-sli-service* will use the credentials stored in *dynatrace-preprod* secret for every SLI retrieval on that stage
+**dtCreds**
+*dtCreds* allows you to specify the name of the k8s secret in your Keptn namespace that holds the required credentials to connect to the Dynatrace Tenant. This extends the default behavior as explained in the beginning by having the *dynatrace-sli-service* first look at the secret defined in dtCreds. If dtCreds is not specified or if there is no `dynatrace.conf.yaml` at all then it just does the default behavior
 
-    ```console
-    keptn add-resource --project=yourproject --stage=yourstage --resource=./dynatrace.conf.yaml --resourceUri=dynatrace/dynatrace.conf.yaml
-    ```
+In the example above where dtCreds was specified with the value *dynatrace-preprod* the *dynatrace-sli-service* would be looking for the first matching secret in the following order: *dynatrace-preprod*, *dynatrace-credentials-YOURKEPTNPROJECT*, *dynatrace-credentials*, *dynatrace*
+If none of these secrets is configured in your k8s Keptn namespace the *dynatrace-sli-service* will respond with an error indicating that no Dynatrace credentials could be found!
+
+For completeness of the example - here is the way on how to create that secret so it matches whats in `dynatrace.conf.yaml`:
+```console
+kubectl create secret generic dynatrace-preprod -n "keptn" --from-literal="DT_TENANT=$DT_TENANT" --from-literal="DT_API_TOKEN=$DT_API_TOKEN"
+```
+
+*dtCreds* was requested by many users as it gives you the option to specify credentials for your different Dynatrace Tenants, e.g: my-dynatrace-preprod, my-dynatrace-prod, my-dynatrace-dev. And then you can configure on project, stage or even service level which Dynatrace Tenant to be used. This gives you all flexiblity to manage multiple environments within a single project but separate it out by e.g: stages
+
+## Configurations of Dashboard SLI/SLO queries through dynatrace.conf.yaml
+
+The `dynatrace.conf.yaml` provides an additional option to configure whether the *dynatrace-sli-service* should use the metric queries defined in SLI.yaml, whether it should pull data from a specific dashboard or whether it query the data from a Dynatrace Dashboard who's name matches the Keptn project, stage and service. 
+
+Here is an example `dynatrace.conf.yaml` including the dashboard parameter
+```yaml
+---
+spec_version: '0.1.0'
+dtCreds: dynatrace-prod
+dashboard: query
+```
+
+Remember to have this file uploaded using e.g: Keptn CLI or the Keptn API. It has to be in the subfolder dynatrace which is why resourceUri=dynatrace/dynatrace.conf.yaml:
+```console
+keptn add-resource --project=yourproject --stage=yourstage --resource=./dynatrace.conf.yaml --resourceUri=dynatrace/dynatrace.conf.yaml
+```
+
+**dashboard**
+The *dashboard* parameter provides 3 options
+* blank (default): If *dashboard* is not specified at all or if you do not even have a `dynatrace.conf.yaml` then the *dynatrace-sli-service* will simply execute the metric query as defined in SLO.yaml
+* query: This value means that the *dynatrace-sli-service* will look for a dashboard on your Dynatrace Tenant (dynatrace-prod in the example above) which has the following dashboard naming format: `KQG;project=<YOURKEPTNPROJECT>;service=<YOURKEPTNSERVICE>;stage=<YOURKEPTNSTAGE>`. If such a dashboard exists it will use the definition of that dashboard for SLIs as well as SLOs. If no dashboard is found that matches that name it goes back to default mode.
+* DASHBOARD-UUID: If you specify the UUID of a Dynatrace dashboard the *dynatrace-sli-service* will query this dashboard on the specified Dynatrace Tenant. If it exists it will use the definition of this dashboard for SLIs as well as SLOs. If the dashboard was not found the *dynatrace-sli-service* will raise an error and not continue!
+
+Here is an example of a `dynatrace.conf.yaml` specifing the UUID of a Dynatrace Dashboard
+```yaml
+---
+spec_version: '0.1.0'
+dtCreds: dynatrace-prod
+dashboard: 311f4aa7-5257-41d7-abd1-70420500e1c8
+```
+
+**Tip:** You can easily find the dashboard id for an existing dashboard by navigating to it in your Dynatrace Web interface. The ID is then part of the URL.
 
 
 ## SLI Configuration
 
-The default SLI queries for this service are defined as follows: 
+While most users will use the dashboard approach it is important to understand how the general processing of SLIs works without dashboards. Dashboards give an additional convenience as the SLI.yaml file doesn't need to be created or maintained by anybody as this information is extracted from a Dynatrace Dashboard. However - in very mature organizations the approach of using SLI & SLO yamls instead of Dynatrace Dashboards is very likely.
+
+Thats why - lets give you some basic understanding of how SLIs work with the *dynatrace-sli-service*
+
+The default SLI queries that come with the *dynatrace-sli-service* are defined as follows. Those will be used in case you have not specified a custom SLI.yaml neither a Dynatrace dashboard:
 
 ```yaml
 spec_version: "1.0"
@@ -179,8 +248,6 @@ Hope these examples help you see what is possible. If you want to explore more a
 
 ## SLIs & SLOs via Dynatrace Dashboard
 
-**New capability with 0.5.0**
-
 Based on user feedback we learned that defining custom SLIs via the SLI.yaml and then defining SLOs via SLO.yaml can be challenging as one has to be familiar with the Dynatrace Metrics V2 API to craft the necessary SLI queries.
 As dashboards are a prominent feature in Dynatrace to visualize metrics, it was a logical step to leverage dashboards as the basis for Keptn's SLI/SLO configuration.
 
@@ -188,13 +255,13 @@ As dashboards are a prominent feature in Dynatrace to visualize metrics, it was 
 
 ### How dynatrace-sli-service locates a Dashboard
 
-There are two options for the *dynatrace-sli-service* to parse a dashboard instead of relying on an SLI.yaml:
+As explained earlier - the *dynatrace-sli-service* gives you two options through the *dashboard* property in your `dynatrace.conf.yaml`
 
-1. Have a dashboard on your Dynatrace Tenant with the name pattern like this: KQG;project=<YOURKEPTNPROJECT>;service=<YOURKEPTNSERVICE>;stage=<YOURKEPTNSTAGE>
+1. `query`. This will query for a dashboard with the name pattern like this: KQG;project=<YOURKEPTNPROJECT>;service=<YOURKEPTNSERVICE>;stage=<YOURKEPTNSTAGE>
 
-1. In your `dynatrace.conf.yaml` define a property called dashboard and give it the dashboard id as value, e.g: `dashboard: e6c947f2-4c29-483c-a065-269b3707bea4`
+2. UUID: Use e.g: `dashboard: e6c947f2-4c29-483c-a065-269b3707bea4` which will then query exactly that dashboard
 
-If the *dynatrace-sli-service* doesn't locate a dashboard, it defaults back to the SLI.yaml that you have uploaded in your Keptn configuration repository.
+For more details refer to the section above where we explained `dynatrace.conf.yaml`
 
 ### SLI/SLO Dashboard Layout and how it generates SLI & SLO definitions
 
