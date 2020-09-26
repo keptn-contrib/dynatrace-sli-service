@@ -167,7 +167,8 @@ dtCreds: dynatrace-prod
 dashboard: 311f4aa7-5257-41d7-abd1-70420500e1c8
 ```
 
-If a dashboard is queried the *dynatrace-sli-service* will first validate if the dashboard has changed since the last evaluation. It does that by comparing the dashboard's JSON with the dashboard JSON that was used during the last evaluation run. If the dashboard.json has not changed it will also fall back to the SLI.yaml and SLO.yaml as these were also created out of the dashboard in the previous run. 
+*Dashboard parsing behavior*
+If a dashboard is queried, the *dynatrace-sli-service* will first validate if the dashboard has changed since the last evaluation. It does that by comparing the dashboard's JSON with the dashboard JSON that was used during the last evaluation run. If the dashboard.json has not changed it will fall back to the SLI.yaml and SLO.yaml as these were also created out of the dashboard in the previous run. If you want to overwrite this behavior you can simply put a `KQG.QueryBehavior=Overwrite` on your dashboard. Details on that explained further down in this readme.
 This behavior also implies that the *dynatrace-sli-service* stores the content of the dashboard and the generated sli.yaml and slo.yaml in your configuration repo. You can find these files on service level under: `dynatrace/dashboard.json`, `dynatrace/sli.yaml`, `slo.yaml`
 
 **Tip:** You can easily find the dashboard id for an existing dashboard by navigating to it in your Dynatrace Web interface. The ID is then part of the URL.
@@ -307,6 +308,7 @@ It is not mandatory to define them as there are defaults for all of them. Here i
 | KQG.Compare.Result | 1 | Against how many previous builds to compare your result to? |
 | KQG.Compare.WithScore | pass | Which prevoius builds to include in the comparison: pass, pass_or_warn or all |
 | KQG.Compare.Function | avg | When comparing against multiple builds which aggregation should be used: avg, p50, p90, p95 |
+| KQG.QueryBehavior | <empty> | If you want your dashboard to always be parsed to ensure proper SLI, SLO.yamls then use the value 'Overwrite' |
 
 
 **4. Tiles with SLI definition**

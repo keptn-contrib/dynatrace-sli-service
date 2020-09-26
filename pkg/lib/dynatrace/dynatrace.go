@@ -766,7 +766,14 @@ func (ph *Handler) isMatchingMetricID(singleResultMetricID string, queryMetricID
  */
 func (ph *Handler) HasDashboardChanged(keptnEvent *common.BaseKeptnEvent, dashboardJSON *DynatraceDashboard) bool {
 
-	// first download the dashboard
+	// if the new dashboard contains KQG.QueryBehavior=Overwrite - then we overwrite anyway and return that dashboard has changed
+	jsonAsByteArray, _ := json.MarshalIndent(dashboardJSON, "", "  ")
+	newDashboardContent := string(jsonAsByteArray)
+	if strings.Index(newDashboardContent, "KQG.QueryBehavior=Overwrite") >= 0 {
+		return true
+	}
+
+	// Now - lets download the previously used dashboard if it exists
 	existingDashboardContent, err := common.GetKeptnResource(keptnEvent, common.DynatraceDashboardFilename, ph.Logger)
 	if err != nil || existingDashboardContent == "" {
 		// if no dashboard has yet been uploaded to the config repo it means we have a new dashboard and therefore dashboard has changed
@@ -774,8 +781,6 @@ func (ph *Handler) HasDashboardChanged(keptnEvent *common.BaseKeptnEvent, dashbo
 	}
 
 	// now lets compare the dashboard from the config repo and the one passed to this function
-	jsonAsByteArray, _ := json.MarshalIndent(dashboardJSON, "", "  ")
-	newDashboardContent := string(jsonAsByteArray)
 	if strings.Compare(newDashboardContent, existingDashboardContent) == 0 {
 		return false
 	}
@@ -1200,7 +1205,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 		// lets first start to query for the MV2 prefix, e.g: MV2;byte;actualQuery
 		// if it starts with MV2 we extract metric unit and the actual query
 		if strings.HasPrefix(metricsQuery, "MV2;") {
-			metricsQuery := metricsQuery[:4]
+			metricsQuery = metricsQuery[:4]
 			queryStartIndex := strings.Index(metricsQuery, ";")
 			metricUnit = metricsQuery[queryStartIndex:]
 			metricsQuery = metricsQuery[:queryStartIndex+1]
