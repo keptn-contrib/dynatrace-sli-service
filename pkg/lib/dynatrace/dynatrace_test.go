@@ -119,19 +119,26 @@ func testingDynatraceHTTPClient() (*http.Client, string, func()) {
 }
 
 /**
- * This function will create a new HTTP Server for handling Dynatrace REST Calls.
- * It returns the Dynatrace Handler as well as the httpClient, mocked server url and the teardown method
- * ATTENTION: When using this method you have to call the "teardown" method that is returned in the last parameter
+ * Creates a new Keptn Event
  */
-func testingGetDynatraceHandler(project string, stage string, service string, deployment string, test string) (*Handler, *http.Client, string, func()) {
-	httpClient, url, teardown := testingDynatraceHTTPClient()
-
+func testingGetKeptnEvent(project string, stage string, service string, deployment string, test string) *common.BaseKeptnEvent {
 	keptnEvent := &common.BaseKeptnEvent{}
 	keptnEvent.Project = project
 	keptnEvent.Stage = stage
 	keptnEvent.Service = service
 	keptnEvent.DeploymentStrategy = deployment
 	keptnEvent.TestStrategy = test
+
+	return keptnEvent
+}
+
+/**
+ * This function will create a new HTTP Server for handling Dynatrace REST Calls.
+ * It returns the Dynatrace Handler as well as the httpClient, mocked server url and the teardown method
+ * ATTENTION: When using this method you have to call the "teardown" method that is returned in the last parameter
+ */
+func testingGetDynatraceHandler(keptnEvent *common.BaseKeptnEvent) (*Handler, *http.Client, string, func()) {
+	httpClient, url, teardown := testingDynatraceHTTPClient()
 
 	dh := NewDynatraceHandler(url, keptnEvent, map[string]string{
 		"Authorization": "Api-Token " + "test",
@@ -143,7 +150,8 @@ func testingGetDynatraceHandler(project string, stage string, service string, de
 }
 
 func TestExecuteDynatraceREST(t *testing.T) {
-	dh, _, url, teardown := testingGetDynatraceHandler("sockshop", "dev", "carts", "", "")
+	keptnEvent := testingGetKeptnEvent("sockshop", "dev", "carts", "", "")
+	dh, _, url, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
 
 	resp, body, err := dh.executeDynatraceREST("GET", url+"/api/config/v1/dashboards", nil)
@@ -162,7 +170,8 @@ func TestExecuteDynatraceREST(t *testing.T) {
 }
 
 func TestExecuteDynatraceRESTBadRequest(t *testing.T) {
-	dh, _, url, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, url, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
 
 	resp, _, _ := dh.executeDynatraceREST("GET", url+"/BADAPI", nil)
@@ -173,10 +182,11 @@ func TestExecuteDynatraceRESTBadRequest(t *testing.T) {
 }
 
 func TestFindDynatraceDashboardSuccess(t *testing.T) {
-	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
 
-	dashboardID, err := dh.findDynatraceDashboard(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE)
+	dashboardID, err := dh.findDynatraceDashboard(keptnEvent)
 
 	if err != nil {
 		t.Error(err)
@@ -188,10 +198,11 @@ func TestFindDynatraceDashboardSuccess(t *testing.T) {
 }
 
 func TestFindDynatraceDashboardNoneExistingDashboard(t *testing.T) {
-	dh, _, _, teardown := testingGetDynatraceHandler("BAD_PROJECT", QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	keptnEvent := testingGetKeptnEvent("BAD_PROJECT", QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
 
-	dashboardID, err := dh.findDynatraceDashboard("BAD_PROJECT", QUALITYGATE_STAGE, QUALTIYGATE_SERVICE)
+	dashboardID, err := dh.findDynatraceDashboard(keptnEvent)
 
 	if err != nil {
 		t.Error(err)
@@ -203,11 +214,12 @@ func TestFindDynatraceDashboardNoneExistingDashboard(t *testing.T) {
 }
 
 func TestLoadDynatraceDashboardWithQUERY(t *testing.T) {
-	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
 
 	// this should load the dashboard
-	dashboardJSON, dashboard, err := dh.loadDynatraceDashboard(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, common.DynatraceConfigDashboardQUERY)
+	dashboardJSON, dashboard, err := dh.loadDynatraceDashboard(keptnEvent, common.DynatraceConfigDashboardQUERY)
 
 	if dashboardJSON == nil {
 		t.Errorf("Didnt query dashboard for quality gate project even though it shoudl exist: " + dashboard)
@@ -223,11 +235,12 @@ func TestLoadDynatraceDashboardWithQUERY(t *testing.T) {
 }
 
 func TestLoadDynatraceDashboardWithID(t *testing.T) {
-	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
 
 	// this should load the dashboard
-	dashboardJSON, dashboard, err := dh.loadDynatraceDashboard(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, QUALITYGATE_DASHBOARD_ID)
+	dashboardJSON, dashboard, err := dh.loadDynatraceDashboard(keptnEvent, QUALITYGATE_DASHBOARD_ID)
 
 	if dashboardJSON == nil {
 		t.Errorf("Didnt query dashboard for quality gate project even though it should exist by ID")
@@ -243,11 +256,12 @@ func TestLoadDynatraceDashboardWithID(t *testing.T) {
 }
 
 func TestLoadDynatraceDashboardWithEmptyDashboard(t *testing.T) {
-	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
 
 	// this should load the dashboard
-	dashboardJSON, dashboard, err := dh.loadDynatraceDashboard(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "")
+	dashboardJSON, dashboard, err := dh.loadDynatraceDashboard(keptnEvent, "")
 
 	if dashboardJSON != nil {
 		t.Errorf("No dashboard should be loaded if no dashboard is passed")
@@ -263,14 +277,13 @@ func TestLoadDynatraceDashboardWithEmptyDashboard(t *testing.T) {
 }
 
 func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
-	dh, _, _, teardown := testingGetDynatraceHandler(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
-
-	stdLogger := keptn.NewLogger("context", "TESTID", "dynatrace-sli-service")
 
 	startTime := time.Unix(1571649084, 0).UTC()
 	endTime := time.Unix(1571649085, 0).UTC()
-	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dh.QueryDynatraceDashboardForSLIs(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, common.DynatraceConfigDashboardQUERY, startTime, endTime, stdLogger)
+	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dh.QueryDynatraceDashboardForSLIs(keptnEvent, common.DynatraceConfigDashboardQUERY, startTime, endTime)
 
 	if dashboardLinkAsLabel == "" {
 		t.Errorf("No dashboard link label generated")
@@ -316,7 +329,8 @@ func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
 }
 
 func TestCreateNewDynatraceHandler(t *testing.T) {
-	dh, _, url, teardown := testingGetDynatraceHandler("sockshop", "dev", "carts", "direct", "")
+	keptnEvent := testingGetKeptnEvent("sockshop", "dev", "carts", "direct", "")
+	dh, _, url, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
 
 	if dh.ApiURL != url {
@@ -341,7 +355,8 @@ func TestCreateNewDynatraceHandler(t *testing.T) {
 
 // Test that unsupported metrics return an error
 func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
-	dh, _, _, teardown := testingGetDynatraceHandler("sockshop", "dev", "carts", "", "")
+	keptnEvent := testingGetKeptnEvent("sockshop", "dev", "carts", "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
 	defer teardown()
 
 	got, err := dh.getTimeseriesConfig("foobar")

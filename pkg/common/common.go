@@ -25,7 +25,14 @@ var RunLocal = (os.Getenv("ENV") == "local")
 var RunLocalTest = (os.Getenv("ENV") == "localtest")
 
 /**
- * Defines the Dynatrace Configuration File structure!
+ * Constants for supporting resource files in keptn repo
+ */
+const DynatraceDashboardFilename = "dynatrace/dashboard.json"
+const DynatraceSLIFilename = "dynatrace/sli.yaml"
+const KeptnSLOFilename = "slo.yaml"
+
+/**
+ * Defines the Dynatrace Configuration File structure and supporting Constants
  */
 const DynatraceConfigFilename = "dynatrace/dynatrace.conf.yaml"
 const DynatraceConfigFilenameLOCAL = "dynatrace/_dynatrace.conf.yaml"
@@ -226,7 +233,6 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 // UploadKeptnResource uploads a file to the Keptn Configuration Service
 func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent, logger *keptn.Logger) error {
 
-	logger.Info("Uploading remote file")
 	// if we run in a runlocal mode we are just getting the file from the local disk
 	if RunLocal || RunLocalTest {
 		err := ioutil.WriteFile(remoteResourceURI, contentToUpload, 0644)
@@ -243,6 +249,8 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 		if err != nil {
 			return fmt.Errorf("Couldnt upload remote resource %s: %s", remoteResourceURI, *err.Message)
 		}
+
+		logger.Info(fmt.Sprintf("Uploaded file %s", remoteResourceURI))
 	}
 
 	return nil

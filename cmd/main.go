@@ -149,13 +149,13 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
 /**
  * Tries to find a dynatrace dashboard that matches our project. If so - returns the SLI, SLO and SLIResults
  */
-func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string, logger *keptn.Logger) (string, []*keptn.SLIResult, error) {
+func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string) (string, []*keptn.SLIResult, error) {
 
 	//
 	// Option 1: We query the data from a dashboard instead of the uploaded SLI.yaml
 	// ==============================================================================
 	// Lets see if we have a Dashboard in Dynatrace that we should parse
-	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, dashboardConfig, startUnix, endUnix, logger)
+	dashboardLinkAsLabel, dashboardJSON, dashboardSLI, dashboardSLO, sliResults, err := dynatraceHandler.QueryDynatraceDashboardForSLIs(keptnEvent, dashboardConfig, startUnix, endUnix)
 	if err != nil {
 		return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not query Dynatrace dashboard for SLIs: %v", err)
 	}
@@ -164,9 +164,9 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	if dashboardJSON != nil {
 		jsonAsByteArray, _ := json.MarshalIndent(dashboardJSON, "", "  ")
 
-		err := common.UploadKeptnResource(jsonAsByteArray, "dynatrace/dashboard.json", keptnEvent, logger)
+		err := common.UploadKeptnResource(jsonAsByteArray, common.DynatraceDashboardFilename, keptnEvent, dynatraceHandler.Logger)
 		if err != nil {
-			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store dynatrace/dashboard.json : %v", err)
+			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store %s : %v", common.DynatraceDashboardFilename, err)
 		}
 	}
 
@@ -174,9 +174,9 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	if dashboardSLI != nil {
 		yamlAsByteArray, _ := yaml.Marshal(dashboardSLI)
 
-		err := common.UploadKeptnResource(yamlAsByteArray, "dynatrace/sli.yaml", keptnEvent, logger)
+		err := common.UploadKeptnResource(yamlAsByteArray, common.DynatraceSLIFilename, keptnEvent, dynatraceHandler.Logger)
 		if err != nil {
-			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store dynatrace/sli.yaml : %v", err)
+			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store %s : %v", common.DynatraceSLIFilename, err)
 		}
 	}
 
@@ -184,19 +184,19 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	if dashboardSLO != nil {
 		yamlAsByteArray, _ := yaml.Marshal(dashboardSLO)
 
-		err := common.UploadKeptnResource(yamlAsByteArray, "slo.yaml", keptnEvent, logger)
+		err := common.UploadKeptnResource(yamlAsByteArray, common.KeptnSLOFilename, keptnEvent, dynatraceHandler.Logger)
 		if err != nil {
-			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store slo.yaml : %v", err)
+			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store %s : %v", common.KeptnSLOFilename, err)
 		}
 	}
 
 	// lets also write the result to a local file in local test mode
 	if sliResults != nil {
 		if common.RunLocal || common.RunLocalTest {
-			logger.Info("(RunLocal Output) Write SLIResult to sliresult.json")
+			dynatraceHandler.Logger.Info("(RunLocal Output) Write SLIResult to sliresult.json")
 			jsonAsByteArray, _ := json.MarshalIndent(sliResults, "", "  ")
 
-			common.UploadKeptnResource(jsonAsByteArray, "sliresult.json", keptnEvent, logger)
+			common.UploadKeptnResource(jsonAsByteArray, "sliresult.json", keptnEvent, dynatraceHandler.Logger)
 		}
 	}
 
@@ -251,7 +251,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	dtCreds := ""
 	if dynatraceConfigFile != nil {
-		dtCreds = dynatraceConfigFile.DtCreds
+		// implementing https://github.com/keptn-contrib/dynatrace-sli-service/issues/90
+		dtCreds = common.ReplaceKeptnPlaceholders(dynatraceConfigFile.DtCreds, keptnEvent)
 		stdLogger.Debug("Found dynatrace.conf.yaml with DTCreds: " + dtCreds)
 	} else {
 		stdLogger.Debug("Using default DTCreds: dynatrace as no custom dynatrace.conf.yaml was found!")
@@ -279,7 +280,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	//
 	// creating Dynatrace Handler which allows us to call the Dynatrace API
-	stdLogger.Info("Dynatrace credentials (Tenant, Token) received")
 	dynatraceHandler := dynatrace.NewDynatraceHandler(dtCredentials.Tenant, keptnEvent, map[string]string{
 		"Authorization": "Api-Token " + dtCredentials.ApiToken,
 	}, eventData.CustomFilters, shkeptncontext, event.ID())
@@ -301,29 +301,23 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	//
 	// Option 1 - see if we can get the data from a Dnatrace Dashboard
-	dashboardLinkAsLabel, sliResults, err := getDataFromDynatraceDashboard(dynatraceHandler, keptnEvent, startUnix, endUnix, dynatraceConfigFile.Dashboard, stdLogger)
+	dashboardLinkAsLabel, sliResults, err := getDataFromDynatraceDashboard(dynatraceHandler, keptnEvent, startUnix, endUnix, dynatraceConfigFile.Dashboard)
 	if err != nil {
 		// log the error, but continue with loading sli.yaml
 		stdLogger.Error(err.Error())
 	}
 
-	// IF we received data from processing the dashboard send it back - we are done here :-)
-	if sliResults != nil {
-		// add link to dynatrace dashboard to labels
-		if dashboardLinkAsLabel != "" {
-			if eventData.Labels == nil {
-				eventData.Labels = make(map[string]string)
-			}
-			eventData.Labels["Dashboard Link"] = dashboardLinkAsLabel
+	// add link to dynatrace dashboard to labels
+	if dashboardLinkAsLabel != "" {
+		if eventData.Labels == nil {
+			eventData.Labels = make(map[string]string)
 		}
+		eventData.Labels["Dashboard Link"] = dashboardLinkAsLabel
+	}
 
-		/* stdLogger.Info("Captured SLIResults from Dynatrace Dashboard")
-		jsonAsString, _ := json.Marshal(sliResults)
-		stdLogger.Info(string(jsonAsString)) */
-	} else {
-		//
-		// Option 2: We query the SLIs based on the definitions stored in SLI.yaml
-		// ========================================================================0
+	//
+	// Option 2: If we have not received any data via a Dynatrace Dashboard lets query the SLIs based on the SLI.yaml definition
+	if sliResults == nil {
 		// get custom metrics for project if they exist
 		projectCustomQueries, _ := getCustomQueries(keptnEvent, keptnHandler, stdLogger)
 
@@ -355,8 +349,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 			}
 		}
 
-		stdLogger.Info("Finished fetching metrics; Sending SLIDone event now ...")
-
 		if common.RunLocal || common.RunLocalTest {
 			log.Println("(RunLocal Output) Here are the results:")
 			for _, v := range sliResults {
@@ -372,6 +364,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if sliResults == nil {
 		err = errors.New("Couldnt retrieve any SLI Results")
 	}
+
+	stdLogger.Info("Finished fetching metrics; Sending SLIDone event now ...")
 
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,

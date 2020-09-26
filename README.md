@@ -9,15 +9,17 @@ The *dynatrace-sli-service* provides the capabilty to connect to different Dynat
 
 ![](./images/dynatracesliserviceoverview.png)
 
-By default, even if you do not specify a custom SLI.yaml, the following SLIs are automatically supported and the *dynatrace-sli-service* will return values for these metrics (=SLIs):
+By default, even if you do not specify a custom SLI.yaml or a Dynatrace dashboard, the following SLIs are automatically supported in case you reference them in your SLO.yaml:
 
- - Throughput
- - Error rate
- - Response time p50
- - Response time p90
- - Response time p95
+```
+ - throughput: builtin:service.requestCount.total
+ - error_rate: builtin:service.errors.total.count
+ - response_time_p50: builtin:service.response.time:percentile(50)
+ - response_time_p90: builtin:service.response.time:percentile(90)
+ - response_time_p95: builtin:service.response.time:percentile(95)
+```
 
- By default these metrics (SLIs) are queried from a Dynatrace-monitored service entity with the tags `keptn_project`, `keptn_service`, `keptn_stage` & `keptn_deployment`.
+By default these metrics (SLIs) are queried from a Dynatrace-monitored service entity with the tags `keptn_project`, `keptn_service`, `keptn_stage` & `keptn_deployment`.
 ![](./images/defaultdynatracetags.png)
 
 As highlighted above, the *dynatrace-sli-service* also provides the following capabilities
@@ -165,8 +167,10 @@ dtCreds: dynatrace-prod
 dashboard: 311f4aa7-5257-41d7-abd1-70420500e1c8
 ```
 
-**Tip:** You can easily find the dashboard id for an existing dashboard by navigating to it in your Dynatrace Web interface. The ID is then part of the URL.
+If a dashboard is queried the *dynatrace-sli-service* will first validate if the dashboard has changed since the last evaluation. It does that by comparing the dashboard's JSON with the dashboard JSON that was used during the last evaluation run. If the dashboard.json has not changed it will also fall back to the SLI.yaml and SLO.yaml as these were also created out of the dashboard in the previous run. 
+This behavior also implies that the *dynatrace-sli-service* stores the content of the dashboard and the generated sli.yaml and slo.yaml in your configuration repo. You can find these files on service level under: `dynatrace/dashboard.json`, `dynatrace/sli.yaml`, `slo.yaml`
 
+**Tip:** You can easily find the dashboard id for an existing dashboard by navigating to it in your Dynatrace Web interface. The ID is then part of the URL.
 
 ## SLI Configuration
 
@@ -251,7 +255,7 @@ Hope these examples help you see what is possible. If you want to explore more a
 Based on user feedback we learned that defining custom SLIs via the SLI.yaml and then defining SLOs via SLO.yaml can be challenging as one has to be familiar with the Dynatrace Metrics V2 API to craft the necessary SLI queries.
 As dashboards are a prominent feature in Dynatrace to visualize metrics, it was a logical step to leverage dashboards as the basis for Keptn's SLI/SLO configuration.
 
-*rocket* If *dynatrace-sli-service* parses your dashboard, it will generate an `sli.yaml` and `slo.yaml` and uploads it to your Keptn configuration repository.
+*rocket* If *dynatrace-sli-service* parses your dashboard, it will generate an `sli.yaml` and `slo.yaml` and uploads it to your Keptn configuration repository. It will also upload the `dashboard.json`. 
 
 ### How dynatrace-sli-service locates a Dashboard
 

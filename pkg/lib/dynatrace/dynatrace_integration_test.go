@@ -236,7 +236,7 @@ func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 	end := time.Unix(1571649085, 0).UTC()
 	value, err := dh.GetSLIValue(ResponseTimeP50, start, end)
 
-	assert.EqualValues(t, errors.New("Dynatrace Metrics API result does not contain identifier builtin:service.response.time:merge(0):percentile(50)"), err)
+	assert.EqualValues(t, errors.New("Not able to query identifier response_time_p50 from Dynatrace"), err)
 
 	assert.EqualValues(t, 0.0, value)
 }
