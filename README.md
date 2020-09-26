@@ -308,7 +308,7 @@ It is not mandatory to define them as there are defaults for all of them. Here i
 | KQG.Compare.Result | 1 | Against how many previous builds to compare your result to? |
 | KQG.Compare.WithScore | pass | Which prevoius builds to include in the comparison: pass, pass_or_warn or all |
 | KQG.Compare.Function | avg | When comparing against multiple builds which aggregation should be used: avg, p50, p90, p95 |
-| KQG.QueryBehavior | <empty> | If you want your dashboard to always be parsed to ensure proper SLI, SLO.yamls then use the value 'Overwrite' |
+| KQG.QueryBehavior | <empty> | A dashboard is always parsed for SLIs & SLOs even if it hasnt changed. To only parse it when changes occured use 'ParseOnChange' |
 
 
 **4. Tiles with SLI definition**

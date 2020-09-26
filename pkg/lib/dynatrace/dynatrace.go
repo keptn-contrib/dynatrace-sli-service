@@ -766,10 +766,10 @@ func (ph *Handler) isMatchingMetricID(singleResultMetricID string, queryMetricID
  */
 func (ph *Handler) HasDashboardChanged(keptnEvent *common.BaseKeptnEvent, dashboardJSON *DynatraceDashboard) bool {
 
-	// if the new dashboard contains KQG.QueryBehavior=Overwrite - then we overwrite anyway and return that dashboard has changed
+	// If ParseOnChange is not specified we consider this as a dashboard with a change
 	jsonAsByteArray, _ := json.MarshalIndent(dashboardJSON, "", "  ")
 	newDashboardContent := string(jsonAsByteArray)
-	if strings.Index(newDashboardContent, "KQG.QueryBehavior=Overwrite") >= 0 {
+	if strings.Index(newDashboardContent, "KQG.QueryBehavior=ParseOnChange") == -1 {
 		return true
 	}
 
