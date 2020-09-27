@@ -1140,11 +1140,11 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.Time) (float64, error) {
 
 	// first we get the query from the SLI configuration based on its logical name
-	ph.Logger.Debug(fmt.Sprintf("Getting SLI config for %s\n", metric))
 	metricsQuery, err := ph.getTimeseriesConfig(metric)
 	if err != nil {
-		return 0, fmt.Errorf("Error when fetching timeseries config: %s\n", err.Error())
+		return 0, fmt.Errorf("Error when fetching SLI config for %s %s\n", metric, err.Error())
 	}
+	ph.Logger.Debug(fmt.Sprintf("Retrieved SLI config for %s: %s", metric, metricsQuery))
 
 	var (
 		metricIDExists    = false
@@ -1205,10 +1205,10 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 		// lets first start to query for the MV2 prefix, e.g: MV2;byte;actualQuery
 		// if it starts with MV2 we extract metric unit and the actual query
 		if strings.HasPrefix(metricsQuery, "MV2;") {
-			metricsQuery = metricsQuery[:4]
+			metricsQuery = metricsQuery[4:]
 			queryStartIndex := strings.Index(metricsQuery, ";")
-			metricUnit = metricsQuery[queryStartIndex:]
-			metricsQuery = metricsQuery[:queryStartIndex+1]
+			metricUnit = metricsQuery[:queryStartIndex]
+			metricsQuery = metricsQuery[queryStartIndex+1:]
 		}
 
 		//

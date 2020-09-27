@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -239,6 +240,21 @@ func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 	assert.EqualValues(t, errors.New("Not able to query identifier response_time_p50 from Dynatrace"), err)
 
 	assert.EqualValues(t, 0.0, value)
+}
+
+func TestGetSLIValueWithMV2Prefix(t *testing.T) {
+
+	metricsQuery := "MV2;Percent;metricSelector=builtin:host.cpu.usage:merge(0):avg:names&entitySelector=type(HOST)"
+
+	if strings.HasPrefix(metricsQuery, "MV2;") {
+		metricsQuery = metricsQuery[4:]
+		assert.EqualValues(t, metricsQuery, "Percent;metricSelector=builtin:host.cpu.usage:merge(0):avg:names&entitySelector=type(HOST)")
+		queryStartIndex := strings.Index(metricsQuery, ";")
+		metricUnit := metricsQuery[:queryStartIndex]
+		assert.EqualValues(t, metricUnit, "Percent")
+		metricsQuery = metricsQuery[queryStartIndex+1:]
+		assert.EqualValues(t, metricsQuery, "metricSelector=builtin:host.cpu.usage:merge(0):avg:names&entitySelector=type(HOST)")
+	}
 }
 
 /*
