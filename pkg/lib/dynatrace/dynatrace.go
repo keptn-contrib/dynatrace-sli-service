@@ -764,19 +764,13 @@ func (ph *Handler) isMatchingMetricID(singleResultMetricID string, queryMetricID
 /**
  * This function will validate if the current dashboard.json stored in the configuration repo is the same as the one passed as parameter
  */
-func (ph *Handler) HasDashboardChanged(keptnEvent *common.BaseKeptnEvent, dashboardJSON *DynatraceDashboard) bool {
+func (ph *Handler) HasDashboardChanged(keptnEvent *common.BaseKeptnEvent, dashboardJSON *DynatraceDashboard, existingDashboardContent string) bool {
 
-	// If ParseOnChange is not specified we consider this as a dashboard with a change
 	jsonAsByteArray, _ := json.MarshalIndent(dashboardJSON, "", "  ")
 	newDashboardContent := string(jsonAsByteArray)
-	if strings.Index(newDashboardContent, "KQG.QueryBehavior=ParseOnChange") == -1 {
-		return true
-	}
 
-	// Now - lets download the previously used dashboard if it exists
-	existingDashboardContent, err := common.GetKeptnResource(keptnEvent, common.DynatraceDashboardFilename, ph.Logger)
-	if err != nil || existingDashboardContent == "" {
-		// if no dashboard has yet been uploaded to the config repo it means we have a new dashboard and therefore dashboard has changed
+	// If ParseOnChange is not specified we consider this as a dashboard with a change
+	if strings.Index(newDashboardContent, "KQG.QueryBehavior=ParseOnChange") == -1 {
 		return true
 	}
 
@@ -798,6 +792,17 @@ func (ph *Handler) HasDashboardChanged(keptnEvent *common.BaseKeptnEvent, dashbo
 //  #4: SLIResult
 //  #5: Error
 func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEvent, dashboard string, startUnix time.Time, endUnix time.Time) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
+
+	// Lets see if there is a dashboard.json already in the configuration repo - if so its an indicator that we should query the dashboard
+	// This check is espcially important for backward compatibilty as the new dynatrace.conf.yaml:dashboard property is changing the default behavior
+	// If a dashboard.json exists and dashboard property is empty we default to QUERY - which is the old default behavior
+	existingDashboardContent, err := common.GetKeptnResource(keptnEvent, common.DynatraceDashboardFilename, ph.Logger)
+	if err == nil && existingDashboardContent != "" && dashboard == "" {
+		ph.Logger.Debug("Set dashboard=query for backward compatibility as dashboard.json was present!")
+		dashboard = common.DynatraceConfigDashboardQUERY
+	}
+
+	// lets load the dashboard if needed
 	dashboardJSON, dashboard, err := ph.loadDynatraceDashboard(keptnEvent, dashboard)
 	if err != nil {
 		return "", nil, nil, nil, nil, fmt.Errorf("Error while processing dashboard config '%s' - %v", dashboard, err)
@@ -831,7 +836,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 
 	// Lets validate if we really need to process this dashboard as it might be the same (without change) from the previous runs
 	// see https://github.com/keptn-contrib/dynatrace-sli-service/issues/92 for more details
-	if !ph.HasDashboardChanged(keptnEvent, dashboardJSON) {
+	if !ph.HasDashboardChanged(keptnEvent, dashboardJSON, existingDashboardContent) {
 		ph.Logger.Debug("Dashboard hasn't changed: skipping parsing of dashboard!")
 		return dashboardLinkAsLabel, nil, nil, nil, nil, nil
 	}
@@ -889,6 +894,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 				mergeAggregator := ""
 				filterAggregator := ""
 				filterSLIDefinitionAggregator := ""
+				entitySelectorSLIDefinition := ""
 
 				// now we need to merge all the dimensions that are not part of the series.dimensions, e.g: if the metric has two dimensions but only one dimension is used in the chart we need to merge the others
 				// as multiple-merges are possible but as they are executed in sequence we have to use the right index
@@ -909,7 +915,12 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 								filterAggregator = fmt.Sprintf(":filter(eq(%s,%s))", seriesDim.Name, seriesDim.Values[0])
 							} else {
 								// we need this for the generation of the SLI for each individual dimension value
-								filterSLIDefinitionAggregator = fmt.Sprintf(":filter(eq(%s,FILTERDIMENSIONVALUE))", seriesDim.Name)
+								// if the dimension is a dt.entity we have to add an addiotnal entityId to the entitySelector - otherwise we add a filter for the dimension
+								if strings.HasPrefix(seriesDim.Name, "dt.entity.") {
+									entitySelectorSLIDefinition = fmt.Sprintf(",entityId(FILTERDIMENSIONVALUE)")
+								} else {
+									filterSLIDefinitionAggregator = fmt.Sprintf(":filter(eq(%s,FILTERDIMENSIONVALUE))", seriesDim.Name)
+								}
 							}
 						}
 					}
@@ -989,6 +1000,8 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 								// EXCEPTION: If there is only ONE data value then we skip this and just use the base SLI name
 								indicatorName := baseIndicatorName
 
+								metricQueryForSLI := metricQuery
+
 								// we need this one to "fake" the MetricQuery for the SLi.yaml to include the dynamic dimension name for each value
 								// we initialize it with ":names" as this is the part of the metric query string we will replace
 								filterSLIDefinitionAggregatorValue := ":names"
@@ -1009,6 +1022,11 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 										indicatorName = indicatorName + "_" + dimensionName
 
 										filterSLIDefinitionAggregatorValue = ":names" + strings.Replace(filterSLIDefinitionAggregator, "FILTERDIMENSIONVALUE", dimensionName, 1)
+
+										if entitySelectorSLIDefinition != "" && dimensionIncrement == 2 {
+											dimensionEntityID := singleDataEntry.Dimensions[dimIx+1]
+											metricQueryForSLI = metricQueryForSLI + strings.Replace(entitySelectorSLIDefinition, "FILTERDIMENSIONVALUE", dimensionEntityID, 1)
+										}
 									}
 								}
 
@@ -1039,7 +1057,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 								// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
 								// we use ":names" to find the right spot to add our custom dimension filter
 								// we also "pre-pend" the metricDefinition.Unit - which allows us later on to do the scaling right
-								dashboardSLI.Indicators[indicatorName] = fmt.Sprintf("MV2;%s;%s", metricDefinition.Unit, strings.Replace(metricQuery, ":names", filterSLIDefinitionAggregatorValue, 1))
+								dashboardSLI.Indicators[indicatorName] = fmt.Sprintf("MV2;%s;%s", metricDefinition.Unit, strings.Replace(metricQueryForSLI, ":names", filterSLIDefinitionAggregatorValue, 1))
 
 								// lets add the SLO definitin in case we need to generate an SLO.yaml
 								sloDefinition := &keptn.SLO{
