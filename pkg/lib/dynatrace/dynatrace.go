@@ -1187,33 +1187,32 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 
 		if err != nil {
 			return 0, fmt.Errorf("Error executing USQL Query %v", err)
-		} else {
+		}
 
-			for _, rowValue := range usqlResult.Values {
-				dimensionName := ""
-				dimensionValue := 0.0
+		for _, rowValue := range usqlResult.Values {
+			dimensionName := ""
+			dimensionValue := 0.0
 
-				if tileName == "SINGLE_VALUE" {
-					dimensionValue = rowValue[0].(float64)
-				} else if tileName == "PIE_CHART" {
-					dimensionName = rowValue[0].(string)
-					dimensionValue = rowValue[1].(float64)
-				} else if tileName == "COLUMN_CHART" {
-					dimensionName = rowValue[0].(string)
-					dimensionValue = rowValue[1].(float64)
-				} else if tileName == "TABLE" {
-					dimensionName = rowValue[0].(string)
-					dimensionValue = rowValue[len(rowValue)-1].(float64)
-				} else {
-					ph.Logger.Debug(fmt.Sprintf("USQL Tile Type %s currently not supported!", tileName))
-					continue
-				}
+			if tileName == "SINGLE_VALUE" {
+				dimensionValue = rowValue[0].(float64)
+			} else if tileName == "PIE_CHART" {
+				dimensionName = rowValue[0].(string)
+				dimensionValue = rowValue[1].(float64)
+			} else if tileName == "COLUMN_CHART" {
+				dimensionName = rowValue[0].(string)
+				dimensionValue = rowValue[1].(float64)
+			} else if tileName == "TABLE" {
+				dimensionName = rowValue[0].(string)
+				dimensionValue = rowValue[len(rowValue)-1].(float64)
+			} else {
+				ph.Logger.Debug(fmt.Sprintf("USQL Tile Type %s currently not supported!", tileName))
+				continue
+			}
 
-				// did we find the value we were looking for?
-				if strings.Compare(dimensionName, requestedDimensionName) == 0 {
-					metricIDExists = true
-					actualMetricValue = dimensionValue
-				}
+			// did we find the value we were looking for?
+			if strings.Compare(dimensionName, requestedDimensionName) == 0 {
+				metricIDExists = true
+				actualMetricValue = dimensionValue
 			}
 		}
 	} else {
