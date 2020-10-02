@@ -5,11 +5,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
-	events "github.com/keptn/go-utils/pkg/lib"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 )
@@ -72,7 +72,7 @@ func TestGetSLIValue(t *testing.T) {
 
 	start := time.Unix(1571649084, 0).UTC()
 	end := time.Unix(1571649085, 0).UTC()
-	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end)
 
 	assert.NoError(t, err)
 
@@ -125,7 +125,7 @@ func TestGetSLIValueWithOldandNewCustomQueryFormat(t *testing.T) {
 
 	start := time.Unix(1571649084, 0).UTC()
 	end := time.Unix(1571649085, 0).UTC()
-	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end)
 
 	assert.EqualValues(t, nil, err)
 	assert.InDelta(t, 8.43340, value, 0.001)
@@ -136,7 +136,7 @@ func TestGetSLIValueWithOldandNewCustomQueryFormat(t *testing.T) {
 
 	start = time.Unix(1571649084, 0).UTC()
 	end = time.Unix(1571649085, 0).UTC()
-	value, err = dh.GetSLIValue(ResponseTimeP50, start, end, nil)
+	value, err = dh.GetSLIValue(ResponseTimeP50, start, end)
 
 	assert.EqualValues(t, nil, err)
 	assert.InDelta(t, 8.43340, value, 0.001)
@@ -147,7 +147,7 @@ func TestGetSLIValueWithOldandNewCustomQueryFormat(t *testing.T) {
 
 	start = time.Unix(1571649084, 0).UTC()
 	end = time.Unix(1571649085, 0).UTC()
-	value, err = dh.GetSLIValue(ResponseTimeP50, start, end, nil)
+	value, err = dh.GetSLIValue(ResponseTimeP50, start, end)
 
 	assert.EqualValues(t, nil, err)
 	assert.InDelta(t, 8.43340, value, 0.001)
@@ -186,7 +186,7 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 
 	start := time.Unix(1571649084, 0).UTC()
 	end := time.Unix(1571649085, 0).UTC()
-	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end)
 
 	assert.Error(t, err)
 
@@ -235,11 +235,26 @@ func TestGetSLIValueWithoutExpectedMetric(t *testing.T) {
 
 	start := time.Unix(1571649084, 0).UTC()
 	end := time.Unix(1571649085, 0).UTC()
-	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, nil)
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end)
 
-	assert.EqualValues(t, errors.New("Dynatrace Metrics API result does not contain identifier builtin:service.response.time:merge(0):percentile(50)"), err)
+	assert.EqualValues(t, errors.New("Not able to query identifier response_time_p50 from Dynatrace"), err)
 
 	assert.EqualValues(t, 0.0, value)
+}
+
+func TestGetSLIValueWithMV2Prefix(t *testing.T) {
+
+	metricsQuery := "MV2;Percent;metricSelector=builtin:host.cpu.usage:merge(0):avg:names&entitySelector=type(HOST)"
+
+	if strings.HasPrefix(metricsQuery, "MV2;") {
+		metricsQuery = metricsQuery[4:]
+		assert.EqualValues(t, metricsQuery, "Percent;metricSelector=builtin:host.cpu.usage:merge(0):avg:names&entitySelector=type(HOST)")
+		queryStartIndex := strings.Index(metricsQuery, ";")
+		metricUnit := metricsQuery[:queryStartIndex]
+		assert.EqualValues(t, metricUnit, "Percent")
+		metricsQuery = metricsQuery[queryStartIndex+1:]
+		assert.EqualValues(t, metricsQuery, "metricSelector=builtin:host.cpu.usage:merge(0):avg:names&entitySelector=type(HOST)")
+	}
 }
 
 /*
@@ -335,7 +350,7 @@ func TestGetSLISleep(t *testing.T) {
 	start := time.Now().Add(-5 * time.Minute)
 	// artificially increase end time to be in the future
 	end := time.Now().Add(-80 * time.Second)
-	value, err := dh.GetSLIValue(ResponseTimeP50, start, end, []*events.SLIFilter{})
+	value, err := dh.GetSLIValue(ResponseTimeP50, start, end)
 
 	assert.InDelta(t, 8.43340, value, 0.001)
 	assert.Nil(t, err)
@@ -362,7 +377,7 @@ func TestGetSLIValueWithErrorResponse(t *testing.T) {
 
 	start := time.Unix(1571649084, 0).UTC()
 	end := time.Unix(1571649085, 0).UTC()
-	value, err := dh.GetSLIValue(Throughput, start, end, []*events.SLIFilter{})
+	value, err := dh.GetSLIValue(Throughput, start, end)
 
 	assert.EqualValues(t, 0.0, value)
 	assert.NotNil(t, err, nil)
