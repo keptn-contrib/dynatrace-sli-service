@@ -102,10 +102,14 @@ type DynatraceDashboard struct {
 			Height int `json:"height"`
 		} `json:"bounds"`
 		TileFilter struct {
-			Timeframe      interface{} `json:"timeframe"`
-			ManagementZone interface{} `json:"managementZone"`
+			Timeframe      string `json:"timeframe"`
+			ManagementZone *struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"managementZone,omitempty"`
 		} `json:"tileFilter"`
-		FilterConfig struct {
+		AssignedEntities []string `json:"assignedEntities"`
+		FilterConfig     struct {
 			Type        string `json:"type"`
 			CustomName  string `json:"customName"`
 			DefaultName string `json:"defaultName"`
@@ -131,8 +135,48 @@ type DynatraceDashboard struct {
 				ResultMetadata struct {
 				} `json:"resultMetadata"`
 			} `json:"chartConfig"`
-			FiltersPerEntityType struct {
-			} `json:"filtersPerEntityType"`
+			FiltersPerEntityType map[string]map[string][]string `json:"filtersPerEntityType"`
+			/* FiltersPerEntityType struct {
+				HOST struct {
+					SPECIFIC_ENTITIES    []string `json:"SPECIFIC_ENTITIES"`
+					HOST_DATACENTERS     []string `json:"HOST_DATACENTERS"`
+					AUTO_TAGS            []string `json:"AUTO_TAGS"`
+					HOST_SOFTWARE_TECH   []string `json:"HOST_SOFTWARE_TECH"`
+					HOST_VIRTUALIZATION  []string `json:"HOST_VIRTUALIZATION"`
+					HOST_MONITORING_MODE []string `json:"HOST_MONITORING_MODE"`
+					HOST_STATE           []string `json:"HOST_STATE"`
+					HOST_HOST_GROUPS     []string `json:"HOST_HOST_GROUPS"`
+				} `json:"HOST"`
+				PROCESS_GROUP struct {
+					SPECIFIC_ENTITIES     []string `json:"SPECIFIC_ENTITIES"`
+					HOST_TAG_OF_PROCESS   []string `json:"HOST_TAG_OF_PROCESS"`
+					AUTO_TAGS             []string `json:"AUTO_TAGS"`
+					PROCESS_SOFTWARE_TECH []string `json:"PROCESS_SOFTWARE_TECH"`
+				} `json:"PROCESS_GROUP"`
+				PROCESS_GROUP_INSTANCE struct {
+					SPECIFIC_ENTITIES     []string `json:"SPECIFIC_ENTITIES"`
+					HOST_TAG_OF_PROCESS   []string `json:"HOST_TAG_OF_PROCESS"`
+					AUTO_TAGS             []string `json:"AUTO_TAGS"`
+					PROCESS_SOFTWARE_TECH []string `json:"PROCESS_SOFTWARE_TECH"`
+				} `json:"PROCESS_GROUP_INSTANCE"`
+				SERVICE struct {
+					SPECIFIC_ENTITIES     []string `json:"SPECIFIC_ENTITIES"`
+					SERVICE_SOFTWARE_TECH []string `json:"SERVICE_SOFTWARE_TECH"`
+					AUTO_TAGS             []string `json:"AUTO_TAGS"`
+					SERVICE_TYPE          []string `json:"SERVICE_TYPE"`
+					SERVICE_TO_PG         []string `json:"SERVICE_TO_PG"`
+				} `json:"SERVICE"`
+				APPLICATION struct {
+					SPECIFIC_ENTITIES          []string `json:"SPECIFIC_ENTITIES"`
+					APPLICATION_TYPE           []string `json:"APPLICATION_TYPE"`
+					AUTO_TAGS                  []string `json:"AUTO_TAGS"`
+					APPLICATION_INJECTION_TYPE []string `json:"PROCESS_SOFTWARE_TECH"`
+					APPLICATION_STATUS         []string `json:"APPLICATION_STATUS"`
+				} `json:"APPLICATION"`
+				APPLICATION_METHOD struct {
+					SPECIFIC_ENTITIES []string `json:"SPECIFIC_ENTITIES"`
+				} `json:"APPLICATION_METHOD"`
+			} `json:"filtersPerEntityType"`*/
 		} `json:"filterConfig"`
 	} `json:"tiles"`
 }
@@ -782,6 +826,31 @@ func (ph *Handler) HasDashboardChanged(keptnEvent *common.BaseKeptnEvent, dashbo
 	return true
 }
 
+/**
+ * Parses the filtersPerEntityType dashboard definition and returns the entitySelector query filter - the return value always starts with a , (comma)
+ * return example: ,entityId("ABAD-222121321321")
+ */
+func (ph *Handler) GetEntitySelectorFromEntityFilter(filtersPerEntityType map[string]map[string][]string, entityType string) string {
+	entityTileFilter := ""
+	if filtersPerEntityType, containsEntityType := filtersPerEntityType[entityType]; containsEntityType {
+		// Check for SPECIFIC_ENTITIES - if we have an array then we filter for each entity
+		if entityArray, containsSpecificEntities := filtersPerEntityType["SPECIFIC_ENTITIES"]; containsSpecificEntities {
+			for _, entityId := range entityArray {
+				entityTileFilter = entityTileFilter + ","
+				entityTileFilter = entityTileFilter + fmt.Sprintf("entityId(\"%s\")", entityId)
+			}
+		}
+		// Check for SPECIFIC_ENTITIES - if we have an array then we filter for each entity
+		if tagArray, containsAutoTags := filtersPerEntityType["AUTO_TAGS"]; containsAutoTags {
+			for _, tag := range tagArray {
+				entityTileFilter = entityTileFilter + ","
+				entityTileFilter = entityTileFilter + fmt.Sprintf("tag(\"%s\")", tag)
+			}
+		}
+	}
+	return entityTileFilter
+}
+
 // QueryDynatraceDashboardForSLIs implements - https://github.com/keptn-contrib/dynatrace-sli-service/issues/60
 // Queries Dynatrace for the existance of a dashboard tagged with keptn_project:project, keptn_stage:stage, keptn_service:service, SLI
 // if this dashboard exists it will be parsed and a custom SLI_dashboard.yaml and an SLO_dashboard.yaml will be created
@@ -824,10 +893,10 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 	}
 
 	// if there is a dashboard management zone filter get them for both the queries as well as for the dashboard link
-	managementZoneFilter := ""
+	dashboardManagementZoneFilter := ""
 	mgmtZone := ""
 	if dashboardJSON.DashboardMetadata.DashboardFilter != nil && dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone != nil {
-		managementZoneFilter = fmt.Sprintf(",mzId(%s)", dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID)
+		dashboardManagementZoneFilter = fmt.Sprintf(",mzId(%s)", dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID)
 		mgmtZone = ";gf=" + dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID
 	}
 
@@ -858,6 +927,14 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 				ParseMarkdownConfiguration(tile.Markdown, dashboardSLO)
 			}
 
+			continue
+		}
+
+		if tile.TileType == "SLO" {
+			// we will take the SLO definition from Dynatrace
+			for _, sloEntity := range tile.AssignedEntities {
+				ph.Logger.Debug(fmt.Sprintf("Processing SLO Definition: %s", sloEntity))
+			}
 			continue
 		}
 
@@ -960,11 +1037,21 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 					entityType = metricDefinition.EntityType[0]
 				}
 
+				// Need to implement chart filters per entity type, e.g: its possible that a chart has a filter on entites or tags
+				// lets see if we have a FiltersPerEntityType for the tiles EntityType
+				entityTileFilter := ph.GetEntitySelectorFromEntityFilter(tile.FilterConfig.FiltersPerEntityType, entityType)
+
+				// Check for tile management zone filter - this would overwrite the dashboardManagementZoneFilter
+				tileManagementZoneFilter := dashboardManagementZoneFilter
+				if tile.TileFilter.ManagementZone != nil {
+					tileManagementZoneFilter = fmt.Sprintf(",mzId(%s)", tile.TileFilter.ManagementZone.ID)
+				}
+
 				// lets create the metricSelector and entitySelector
 				// ATTENTION: adding :names so we also get the names of the dimensions and not just the entities. This means we get two values for each dimension
-				metricQuery := fmt.Sprintf("metricSelector=%s%s%s:%s:names&entitySelector=type(%s)%s",
+				metricQuery := fmt.Sprintf("metricSelector=%s%s%s:%s:names&entitySelector=type(%s)%s%s",
 					series.Metric, mergeAggregator, filterAggregator, strings.ToLower(metricAggregation),
-					entityType, managementZoneFilter)
+					entityType, entityTileFilter, tileManagementZoneFilter)
 
 				// lets build the Dynatrace API Metric query for the proposed timeframe and additonal filters!
 				fullMetricQuery, metricID := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix)
