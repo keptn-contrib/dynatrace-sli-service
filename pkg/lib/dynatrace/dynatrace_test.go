@@ -276,6 +276,24 @@ func TestLoadDynatraceDashboardWithEmptyDashboard(t *testing.T) {
 	}
 }
 
+func TestGetEntitySelectorFromEntityFilter(t *testing.T) {
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	var filtersPerEntityType = map[string]map[string][]string{
+		"SERVICE": map[string][]string{
+			"SPECIFIC_ENTITIES": []string{"SERVICE-086C46F600BA1DC6"},
+			"AUTO_TAGS":         []string{"keptn_deployment:primary"},
+		},
+	}
+	entityTileFilter := dh.GetEntitySelectorFromEntityFilter(filtersPerEntityType, "SERVICE")
+
+	if strings.Compare(entityTileFilter, ",entityId(\"SERVICE-086C46F600BA1DC6\"),tag(\"keptn_deployment:primary\")") != 0 {
+		t.Errorf("GetEntitySelectorFromEntityFilter wrong. Returned: " + entityTileFilter)
+	}
+}
+
 func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
 	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
 	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
