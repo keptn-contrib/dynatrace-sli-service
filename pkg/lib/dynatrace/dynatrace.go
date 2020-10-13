@@ -930,14 +930,6 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 			continue
 		}
 
-		if tile.TileType == "SLO" {
-			// we will take the SLO definition from Dynatrace
-			for _, sloEntity := range tile.AssignedEntities {
-				ph.Logger.Debug(fmt.Sprintf("Processing SLO Definition: %s", sloEntity))
-			}
-			continue
-		}
-
 		// custom chart and usql have different ways to define their tile names - so - lets figure it out by looking at the potential values
 		tileTitle := tile.FilterConfig.CustomName // this is for all custom charts
 		if tileTitle == "" {
