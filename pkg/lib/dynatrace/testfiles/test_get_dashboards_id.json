@@ -111,7 +111,15 @@
             ],
             "resultMetadata": {}
           },
-          "filtersPerEntityType": {}
+          "filtersPerEntityType": {               
+            "SERVICE": {
+              "SERVICE_TO_PG": ["PROCESS_GROUP-88C57C95F9A41B3C|keptn07project.simplenode.prod.primary"],
+              "SPECIFIC_ENTITIES": ["SERVICE-086C46F600BA1DC6"],
+              "SERVICE_SOFTWARE_TECH": ["NODE_JS"],
+              "SERVICE_TYPE": ["1"],
+              "AUTO_TAGS": ["keptn_deployment:primary"]
+            } 
+          }
         }
       },
       {
