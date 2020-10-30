@@ -5,7 +5,7 @@ With `dynatrace-sli-service` versions 0.3.0 and 0.2.0 custom SLIs had the follow
 ```yaml
 indicators:
  generic: "$metricId?scope=$scope"
- throughput: "builtin:service.requestCount.total:merge(0):count?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)"
+ throughput: "builtin:service.requestCount.total:splitby():count?scope=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)"
 ```
 
 Due to changes within the Dynatrace metrics API this format is no longer valid and needs to be converted. The changes
@@ -20,6 +20,6 @@ Therefore the new format should look as follows:
 ```yaml
 indicators:
  generic: "metricSelector=$metricId&entitySelector=$scope,TYPE(SERVICE)"
- throughput: "metricSelector=builtin:service.requestCount.total:merge(0):count&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"
+ throughput: "metricSelector=builtin:service.requestCount.total:splitby():count&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"
 ```
 

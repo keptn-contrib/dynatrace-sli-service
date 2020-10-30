@@ -47,17 +47,17 @@ and mapped to Dynatrace metrics as follows:
 
 | Name               | Metric                                          | AggregationType[^2]           |
 |--------------------|-------------------------------------------------|-------------------------------|
-| Throughput         | builtin:service.requestCount.total              | `:merge(0):sum`               |
-| ErrorRate          | builtin:service.errors.total.count              | `:merge(0):avg`               |
-| ResponseTimeP50    | builtin:service.response.time[^1]               | `:merge(0):percentile(50)`    |
-| ResponseTimeP90    | builtin:service.response.time[^1]               | `:merge(0):percentile(90)`    |
-| ResponseTimeP95    | builtin:service.response.time[^1]               | `:merge(0):percentile(95)`    |
+| Throughput         | builtin:service.requestCount.total              | `:splitby():sum`               |
+| ErrorRate          | builtin:service.errors.total.count              | `:splitby():avg`               |
+| ResponseTimeP50    | builtin:service.response.time[^1]               | `:splitby():percentile(50)`    |
+| ResponseTimeP90    | builtin:service.response.time[^1]               | `:splitby():percentile(90)`    |
+| ResponseTimeP95    | builtin:service.response.time[^1]               | `:splitby():percentile(95)`    |
 
 More information about timeseries and available metrics can be found 
 [here](https://www.dynatrace.com/support/help/extend-dynatrace/dynatrace-api/environment-api/metric/).
 
 [^1] service.response.time is returned in microseconds by Dynatrace API, and converted to milliseconds within this service.
-[^2] AggregationType needs to contain `merge(0)` such that the first dimension (which is the entity) is aggregated into a single value
+[^2] AggregationType needs to contain `:splitby()` such that the first dimension (which is the entity) is aggregated into a single value
 
 ## Result Data
 
@@ -69,7 +69,7 @@ A result looks as follows (e.g., for the metric ResponseTimeP50):
     "nextPageKey": null,
     "result": [
         {
-            "metricId": "builtin:service.response.time:merge(0):percentile(50)",
+            "metricId": "builtin:service.response.time:splitby():percentile(50)",
             "data": [
                 {
                     "dimensions": [],
