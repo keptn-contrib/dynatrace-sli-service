@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	keptnevents "github.com/keptn/go-utils/pkg/lib"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -18,7 +19,7 @@ import (
 	// keptnevents "github.com/keptn/go-utils/pkg/events"
 	// keptnutils "github.com/keptn/go-utils/pkg/utils"
 
-	keptn "github.com/keptn/go-utils/pkg/lib"
+	keptn "github.com/keptn/go-utils/pkg/lib/keptn"
 )
 
 const Throughput = "throughput"
@@ -245,12 +246,12 @@ type Handler struct {
 	HTTPClient    *http.Client
 	Headers       map[string]string
 	CustomQueries map[string]string
-	CustomFilters []*keptn.SLIFilter
+	CustomFilters []*keptnevents.SLIFilter
 	Logger        *keptn.Logger
 }
 
 // NewDynatraceHandler returns a new dynatrace handler that interacts with the Dynatrace REST API
-func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, headers map[string]string, customFilters []*keptn.SLIFilter, keptnContext string, eventID string) *Handler {
+func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, headers map[string]string, customFilters []*keptnevents.SLIFilter, keptnContext string, eventID string) *Handler {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: !IsHttpSSLVerificationEnabled()},
 	}
@@ -650,15 +651,15 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 // #3: []SLOCriteria { ["<1000ms","<+20%" }}
 // #4: 1
 // #5: true
-func ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []*keptn.SLOCriteria, []*keptn.SLOCriteria, int, bool) {
+func ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []*keptnevents.SLOCriteria, []*keptnevents.SLOCriteria, int, bool) {
 	nameValueSplits := strings.Split(customName, ";")
 
 	// lets initialize it
 	sliName := ""
 	weight := 1
 	keySli := false
-	passCriteria := []*keptn.SLOCriteria{}
-	warnCriteria := []*keptn.SLOCriteria{}
+	passCriteria := []*keptnevents.SLOCriteria{}
+	warnCriteria := []*keptnevents.SLOCriteria{}
 
 	// lets iterate through all name-value pairs which are seprated through ";" to extract keys such as warning, pass, weight, key, sli
 	for i := 0; i < len(nameValueSplits); i++ {
@@ -676,11 +677,11 @@ func ParsePassAndWarningFromString(customName string, defaultPass []string, defa
 		case "sli":
 			sliName = valueString
 		case "pass":
-			passCriteria = append(passCriteria, &keptn.SLOCriteria{
+			passCriteria = append(passCriteria, &keptnevents.SLOCriteria{
 				Criteria: strings.Split(valueString, ","),
 			})
 		case "warning":
-			warnCriteria = append(warnCriteria, &keptn.SLOCriteria{
+			warnCriteria = append(warnCriteria, &keptnevents.SLOCriteria{
 				Criteria: strings.Split(valueString, ","),
 			})
 		case "key":
@@ -692,13 +693,13 @@ func ParsePassAndWarningFromString(customName string, defaultPass []string, defa
 
 	// use the defaults if nothing was specified
 	if (len(passCriteria) == 0) && (len(defaultPass) > 0) {
-		passCriteria = append(passCriteria, &keptn.SLOCriteria{
+		passCriteria = append(passCriteria, &keptnevents.SLOCriteria{
 			Criteria: defaultPass,
 		})
 	}
 
 	if (len(warnCriteria) == 0) && (len(defaultWarning) > 0) {
-		warnCriteria = append(warnCriteria, &keptn.SLOCriteria{
+		warnCriteria = append(warnCriteria, &keptnevents.SLOCriteria{
 			Criteria: defaultWarning,
 		})
 	}
@@ -715,7 +716,7 @@ func ParsePassAndWarningFromString(customName string, defaultPass []string, defa
 }
 
 // ParseMarkdownConfiguration parses a text that can be used in a Markdown tile to specify global SLO properties
-func ParseMarkdownConfiguration(markdown string, slo *keptn.ServiceLevelObjectives) {
+func ParseMarkdownConfiguration(markdown string, slo *keptnevents.ServiceLevelObjectives) {
 	markdownSplits := strings.Split(markdown, ";")
 
 	for _, markdownSplitValue := range markdownSplits {
@@ -860,7 +861,7 @@ func (ph *Handler) GetEntitySelectorFromEntityFilter(filtersPerEntityType map[st
 //  #3: ServiceLevelObjectives
 //  #4: SLIResult
 //  #5: Error
-func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEvent, dashboard string, startUnix time.Time, endUnix time.Time) (string, *DynatraceDashboard, *SLI, *keptn.ServiceLevelObjectives, []*keptn.SLIResult, error) {
+func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEvent, dashboard string, startUnix time.Time, endUnix time.Time) (string, *DynatraceDashboard, *SLI, *keptnevents.ServiceLevelObjectives, []*keptnevents.SLIResult, error) {
 
 	// Lets see if there is a dashboard.json already in the configuration repo - if so its an indicator that we should query the dashboard
 	// This check is espcially important for backward compatibilty as the new dynatrace.conf.yaml:dashboard property is changing the default behavior
@@ -882,14 +883,14 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 	}
 
 	// generate our own SLIResult array based on the dashboard configuration
-	var sliResults []*keptn.SLIResult
+	var sliResults []*keptnevents.SLIResult
 	dashboardSLI := &SLI{}
 	dashboardSLI.SpecVersion = "0.1.4"
 	dashboardSLI.Indicators = make(map[string]string)
-	dashboardSLO := &keptn.ServiceLevelObjectives{
-		Objectives: []*keptn.SLO{},
-		TotalScore: &keptn.SLOScore{Pass: "90%", Warning: "75%"},
-		Comparison: &keptn.SLOComparison{CompareWith: "single_result", IncludeResultWithScore: "pass", NumberOfComparisonResults: 1, AggregateFunction: "avg"},
+	dashboardSLO := &keptnevents.ServiceLevelObjectives{
+		Objectives: []*keptnevents.SLO{},
+		TotalScore: &keptnevents.SLOScore{Pass: "90%", Warning: "75%"},
+		Comparison: &keptnevents.SLOComparison{CompareWith: "single_result", IncludeResultWithScore: "pass", NumberOfComparisonResults: 1, AggregateFunction: "avg"},
 	}
 
 	// if there is a dashboard management zone filter get them for both the queries as well as for the dashboard link
@@ -1055,7 +1056,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 
 					// ERROR-CASE: Metric API return no values or an error
 					// we couldnt query data - so - we return the error back as part of our SLIResults
-					sliResults = append(sliResults, &keptn.SLIResult{
+					sliResults = append(sliResults, &keptnevents.SLIResult{
 						Metric:  baseIndicatorName,
 						Value:   0,
 						Success: false, // Mark as failure
@@ -1127,7 +1128,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 								ph.Logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, value))
 
 								// lets add the value to our SLIResult array
-								sliResults = append(sliResults, &keptn.SLIResult{
+								sliResults = append(sliResults, &keptnevents.SLIResult{
 									Metric:  indicatorName,
 									Value:   value,
 									Success: true,
@@ -1139,7 +1140,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 								dashboardSLI.Indicators[indicatorName] = fmt.Sprintf("MV2;%s;%s", metricDefinition.Unit, strings.Replace(metricQueryForSLI, ":names", filterSLIDefinitionAggregatorValue, 1))
 
 								// lets add the SLO definitin in case we need to generate an SLO.yaml
-								sloDefinition := &keptn.SLO{
+								sloDefinition := &keptnevents.SLO{
 									SLI:     indicatorName,
 									Weight:  weight,
 									KeySLI:  keySli,
@@ -1203,7 +1204,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, dimensionValue))
 
 					// lets add the value to our SLIResult array
-					sliResults = append(sliResults, &keptn.SLIResult{
+					sliResults = append(sliResults, &keptnevents.SLIResult{
 						Metric:  indicatorName,
 						Value:   dimensionValue,
 						Success: true,
@@ -1214,7 +1215,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 					dashboardSLI.Indicators[indicatorName] = fmt.Sprintf("USQL;%s;%s;%s", tile.Type, dimensionName, tile.Query)
 
 					// lets add the SLO definitin in case we need to generate an SLO.yaml
-					sloDefinition := &keptn.SLO{
+					sloDefinition := &keptnevents.SLO{
 						SLI:     indicatorName,
 						Weight:  weight,
 						KeySLI:  keySli,
