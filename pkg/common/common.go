@@ -17,7 +17,7 @@ import (
 
 	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
 	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
-	keptn "github.com/keptn/go-utils/pkg/lib"
+	keptn "github.com/keptn/go-utils/pkg/lib/keptn"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

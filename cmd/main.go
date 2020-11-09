@@ -15,17 +15,15 @@ import (
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/lib/dynatrace"
 
-	"github.com/cloudevents/sdk-go/pkg/cloudevents"
-	"github.com/cloudevents/sdk-go/pkg/cloudevents/client"
-	cloudeventshttp "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
-	"github.com/cloudevents/sdk-go/pkg/cloudevents/types"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 
-	"github.com/google/uuid"
 	"github.com/kelseyhightower/envconfig"
 
 	"gopkg.in/yaml.v2"
 
-	keptn "github.com/keptn/go-utils/pkg/lib"
+	keptnevents "github.com/keptn/go-utils/pkg/lib"
+	"github.com/keptn/go-utils/pkg/lib/keptn"
+	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
 	// configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
 	// keptnevents "github.com/keptn/go-utils/pkg/events"
 	// keptnutils "github.com/keptn/go-utils/pkg/utils"
@@ -58,22 +56,17 @@ func main() {
 func _main(args []string, env envConfig) int {
 
 	ctx := context.Background()
+	ctx = cloudevents.WithEncodingStructured(ctx)
 
-	t, err := cloudeventshttp.New(
-		cloudeventshttp.WithPort(env.Port),
-		cloudeventshttp.WithPath(env.Path),
-	)
-
-	if err != nil {
-		log.Fatalf("failed to create transport, %v", err)
-	}
-	c, err := client.New(t)
+	p, err := cloudevents.NewHTTP(cloudevents.WithPath(env.Path), cloudevents.WithPort(env.Port))
 	if err != nil {
 		log.Fatalf("failed to create client, %v", err)
 	}
-
-	log.Fatalf("failed to start receiver: %s", c.StartReceiver(ctx, gotEvent))
-
+	c, err := cloudevents.NewClient(p)
+	if err != nil {
+		log.Fatalf("failed to create client, %v", err)
+	}
+	log.Fatal(c.StartReceiver(ctx, gotEvent))
 	return 0
 }
 
@@ -83,7 +76,7 @@ func _main(args []string, env envConfig) int {
 func gotEvent(ctx context.Context, event cloudevents.Event) error {
 
 	switch event.Type() {
-	case keptn.InternalGetSLIEventType:
+	case keptnevents.InternalGetSLIEventType:
 		return retrieveMetrics(event)
 	default:
 		return errors.New("received unknown event type")
@@ -149,7 +142,7 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
 /**
  * Tries to find a dynatrace dashboard that matches our project. If so - returns the SLI, SLO and SLIResults
  */
-func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string) (string, []*keptn.SLIResult, error) {
+func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string) (string, []*keptnevents.SLIResult, error) {
 
 	//
 	// Option 1: We query the data from a dashboard instead of the uploaded SLI.yaml
@@ -212,7 +205,7 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 func retrieveMetrics(event cloudevents.Event) error {
 	var shkeptncontext string
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
-	eventData := &keptn.InternalGetSLIEventData{}
+	eventData := &keptnevents.InternalGetSLIEventData{}
 	err := event.DataAs(eventData)
 	if err != nil {
 		return err
@@ -220,7 +213,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	//
 	// Lets get a new Keptn Handler
-	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{
+	keptnHandler, err := keptnv2.NewKeptn(&event, keptn.KeptnOpts{
 		ConfigurationServiceURL: os.Getenv(configservice),
 	})
 	if err != nil {
@@ -297,7 +290,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	//
 	// THIS IS OUR RETURN OBJECT: sliResult
 	// Whether option 1 or option 2 - this will hold our SLIResults
-	var sliResults []*keptn.SLIResult
+	var sliResults []*keptnevents.SLIResult
 
 	//
 	// Option 1 - see if we can get the data from a Dnatrace Dashboard
@@ -333,7 +326,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 			if err != nil {
 				stdLogger.Error(err.Error())
 				// failed to fetch metric
-				sliResults = append(sliResults, &keptn.SLIResult{
+				sliResults = append(sliResults, &keptnevents.SLIResult{
 					Metric:  indicator,
 					Value:   0,
 					Success: false, // Mark as failure
@@ -341,7 +334,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 				})
 			} else {
 				// successfully fetched metric
-				sliResults = append(sliResults, &keptn.SLIResult{
+				sliResults = append(sliResults, &keptnevents.SLIResult{
 					Metric:  indicator,
 					Value:   sliValue,
 					Success: true, // mark as success
@@ -408,7 +401,7 @@ func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliF
  * getCustomQueries loads custom SLIs from dynatrace/sli.yaml
  * if there is no sli.yaml it will just return an empty map
  */
-func getCustomQueries(keptnEvent *common.BaseKeptnEvent, keptnHandler *keptn.Keptn, logger *keptn.Logger) (map[string]string, error) {
+func getCustomQueries(keptnEvent *common.BaseKeptnEvent, keptnHandler *keptnv2.Keptn, logger *keptn.Logger) (map[string]string, error) {
 	var sliMap = map[string]string{}
 	if common.RunLocal || common.RunLocalTest {
 		sliMap, _ = addResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "", logger)
@@ -456,11 +449,10 @@ func getDynatraceCredentials(secretName string, project string, logger *keptn.Lo
  * Sends the SLI Done Event. If err != nil it will send an error message
  */
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
-	service string, stage string, indicatorValues []*keptn.SLIResult, start string, end string,
+	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string,
 	teststrategy string, deploymentStrategy string, deployment string, labels map[string]string, indicators []string, err error) error {
 
 	source, _ := url.Parse("dynatrace-sli-service")
-	contentType := "application/json"
 
 	// if an error was set - the indicators will be set to failed and error message is set to each
 	if err != nil {
@@ -472,7 +464,7 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 			}
 
 			for _, indicatorName := range indicators {
-				indicatorValues = []*keptn.SLIResult{
+				indicatorValues = []*keptnevents.SLIResult{
 					{
 						Metric: indicatorName,
 						Value:  0.0,
@@ -487,7 +479,7 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		}
 	}
 
-	getSLIEvent := keptn.InternalGetSLIDoneEventData{
+	getSLIEvent := keptnevents.InternalGetSLIDoneEventData{
 		Project:            project,
 		Service:            service,
 		Stage:              stage,
@@ -499,17 +491,13 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		Deployment:         deployment,
 		Labels:             labels,
 	}
-	event := cloudevents.Event{
-		Context: cloudevents.EventContextV02{
-			ID:          uuid.New().String(),
-			Time:        &types.Timestamp{Time: time.Now()},
-			Type:        keptn.InternalGetSLIDoneEventType,
-			Source:      types.URLRef{URL: *source},
-			ContentType: &contentType,
-			Extensions:  map[string]interface{}{"shkeptncontext": shkeptncontext},
-		}.AsV02(),
-		Data: getSLIEvent,
-	}
+
+	event := cloudevents.NewEvent()
+	event.SetType(keptnevents.InternalGetSLIDoneEventType)
+	event.SetSource(source.String())
+	event.SetDataContentType(cloudevents.ApplicationJSON)
+	event.SetExtension("shkeptncontext", shkeptncontext)
+	event.SetData(cloudevents.ApplicationJSON, getSLIEvent)
 
 	return sendEvent(event)
 }
@@ -519,7 +507,7 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
  */
 func sendEvent(event cloudevents.Event) error {
 
-	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{})
+	keptnHandler, err := keptnv2.NewKeptn(&event, keptn.KeptnOpts{})
 	if err != nil {
 		return err
 	}
