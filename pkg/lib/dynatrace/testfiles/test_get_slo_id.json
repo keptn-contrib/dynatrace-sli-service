@@ -1,0 +1,13 @@
+{
+    "id": "524ca177-849b-3e8c-8175-42b93fbc33c5",
+    "name": "RT faster 500ms",
+    "description": "Service Webrequestcount_rtfaster500ms / Service Webrequesttotalcount",
+    "evaluatedPercentage": 95.63515421588417,
+    "status": "FAILURE",
+    "errorBudget": -4.344845784115833,
+    "targetSuccess": 99.98,
+    "targetWarning": 99.99,
+    "evaluationType": "AGGREGATE",
+    "timeWindow": "-1w",
+    "filter": "type(SERVICE),entityName(\"simplenode.prod.primary\")"
+  }

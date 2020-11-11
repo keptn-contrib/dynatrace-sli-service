@@ -55,6 +55,8 @@ func testingDynatraceHTTPClient() (*http.Client, string, func()) {
 		// we handle these if the URL "starts with"
 		startsWithUrlToResponseFileMap := map[string]string{
 			"/api/v2/metrics/query": "./testfiles/test_get_metrics_query.json",
+			"/api/v2/slo":           "./testfiles/test_get_slo_id.json",
+			"/api/v2/problems":      "./testfiles/test_get_problems.json",
 		}
 
 		for url, file := range completeUrlMatchToResponseFileMap {
@@ -311,20 +313,22 @@ func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
 		t.Errorf("No Dashboard JSON returned")
 	}
 
+	expectedSLOs := 11
+
 	// validate the SLIs - there should be 9 SLIs coming back
 	if dashboardSLI == nil {
 		t.Errorf("No SLI returned")
 	}
-	if len(dashboardSLI.Indicators) != 9 {
-		t.Errorf("Excepted 9 SLIs to come back. Only got %d", len(dashboardSLI.Indicators))
+	if len(dashboardSLI.Indicators) != expectedSLOs {
+		t.Errorf("Excepted %d SLIs to come back but got %d", expectedSLOs, len(dashboardSLI.Indicators))
 	}
 
 	// validate the SLOs
 	if dashboardSLO == nil {
 		t.Errorf("No SLO return")
 	}
-	if len(dashboardSLO.Objectives) != 9 {
-		t.Errorf("Excepted 9 SLOs to come back. Only got %d", len(dashboardSLO.Objectives))
+	if len(dashboardSLO.Objectives) != expectedSLOs {
+		t.Errorf("Excepted %d SLOs to come back but got %d", expectedSLOs, len(dashboardSLO.Objectives))
 	}
 	if dashboardSLO.TotalScore.Pass != "90%" || dashboardSLO.TotalScore.Warning != "70%" {
 		t.Errorf("Total Warning and Pass Scores not as expected. Got %s (pass) and %s (warning)", dashboardSLO.TotalScore.Pass, dashboardSLO.TotalScore.Warning)
@@ -337,9 +341,93 @@ func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
 	if sliResults == nil {
 		t.Errorf("No SLI Results returned")
 	}
-	if len(sliResults) != 9 {
-		t.Errorf("Excepted 9 SLI Results to come back. Only got %d", len(sliResults))
+	if len(sliResults) != expectedSLOs {
+		t.Errorf("Excepted %d SLI Results to come back but got %d", expectedSLOs, len(sliResults))
 	}
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestExecuteGetDynatraceSLO(t *testing.T) {
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+	sloID := "524ca177-849b-3e8c-8175-42b93fbc33c5"
+	sloResult, err := dh.ExecuteGetDynatraceSLO(sloID, startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if sloResult == nil {
+		t.Errorf("No SLO Result returned for " + sloID)
+	}
+
+	if sloResult.EvaluatedPercentage != 95.63515421588417 {
+		t.Error("Not returning expected value for SLO")
+	}
+}
+
+func TestGetSLIValueWithSLOPrefix(t *testing.T) {
+
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	dh.CustomQueries = make(map[string]string)
+	dh.CustomQueries["RT_faster_500ms"] = "SLO;524ca177-849b-3e8c-8175-42b93fbc33c5"
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+
+	_, err := dh.GetSLIValue("RT_faster_500ms", startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestExecuteGetDynatraceProblems(t *testing.T) {
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+	problemQuery := "problemEntity=status(open)"
+	problemResult, err := dh.ExecuteGetDynatraceProblems(problemQuery, startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if problemResult == nil {
+		t.Errorf("No Problem Result returned for " + problemQuery)
+	}
+
+	if problemResult.TotalCount != 1 {
+		t.Error("Not returning expected value for Problem Query")
+	}
+}
+
+func TestGetSLIValueWithPV2Prefix(t *testing.T) {
+
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	dh.CustomQueries = make(map[string]string)
+	dh.CustomQueries["problems"] = "PV2;problemEntity=status(open)"
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+
+	_, err := dh.GetSLIValue("problems", startTime, endTime)
 
 	if err != nil {
 		t.Error(err)

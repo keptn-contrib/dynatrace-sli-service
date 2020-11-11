@@ -30,15 +30,15 @@ const ResponseTimeP95 = "response_time_p95"
 // store url to the metrics api format migration document
 const MetricsAPIOldFormatNewFormatDoc = "https://github.com/keptn-contrib/dynatrace-sli-service/blob/master/docs/CustomQueryFormatMigration.md"
 
-type resultNumbers struct {
+type MetricQueryResultNumbers struct {
 	Dimensions []string  `json:"dimensions"`
 	Timestamps []int64   `json:"timestamps"`
 	Values     []float64 `json:"values"`
 }
 
-type resultValues struct {
-	MetricID string          `json:"metricId"`
-	Data     []resultNumbers `json:"data"`
+type MetricQueryResultValues struct {
+	MetricID string                     `json:"metricId"`
+	Data     []MetricQueryResultNumbers `json:"data"`
 }
 
 // DTUSQLResult struct
@@ -199,10 +199,36 @@ type MetricDefinition struct {
 	EntityType []string `json:"entityType"`
 }
 
-type DtMetricsAPIError struct {
+type DynatraceSLOResult struct {
+	ID                  string  `json:"id"`
+	Enabled             bool    `json:"enabled"`
+	Name                string  `json:"name"`
+	Description         string  `json:"description"`
+	EvaluatedPercentage float64 `json:"evaluatedPercentage"`
+	ErrorBudget         float64 `json:"errorBudget"`
+	Status              string  `json:"status"`
+	Error               string  `json:"error"`
+	UseRateMetric       bool    `json:"useRateMetric"`
+	MetricRate          string  `json:"metricRate"`
+	MetricNumerator     string  `json:"metricNumerator"`
+	MetricDenominator   string  `json:"metricDenominator"`
+	TargetSuccess       float64 `json:"targetSuccess"`
+	TargetWarning       float64 `json:"targetWarning"`
+	EvaluationType      string  `json:"evaluationType"`
+	TimeWindow          string  `json:"timeWindow"`
+	Filter              string  `json:"filter"`
+}
+
+type DtEnvAPIv2Error struct {
 	Error struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
+		Code                 int    `json:"code"`
+		Message              string `json:"message"`
+		ConstraintViolations []struct {
+			Path              string `json:"path"`
+			Message           string `json:"message"`
+			ParameterLocation string `json:"parameterLocation"`
+			Location          string `json:"location"`
+		} `json:"constraintViolations"`
 	} `json:"error"`
 }
 
@@ -229,11 +255,62 @@ type DtMetricsAPIError struct {
 }
 */
 
-// DynatraceResult is struct for /metrics/query
-type DynatraceResult struct {
-	TotalCount  int            `json:"totalCount"`
-	NextPageKey string         `json:"nextPageKey"`
-	Result      []resultValues `json:"result"`
+// DynatraceMetricsQueryResult is struct for /metrics/query
+type DynatraceMetricsQueryResult struct {
+	TotalCount  int                       `json:"totalCount"`
+	NextPageKey string                    `json:"nextPageKey"`
+	Result      []MetricQueryResultValues `json:"result"`
+}
+
+// Problem Detail returned by /api/v2/problems
+type DynatraceProblem struct {
+	ProblemID        string `json:"problemId"`
+	DisplayID        string `json:"displayId"`
+	Title            string `json:"title"`
+	ImpactLevel      string `json:"impactLevel"`
+	SeverityLevel    string `json:"severityLevel"`
+	Status           string `json:"status"`
+	AffectedEntities []struct {
+		EntityID struct {
+			ID   string `json:"id"`
+			Type string `json:"type"`
+		} `json:"entityId"`
+		Name string `json:"name"`
+	} `json:"affectedEntities"`
+	ImpactedEntities []struct {
+		EntityID struct {
+			ID   string `json:"id"`
+			Type string `json:"type"`
+		} `json:"entityId"`
+		Name string `json:"name"`
+	} `json:"impactedEntities"`
+	RootCauseEntity struct {
+		EntityID struct {
+			ID   string `json:"id"`
+			Type string `json:"type"`
+		} `json:"entityId"`
+		Name string `json:"name"`
+	} `json:"rootCauseEntity"`
+	ManagementZones []interface{} `json:"managementZones"`
+	EntityTags      []struct {
+		Context              string `json:"context"`
+		Key                  string `json:"key"`
+		Value                string `json:"value"`
+		StringRepresentation string `json:"stringRepresentation"`
+	} `json:"entityTags"`
+	ProblemFilters []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"problemFilters"`
+	StartTime int64 `json:"startTime"`
+	EndTime   int64 `json:"endTime"`
+}
+
+// Result of /api/v1/problems
+type DynatraceProblemQueryResult struct {
+	TotalCount int                `json:"totalCount"`
+	PageSize   int                `json:"pageSize"`
+	Problems   []DynatraceProblem `json:"problems"`
 }
 
 // Handler interacts with a dynatrace API endpoint
@@ -424,6 +501,91 @@ func (ph *Handler) loadDynatraceDashboard(keptnEvent *common.BaseKeptnEvent, das
 }
 
 /**
+ * ExecuteGetDynatraceSLO
+ * Calls the /slo/{sloId} API call to retrieve the values of the Dynatrace SLO for that timeframe
+ * If successful returns the DynatraceSLOResult object
+ */
+func (ph *Handler) ExecuteGetDynatraceSLO(sloID string, startUnix time.Time, endUnix time.Time) (*DynatraceSLOResult, error) {
+	targetURL := ph.ApiURL + fmt.Sprintf("/api/v2/slo/%s?from=%s&to=%s",
+		sloID,
+		common.TimestampToString(startUnix),
+		common.TimestampToString(endUnix))
+
+	resp, body, err := ph.executeDynatraceREST("GET", targetURL, nil)
+
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil || resp.StatusCode != 200 {
+		return nil, fmt.Errorf("No valid response from metrics api!")
+	}
+
+	// parse response json
+	var result DynatraceSLOResult
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure the status code from the API is 200
+	if resp.StatusCode != 200 {
+		dtMetricsErr := &DtEnvAPIv2Error{}
+		err := json.Unmarshal(body, dtMetricsErr)
+		if err == nil {
+			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtMetricsErr.Error.Code, dtMetricsErr.Error.Message)
+		}
+		return nil, fmt.Errorf("Dynatrace API returned status code %d - Metric could not be received.", resp.StatusCode)
+	} else {
+		// for SLO - its also possible that there is an HTTP 200 but there is an error text in the error property!
+		if result.Error != "" {
+			return nil, fmt.Errorf("Dynatrace API returned an error: %s", result.Error)
+		}
+	}
+
+	return &result, nil
+}
+
+/**
+ * ExecuteGetDynatraceProblems
+ * Calls the /slo/{sloId} API call to retrieve the values of the Dynatrace SLO for that timeframe
+ * If successful returns the DynatraceSLOResult object
+ */
+func (ph *Handler) ExecuteGetDynatraceProblems(problemQuery string, startUnix time.Time, endUnix time.Time) (*DynatraceProblemQueryResult, error) {
+	targetURL := ph.ApiURL + fmt.Sprintf("/api/v2/problems?from=%s&to=%s&%s",
+		common.TimestampToString(startUnix),
+		common.TimestampToString(endUnix),
+		problemQuery)
+
+	resp, body, err := ph.executeDynatraceREST("GET", targetURL, nil)
+
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil || resp.StatusCode != 200 {
+		return nil, fmt.Errorf("No valid response from metrics api!")
+	}
+
+	// parse response json
+	var result DynatraceProblemQueryResult
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure the status code from the API is 200
+	if resp.StatusCode != 200 {
+		dtMetricsErr := &DtEnvAPIv2Error{}
+		err := json.Unmarshal(body, dtMetricsErr)
+		if err == nil {
+			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtMetricsErr.Error.Code, dtMetricsErr.Error.Message)
+		}
+		return nil, fmt.Errorf("Dynatrace API returned status code %d - Metric could not be received.", resp.StatusCode)
+	}
+
+	return &result, nil
+}
+
+/**
  * ExecuteMetricAPIDescribe
  * Calls the /metrics/<metricID> API call to retrieve Metric Definition Details
  */
@@ -447,7 +609,7 @@ func (ph *Handler) ExecuteMetricAPIDescribe(metricID string) (*MetricDefinition,
 
 	// make sure the status code from the API is 200
 	if resp.StatusCode != 200 {
-		dtMetricsErr := &DtMetricsAPIError{}
+		dtMetricsErr := &DtEnvAPIv2Error{}
 		err := json.Unmarshal(body, dtMetricsErr)
 		if err == nil {
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtMetricsErr.Error.Code, dtMetricsErr.Error.Message)
@@ -459,7 +621,7 @@ func (ph *Handler) ExecuteMetricAPIDescribe(metricID string) (*MetricDefinition,
 }
 
 // ExecuteMetricsAPIQuery executes the passed Metrics API Call, validates that the call returns data and returns the data set
-func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceResult, error) {
+func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceMetricsQueryResult, error) {
 	// now we execute the query against the Dynatrace API
 	resp, body, err := ph.executeDynatraceREST("GET", metricsQuery, map[string]string{"Content-Type": "application/json"})
 
@@ -472,7 +634,7 @@ func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceResult
 	}
 
 	// parse response json
-	var result DynatraceResult
+	var result DynatraceMetricsQueryResult
 	err = json.Unmarshal(body, &result)
 	if err != nil {
 		return nil, err
@@ -480,7 +642,7 @@ func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceResult
 
 	// make sure the status code from the API is 200
 	if resp.StatusCode != 200 {
-		dtMetricsErr := &DtMetricsAPIError{}
+		dtMetricsErr := &DtEnvAPIv2Error{}
 		err := json.Unmarshal(body, dtMetricsErr)
 		if err == nil {
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtMetricsErr.Error.Code, dtMetricsErr.Error.Message)
@@ -514,7 +676,7 @@ func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
 
 	// make sure the status code from the API is 200
 	if resp.StatusCode != 200 {
-		dtMetricsErr := &DtMetricsAPIError{}
+		dtMetricsErr := &DtEnvAPIv2Error{}
 		err := json.Unmarshal(body, dtMetricsErr)
 		if err == nil {
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtMetricsErr.Error.Code, dtMetricsErr.Error.Message)
@@ -851,6 +1013,96 @@ func (ph *Handler) GetEntitySelectorFromEntityFilter(filtersPerEntityType map[st
 	return entityTileFilter
 }
 
+/**
+ * Processes an SLO Tile and queries the data from the Dynatrace API
+ * If successful returns sliResult, sliIndicatorName, sliQuery & sloDefinition
+ */
+func (ph *Handler) ProcessSLOTile(sloID string, startUnix time.Time, endUnix time.Time) (*keptn.SLIResult, string, string, *keptn.SLO, error) {
+
+	// Step 1: Query the Dynatrace API to get the actual value for this sloID
+	sloResult, err := ph.ExecuteGetDynatraceSLO(sloID, startUnix, endUnix)
+	if err != nil {
+		return nil, "", "", nil, err
+	}
+
+	// Step 2: As we have the SLO Result including SLO Definition we add it to the SLI & SLO objects
+	// IndicatorName is based on the slo Name
+	// the value defaults to the E
+	indicatorName := cleanIndicatorName(sloResult.Name)
+	value := sloResult.EvaluatedPercentage
+	sliResult := &keptn.SLIResult{
+		Metric:  indicatorName,
+		Value:   value,
+		Success: true,
+	}
+
+	ph.Logger.Debug(fmt.Sprintf("Adding SLO (%s) with value %f to sloResult", indicatorName, value))
+
+	// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
+	// we prepend this with SLO;<SLO-ID>
+	sliQuery := fmt.Sprintf("SLO;%s", sloID)
+
+	// lets add the SLO definitin in case we need to generate an SLO.yaml
+	// we normally parse these values from the tile name. In this case we just build that tile name -> maybe in the future we will allow users to add additional SLO defs via the Tile Name, e.g: weight or KeySli
+	sloString := fmt.Sprintf("sli=%s;pass=<=%f;warning=<=%f", indicatorName, sloResult.TargetSuccess, sloResult.TargetWarning)
+	_, passSLOs, warningSLOs, weight, keySli := ParsePassAndWarningFromString(sloString, []string{}, []string{})
+	sloDefinition := &keptn.SLO{
+		SLI:     indicatorName,
+		Weight:  weight,
+		KeySLI:  keySli,
+		Pass:    passSLOs,
+		Warning: warningSLOs,
+	}
+
+	return sliResult, indicatorName, sliQuery, sloDefinition, nil
+}
+
+/**
+ * Processes an Open Problem Tile and queries the number of open problems. The current default is that there is a pass criteria of <= 0 as we dont allow problems
+ * If successful returns sliResult, sliIndicatorName, sliQuery & sloDefinition
+ */
+func (ph *Handler) ProcessOpenProblemTile(problemSelector string, entitySelector string, startUnix time.Time, endUnix time.Time) (*keptn.SLIResult, string, string, *keptn.SLO, error) {
+
+	problemQuery := fmt.Sprintf("entitySelector=%s&problemSelector=%s", problemSelector, entitySelector)
+
+	// Step 1: Query the Dynatrace API to get the number of actual problems matching that query and timeframe
+	problemQueryResult, err := ph.ExecuteGetDynatraceProblems(problemQuery, startUnix, endUnix)
+	if err != nil {
+		return nil, "", "", nil, err
+	}
+
+	// Step 2: As we have the SLO Result including SLO Definition we add it to the SLI & SLO objects
+	// IndicatorName is based on the slo Name
+	// the value defaults to the E
+	indicatorName := "problems"
+	value := float64(problemQueryResult.TotalCount)
+	sliResult := &keptn.SLIResult{
+		Metric:  indicatorName,
+		Value:   value,
+		Success: true,
+	}
+
+	ph.Logger.Debug(fmt.Sprintf("Adding SLO (%s) with value %f to sloResult", indicatorName, value))
+
+	// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
+	// we prepend this with PV2;entitySelector=asdaf&problemSelector=asdf
+	sliQuery := fmt.Sprintf("PV2;%s", problemQuery)
+
+	// lets add the SLO definitin in case we need to generate an SLO.yaml
+	// we normally parse these values from the tile name. In this case we just build that tile name -> maybe in the future we will allow users to add additional SLO defs via the Tile Name, e.g: weight or KeySli
+	sloString := fmt.Sprintf("sli=%s;pass=<=0", indicatorName)
+	_, passSLOs, warningSLOs, weight, keySli := ParsePassAndWarningFromString(sloString, []string{}, []string{})
+	sloDefinition := &keptn.SLO{
+		SLI:     indicatorName,
+		Weight:  weight,
+		KeySLI:  keySli,
+		Pass:    passSLOs,
+		Warning: warningSLOs,
+	}
+
+	return sliResult, indicatorName, sliQuery, sloDefinition, nil
+}
+
 // QueryDynatraceDashboardForSLIs implements - https://github.com/keptn-contrib/dynatrace-sli-service/issues/60
 // Queries Dynatrace for the existance of a dashboard tagged with keptn_project:project, keptn_stage:stage, keptn_service:service, SLI
 // if this dashboard exists it will be parsed and a custom SLI_dashboard.yaml and an SLO_dashboard.yaml will be created
@@ -892,6 +1144,10 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 		Comparison: &keptn.SLOComparison{CompareWith: "single_result", IncludeResultWithScore: "pass", NumberOfComparisonResults: 1, AggregateFunction: "avg"},
 	}
 
+	// convert timestamp to string as we mainly need strings later on
+	startInString := common.TimestampToString(startUnix)
+	endInString := common.TimestampToString(endUnix)
+
 	// if there is a dashboard management zone filter get them for both the queries as well as for the dashboard link
 	dashboardManagementZoneFilter := ""
 	mgmtZone := ""
@@ -901,7 +1157,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 	}
 
 	// lets also generate the dashboard link for that timeframe (gtf=c_START_END) as well as management zone (gf=MZID) to pass back as label to Keptn
-	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s%s", ph.ApiURL, dashboardJSON.ID, common.TimestampToString(startUnix), common.TimestampToString(endUnix), mgmtZone)
+	dashboardLinkAsLabel := fmt.Sprintf("%s#dashboard;id=%s;gtf=c_%s_%s%s", ph.ApiURL, dashboardJSON.ID, startInString, endInString, mgmtZone)
 
 	// Lets validate if we really need to process this dashboard as it might be the same (without change) from the previous runs
 	// see https://github.com/keptn-contrib/dynatrace-sli-service/issues/92 for more details
@@ -934,8 +1190,41 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 			// we will take the SLO definition from Dynatrace
 			for _, sloEntity := range tile.AssignedEntities {
 				ph.Logger.Debug(fmt.Sprintf("Processing SLO Definition: %s", sloEntity))
+
+				sliResult, sliIndicator, sliQuery, sloDefinition, err := ph.ProcessSLOTile(sloEntity, startUnix, endUnix)
+				if err != nil {
+					ph.Logger.Error(fmt.Sprintf("Error Processing SLO: %v", err))
+				} else {
+					sliResults = append(sliResults, sliResult)
+					dashboardSLI.Indicators[sliIndicator] = sliQuery
+					dashboardSLO.Objectives = append(dashboardSLO.Objectives, sloDefinition)
+				}
 			}
 			continue
+		}
+
+		if tile.TileType == "OPEN_PROBLEMS" {
+			// we will query the number of open problems based on the specification of that tile
+
+			// TODO - figure out whether we define entity or problem selector when parsing a problem tile
+			entitySelector := ""
+			if dashboardJSON.DashboardMetadata.DashboardFilter != nil && dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone != nil {
+				entitySelector = fmt.Sprintf("mzId(%s)", dashboardJSON.DashboardMetadata.DashboardFilter.ManagementZone.ID)
+			}
+			if tile.TileFilter.ManagementZone != nil {
+				entitySelector = fmt.Sprintf("mzId(%s)", tile.TileFilter.ManagementZone.ID)
+			}
+
+			problemSelector := "status(open)"
+
+			sliResult, sliIndicator, sliQuery, sloDefinition, err := ph.ProcessOpenProblemTile(problemSelector, entitySelector, startUnix, endUnix)
+			if err != nil {
+				ph.Logger.Error(fmt.Sprintf("Error Processing OPEN_PROBLEMS: %v", err))
+			} else {
+				sliResults = append(sliResults, sliResult)
+				dashboardSLI.Indicators[sliIndicator] = sliQuery
+				dashboardSLO.Objectives = append(dashboardSLO.Objectives, sloDefinition)
+			}
 		}
 
 		// custom chart and usql have different ways to define their tile names - so - lets figure it out by looking at the potential values
@@ -1302,6 +1591,40 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 				actualMetricValue = dimensionValue
 			}
 		}
+		//
+		// We query Dynatrace SLO Definitions
+	} else if strings.HasPrefix(metricsQuery, "SLO;") {
+		// we query a specific SLO
+		querySplits := strings.Split(metricsQuery, ";")
+		if len(querySplits) != 2 {
+			return 0, fmt.Errorf("SLO Indicator query has wrong format. Should be SLO;<SLID> but is: %s", metricsQuery)
+		}
+
+		sloID := querySplits[1]
+		sloResult, err := ph.ExecuteGetDynatraceSLO(sloID, startUnix, endUnix)
+		if err != nil {
+			return 0, fmt.Errorf("Error executing SLO Dynatrace Query %v", err)
+		}
+
+		metricIDExists = true
+		actualMetricValue = sloResult.EvaluatedPercentage
+		//
+		// We query Dynatrace PRoblem APIv2 for number of problems
+	} else if strings.HasPrefix(metricsQuery, "PV2;") {
+		// we query number of problems
+		querySplits := strings.Split(metricsQuery, ";")
+		if len(querySplits) != 2 {
+			return 0, fmt.Errorf("Problemv2 Indicator query has wrong format. Should be PV2;entitySelectory=selector&problemSelector=selector but is: %s", metricsQuery)
+		}
+
+		problemQuery := querySplits[1]
+		problemQueryResult, err := ph.ExecuteGetDynatraceProblems(problemQuery, startUnix, endUnix)
+		if err != nil {
+			return 0, fmt.Errorf("Error executing Dynatrace Problem v2 Query %v", err)
+		}
+
+		metricIDExists = true
+		actualMetricValue = float64(problemQueryResult.TotalCount)
 	} else {
 		metricUnit := ""
 
