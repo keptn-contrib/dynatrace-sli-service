@@ -54,9 +54,10 @@ func testingDynatraceHTTPClient() (*http.Client, string, func()) {
 
 		// we handle these if the URL "starts with"
 		startsWithUrlToResponseFileMap := map[string]string{
-			"/api/v2/metrics/query": "./testfiles/test_get_metrics_query.json",
-			"/api/v2/slo":           "./testfiles/test_get_slo_id.json",
-			"/api/v2/problems":      "./testfiles/test_get_problems.json",
+			"/api/v2/metrics/query":    "./testfiles/test_get_metrics_query.json",
+			"/api/v2/slo":              "./testfiles/test_get_slo_id.json",
+			"/api/v2/problems":         "./testfiles/test_get_problems.json",
+			"/api/v2/securityProblems": "./testfiles/test_get_securityproblems.json",
 		}
 
 		for url, file := range completeUrlMatchToResponseFileMap {
@@ -313,7 +314,7 @@ func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
 		t.Errorf("No Dashboard JSON returned")
 	}
 
-	expectedSLOs := 11
+	expectedSLOs := 12
 
 	// validate the SLIs - there should be 9 SLIs coming back
 	if dashboardSLI == nil {
@@ -415,6 +416,29 @@ func TestExecuteGetDynatraceProblems(t *testing.T) {
 	}
 }
 
+func TestExecuteGetDynatraceSecurityProblems(t *testing.T) {
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+	problemQuery := "problemEntity=status(OPEN)"
+	problemResult, err := dh.ExecuteGetDynatraceSecurityProblems(problemQuery, startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if problemResult == nil {
+		t.Errorf("No Problem Result returned for " + problemQuery)
+	}
+
+	if problemResult.TotalCount != 0 {
+		t.Error("Not returning expected value for Problem Query")
+	}
+}
+
 func TestGetSLIValueWithPV2Prefix(t *testing.T) {
 
 	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
@@ -428,6 +452,25 @@ func TestGetSLIValueWithPV2Prefix(t *testing.T) {
 	endTime := time.Unix(1571649085, 0).UTC()
 
 	_, err := dh.GetSLIValue("problems", startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestGetSLIValueWithSECPV2Prefix(t *testing.T) {
+
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	dh.CustomQueries = make(map[string]string)
+	dh.CustomQueries["security_problems"] = "SECPV2;problemEntity=status(open)"
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+
+	_, err := dh.GetSLIValue("security_problems", startTime, endTime)
 
 	if err != nil {
 		t.Error(err)
