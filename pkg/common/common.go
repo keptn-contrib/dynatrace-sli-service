@@ -332,3 +332,136 @@ func ParseUnixTimestamp(timestamp string) (time.Time, error) {
 func TimestampToString(time time.Time) string {
 	return strconv.FormatInt(time.Unix()*1000, 10)
 }
+
+// ParsePassAndWarningFromString takes a value such as
+// Example 1: Some description;sli=teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%;weight=1;key=true
+// Example 2: Response time (P95);sli=svc_rt_p95;pass=<+10%,<600
+// Example 3: Host Disk Queue Length (max);sli=host_disk_queue;pass=<=0;warning=<1;key=false
+// can also take a value like "KQG;project=myproject;pass=90%;warning=75%;"
+// This will return
+// #1: teststep_rt
+// #2: []SLOCriteria { Criteria{"<500ms","<+10%"}}
+// #3: []SLOCriteria { ["<1000ms","<+20%" }}
+// #4: 1
+// #5: true
+func ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []*keptn.SLOCriteria, []*keptn.SLOCriteria, int, bool) {
+	nameValueSplits := strings.Split(customName, ";")
+
+	// lets initialize it
+	sliName := ""
+	weight := 1
+	keySli := false
+	passCriteria := []*keptn.SLOCriteria{}
+	warnCriteria := []*keptn.SLOCriteria{}
+
+	// lets iterate through all name-value pairs which are seprated through ";" to extract keys such as warning, pass, weight, key, sli
+	for i := 0; i < len(nameValueSplits); i++ {
+
+		nameValueDividerIndex := strings.Index(nameValueSplits[i], "=")
+		if nameValueDividerIndex < 0 {
+			continue
+		}
+
+		// for each name=value pair we get the name as first part of the string until the first =
+		// the value is the after that =
+		nameString := nameValueSplits[i][:nameValueDividerIndex]
+		valueString := nameValueSplits[i][nameValueDividerIndex+1:]
+		switch nameString /*nameValueSplit[0]*/ {
+		case "sli":
+			sliName = valueString
+		case "pass":
+			passCriteria = append(passCriteria, &keptn.SLOCriteria{
+				Criteria: strings.Split(valueString, ","),
+			})
+		case "warning":
+			warnCriteria = append(warnCriteria, &keptn.SLOCriteria{
+				Criteria: strings.Split(valueString, ","),
+			})
+		case "key":
+			keySli, _ = strconv.ParseBool(valueString)
+		case "weight":
+			weight, _ = strconv.Atoi(valueString)
+		}
+	}
+
+	// use the defaults if nothing was specified
+	if (len(passCriteria) == 0) && (len(defaultPass) > 0) {
+		passCriteria = append(passCriteria, &keptn.SLOCriteria{
+			Criteria: defaultPass,
+		})
+	}
+
+	if (len(warnCriteria) == 0) && (len(defaultWarning) > 0) {
+		warnCriteria = append(warnCriteria, &keptn.SLOCriteria{
+			Criteria: defaultWarning,
+		})
+	}
+
+	// if we have no criteria for warn or pass we just return nil
+	if len(passCriteria) == 0 {
+		passCriteria = nil
+	}
+	if len(warnCriteria) == 0 {
+		warnCriteria = nil
+	}
+
+	return sliName, passCriteria, warnCriteria, weight, keySli
+}
+
+// ParseMarkdownConfiguration parses a text that can be used in a Markdown tile to specify global SLO properties
+func ParseMarkdownConfiguration(markdown string, slo *keptn.ServiceLevelObjectives) {
+	markdownSplits := strings.Split(markdown, ";")
+
+	for _, markdownSplitValue := range markdownSplits {
+		configValueSplits := strings.Split(markdownSplitValue, "=")
+		if len(configValueSplits) != 2 {
+			continue
+		}
+
+		// lets get configname and value
+		configName := strings.ToLower(configValueSplits[0])
+		configValue := configValueSplits[1]
+
+		switch configName {
+		case "kqg.total.pass":
+			slo.TotalScore.Pass = configValue
+		case "kqg.total.warning":
+			slo.TotalScore.Warning = configValue
+		case "kqg.compare.withscore":
+			slo.Comparison.IncludeResultWithScore = configValue
+			if (configValue == "pass") || (configValue == "pass_or_warn") || (configValue == "all") {
+				slo.Comparison.IncludeResultWithScore = configValue
+			} else {
+				slo.Comparison.IncludeResultWithScore = "pass"
+			}
+		case "kqg.compare.results":
+			noresults, err := strconv.Atoi(configValue)
+			if err != nil {
+				slo.Comparison.NumberOfComparisonResults = 1
+			} else {
+				slo.Comparison.NumberOfComparisonResults = noresults
+			}
+			if slo.Comparison.NumberOfComparisonResults > 1 {
+				slo.Comparison.CompareWith = "several_results"
+			} else {
+				slo.Comparison.CompareWith = "single_result"
+			}
+		case "kqg.compare.function":
+			if (configValue == "avg") || (configValue == "p50") || (configValue == "p90") || (configValue == "p95") {
+				slo.Comparison.AggregateFunction = configValue
+			} else {
+				slo.Comparison.AggregateFunction = "avg"
+			}
+		}
+	}
+}
+
+// cleanIndicatorName makes sure we have a valid indicator name by getting rid of special characters
+func CleanIndicatorName(indicatorName string) string {
+	// TODO: check more than just blanks
+	indicatorName = strings.ReplaceAll(indicatorName, " ", "_")
+	indicatorName = strings.ReplaceAll(indicatorName, "/", "_")
+	indicatorName = strings.ReplaceAll(indicatorName, "%", "_")
+
+	return indicatorName
+}

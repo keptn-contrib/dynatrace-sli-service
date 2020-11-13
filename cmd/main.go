@@ -147,6 +147,50 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
 }
 
 /**
+ * Adds an SLO Entry to the SLO.yaml
+ */
+func addSLO(keptnEvent *common.BaseKeptnEvent, newSLO *keptn.SLO, logger *keptn.Logger) error {
+
+	// this is the default SLO in case none has yet been uploaded
+	dashboardSLO := &keptn.ServiceLevelObjectives{
+		Objectives: []*keptn.SLO{},
+		TotalScore: &keptn.SLOScore{Pass: "90%", Warning: "75%"},
+		Comparison: &keptn.SLOComparison{CompareWith: "single_result", IncludeResultWithScore: "pass", NumberOfComparisonResults: 1, AggregateFunction: "avg"},
+	}
+
+	// first - lets load the SLO.yaml from the config repo
+	sloContent, err := common.GetKeptnResource(keptnEvent, common.KeptnSLOFilename, logger)
+	if err == nil && sloContent != "" {
+		err := json.Unmarshal([]byte(sloContent), dashboardSLO)
+		if err != nil {
+			return fmt.Errorf("Couldnt parse existing SLO.yaml: %v", err)
+		}
+	}
+
+	// now we add the SLO Definition to the objectives - but first validate if it is not already there
+	for _, objective := range dashboardSLO.Objectives {
+		if objective.SLI == newSLO.SLI {
+			return nil
+		}
+	}
+
+	// now - lets add our newSLO to the list
+	dashboardSLO.Objectives = append(dashboardSLO.Objectives, newSLO)
+
+	// and now we save it back to Keptn
+	if dashboardSLO != nil {
+		yamlAsByteArray, _ := yaml.Marshal(dashboardSLO)
+
+		err := common.UploadKeptnResource(yamlAsByteArray, common.KeptnSLOFilename, keptnEvent, logger)
+		if err != nil {
+			return fmt.Errorf("could not store %s : %v", common.KeptnSLOFilename, err)
+		}
+	}
+
+	return nil
+}
+
+/**
  * Tries to find a dynatrace dashboard that matches our project. If so - returns the SLI, SLO and SLIResults
  */
 func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string) (string, []*keptn.SLIResult, error) {
@@ -201,6 +245,34 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	}
 
 	return dashboardLinkAsLabel, sliResults, nil
+}
+
+/**
+ * getDynatraceProblemContext
+ *
+ * Will evaluate the event and - if it finds a dynatrae problem ID - will return this - otherwise it will return 0
+ * TODO: as of Keptn 0.7.x the problem context is avalable via a label. With keptn 0.8 this will change and problem context of a remediation workflow will be availalbe in a different way
+ */
+func getDynatraceProblemContext(eventData *keptn.InternalGetSLIEventData) string {
+
+	// iterate through the labels and find Problem URL
+	if eventData.Labels == nil || len(eventData.Labels) == 0 {
+		return ""
+	}
+
+	for labelName, labelValue := range eventData.Labels {
+		if labelName == "Problem URL" {
+			// the value should be of form https://dynatracetenant/#problems/problemdetails;pid=8485558334848276629_1604413609638V2
+			// so - lets get the last part after pid=
+
+			ix := strings.LastIndex(labelValue, ";pid=")
+			if ix > 0 {
+				return labelValue[ix+5:]
+			}
+		}
+	}
+
+	return ""
 }
 
 /**
@@ -356,13 +428,57 @@ func retrieveMetrics(event cloudevents.Event) error {
 			}
 			return nil
 		}
+	}
 
+	//
+	// ARE WE CALLED IN CONTEXT OF A PROBLEM REMEDIATION??
+	// If so - we should try to query the status of the Dynatrace Problem that triggered this evaluation
+	problemId := getDynatraceProblemContext(eventData)
+	if problemId != "" {
+		problemIndicator := "problem_open"
+		openProblemValue := 0.0
+		success := false
+		message := ""
+
+		// lets query the status of this problem and add it to the SLI Result
+		dynatraceProblem, err := dynatraceHandler.ExecuteGetDynatraceProblemById(problemId)
+		if err != nil {
+			message = err.Error()
+		}
+
+		if dynatraceProblem != nil {
+			success = true
+			if dynatraceProblem.Status == "OPEN" {
+				openProblemValue = 1.0
+			}
+		}
+
+		// lets add this to the sliResults
+		sliResults = append(sliResults, &keptn.SLIResult{
+			Metric:  problemIndicator,
+			Value:   openProblemValue,
+			Success: success,
+			Message: message,
+		})
+
+		// lets add this to the SLO in case this indicator is not yet in SLO.yaml. Becuase if it doesnt get added the lighthouse wont evaluate the SLI values
+		// we default it to open_problems<=0
+		sloString := fmt.Sprintf("sli=%s;pass=<=0;key=true", problemIndicator)
+		_, passSLOs, warningSLOs, weight, keySli := common.ParsePassAndWarningFromString(sloString, []string{}, []string{})
+		sloDefinition := &keptn.SLO{
+			SLI:     problemIndicator,
+			Weight:  weight,
+			KeySLI:  keySli,
+			Pass:    passSLOs,
+			Warning: warningSLOs,
+		}
+		addSLO(keptnEvent, sloDefinition, dynatraceHandler.Logger)
 	}
 
 	// now - lets see if we have captured any result values - if not - return send an error
 	err = nil
 	if sliResults == nil {
-		err = errors.New("Couldnt retrieve any SLI Results")
+		err = errors.New("Couldn't retrieve any SLI Results")
 	}
 
 	stdLogger.Info("Finished fetching metrics; Sending SLIDone event now ...")
