@@ -24,10 +24,16 @@ By default these metrics (SLIs) are queried from a Dynatrace-monitored service e
 
 As highlighted above, the *dynatrace-sli-service* also provides the following capabilities
 * Connecting to different Dynatrace Tenants (SaaS or Managed) depending on Keptn Project, Stage or Service
-* Defining a custom list of SLIs based on the Dynatrace Metrics API v2 in your SLI.yaml
+* Defining a custom list of SLIs based on the Dynatrace Metrics API v2. As the *The following is an example from above:
+
+
+dynatrace-sli-provider*  in your SLI.yamlexecutes your query
 * Visually defining SLIs & SLOs through a Dynatrace Dashboard instead of SLI.yaml and SLO.yaml
 
-As *dynatrace-sli-service* uses the Metrics API v2 this opens up your SLIs to any metric in Dynatrace: Application, Service, Process Groups, Host, Custom Devices, Calculated Service Metrics, External Metrics ...
+As *dynatrace-sli-service* uses the Metrics API v2. As the *dynatrace-sli-provider*  this opens up your SLIs to any The following is an example from above:
+
+
+metric in Dynatrace: Application, Service, Process executes your queryGroups, Host, Custom Devices, Calculated Service Metrics, External Metrics ...
 
 ## Compatibility Matrix
 
@@ -39,7 +45,6 @@ As *dynatrace-sli-service* uses the Metrics API v2 this opens up your SLIs to an
 |   0.6.1,0.6.2    | keptncontrib/dynatrace-sli-service:0.4.2 |
 |   0.7.0    | keptncontrib/dynatrace-sli-service:0.5.0 |
 |   0.7.1    | keptncontrib/dynatrace-sli-service:0.6.0 |
-|   0.7.2    | keptncontrib/dynatrace-sli-service:0.7.0 |
 
 ## Installation
 
@@ -251,6 +256,59 @@ indicators:
 ```
 
 Hope these examples help you see what is possible. If you want to explore more about Dynatrace Metrics, and the queries you need to create to extract them I suggest you explore the Dynatrace API Explorer (Swagger UI) as well as the [Metric API v2](https://www.dynatrace.com/support/help/extend-dynatrace/dynatrace-api/environment-api/metric-v2/) documentation.
+
+### Advanced SLI Queries for Dynatrace
+
+Here are a couple of additional query options that have been added to the Dynatrace SLI Service over time to extend the capabilities of querying more relevant data:
+
+**Dynatrace SLO Definition**
+With Dynatrace Version 207 Dynatrace introduced native support for SLO monitoring. The *dynatrace-sli-service* is able to query these SLO definitions by referencing them by SLO-ID. Here is such an SLO in a dashboard:
+
+![](./images/slo_tile_dynatrace.png)
+
+And here is the corresponding SLI query which is specified as `SLO;<SLOID>`:
+```yaml
+indicators:
+    rt_faster_500ms: SLO;524ca177-849b-3e8c-8175-42b93fbc33c5
+```
+
+The *dynatrace-sli-service* basically queries the SLO using the /api/v2/slo/<sloid> endpoint and will return evaluatedPercentage field!
+
+**Open Problems**
+One interesting metric is the number of open problems you may have in a particular environment or those that match a particular problem type. Dynatrace provides the Problem APIv2 which allows you to query problems by entitySelector as well as problemSelector. You can pass both fields as part of an SLI query prefixing it with PV2. Here is an example on how such an SLI definition would look like:
+```yaml
+indicators:
+    problems: PV2;problemSelector=status(open)&entitySelector=managementZoneIds(7030365576649815430)
+```
+
+The *dynatrace-sli-service* will return the totalCount field of the /api/v2/problems endpoint passing your query string!
+
+**Define Metric Unit for Metrics Query**
+Most SLIs you define are queried using the Metrics API v2. The following is an example from above:
+```yaml
+indicators:
+ teststep_rt_Basic_Check: "metricSelector=calc:service.teststepresponsetime:merge(0):avg:names:filter(eq(Test Step,Basic Check));entitySelector=type(SERVICE)"
+```
+
+When the *dynatrace-sli-provider* executes this query it simply returns the value of that metric. What is not always known is the metric unit. Depending on the metric definition this could be nanoseconds, microseconds, milliseconds, seconds or even bytes, kilobytes, megabytes, ...
+
+For some of the metrics the *dynatrace-sli-provider* makes metric unit assumptions and for instance converts MicroSecond into MilliSeconds and Bytes into KiloBytes. However - these  assumptions only work for builtin metrics and are therefore not a valid approach unless we would start querying the Metric Definition everytime we query these metrics. While this would work it is a lot of extra API calls we want to avoid.
+To let the *dynatrace-sli-service* know about the expected *Metric Unit* you can prefix your query with `MV2;<MetricUnit>;<Regular Query>`. So - the above example can be changed to this to tell the service that this metric is returned in MicroSeconds:
+
+```yaml
+indicators:
+ teststep_rt_Basic_Check: "MV2;MicroSecond;metricSelector=calc:service.teststepresponsetime:merge(0):avg:names:filter(eq(Test Step,Basic Check));entitySelector=type(SERVICE)"
+```
+
+The possible metric units are those that Dynatrace specifies in the API. Please have a look at the Metric API documentation for a complete overview.
+Currently the *dynatrace-sli-service* does the following conversions before returning the value to Keptn. While this doesnt yet solve every request we have seen from our users I hope this solves many use cases of users asking for better handling of MicroSeconds and Bytes:
+
+| Source Data Tye | Converted To |
+|:----------------|:-----------------|
+| MicroSeconds | MilliSeconds |
+| Bytes | KiloBytes |
+
+If you want to have a more flexible way to convert metric units please let us know by creating an issue and explain your use case
 
 ## SLIs & SLOs via Dynatrace Dashboard
 

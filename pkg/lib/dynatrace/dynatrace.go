@@ -594,7 +594,8 @@ func (ph *Handler) ExecuteGetDynatraceSLO(sloID string, startUnix time.Time, end
 		return nil, fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
 	} else {
 		// for SLO - its also possible that there is an HTTP 200 but there is an error text in the error property!
-		if result.Error != "" {
+		// Since Sprint 206 the error property is always there - but - will have the value "NONE" in case there is no actual error retrieving the value
+		if result.Error != "NONE" {
 			return nil, fmt.Errorf("Dynatrace API returned an error: %s", result.Error)
 		}
 	}

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -34,7 +33,6 @@ import (
 
 const eventbroker = "EVENTBROKER"
 const configservice = "CONFIGURATION_SERVICE"
-const sliResourceURI = "dynatrace/sli.yaml"
 
 const PROBLEM_OPEN_SLI = "problem_open"
 
@@ -292,14 +290,15 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return err
 	}
 
-	//
-	// Lets get a new Keptn Handler
-	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{
-		ConfigurationServiceURL: os.Getenv(configservice),
-	})
-	if err != nil {
-		return err
-	}
+	/* 	//
+	   	// Lets get a new Keptn Handler
+	   	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{
+	   		ConfigurationServiceURL: os.Getenv(configservice),
+	   	})
+	   	if err != nil {
+	   		return err
+	   	}
+	*/
 
 	//
 	// do not continue if SLIProvider is not dynatrace
@@ -393,7 +392,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	// Option 2: If we have not received any data via a Dynatrace Dashboard lets query the SLIs based on the SLI.yaml definition
 	if sliResults == nil {
 		// get custom metrics for project if they exist
-		projectCustomQueries, _ := getCustomQueries(keptnEvent, keptnHandler, stdLogger)
+		projectCustomQueries, _ := common.GetCustomQueries(keptnEvent, stdLogger)
 
 		// set our list of queries on the handler
 		if projectCustomQueries != nil {
@@ -492,61 +491,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
 		eventData.Deployment, eventData.Labels, eventData.Indicators, err)
-}
-
-/**
- * Loads SLIs from a local file and adds it to the SLI map
- */
-func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliFileContent string, logger *keptn.Logger) (map[string]string, error) {
-
-	if sliFilePath != "" {
-		localFileContent, err := ioutil.ReadFile(sliFilePath)
-		if err != nil {
-			logMessage := fmt.Sprintf("Couldn't load file content from %s", sliFilePath)
-			logger.Info(logMessage)
-			return nil, nil
-		}
-		logger.Info("Loaded LOCAL file " + sliFilePath)
-		sliFileContent = string(localFileContent)
-	} else {
-		// we just take what was passed in the sliFileContent
-	}
-
-	if sliFileContent != "" {
-		sliConfig := keptn.SLIConfig{}
-		err := yaml.Unmarshal([]byte(sliFileContent), &sliConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		for key, value := range sliConfig.Indicators {
-			SLIs[key] = value
-		}
-	}
-	return SLIs, nil
-}
-
-/**
- * getCustomQueries loads custom SLIs from dynatrace/sli.yaml
- * if there is no sli.yaml it will just return an empty map
- */
-func getCustomQueries(keptnEvent *common.BaseKeptnEvent, keptnHandler *keptn.Keptn, logger *keptn.Logger) (map[string]string, error) {
-	var sliMap = map[string]string{}
-	if common.RunLocal || common.RunLocalTest {
-		sliMap, _ = addResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "", logger)
-		return sliMap, nil
-	}
-
-	// load dynatrace/sli.yaml - if its there we add it to the sliMap
-	sliContent, err := common.GetKeptnResource(keptnEvent, sliResourceURI, logger)
-	if err != nil {
-		logger.Info(fmt.Sprintf("No custom SLI queries for project=%s,stage=%s,service=%s found as no dynatrace/sli.yaml in repo. Going with default!", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
-	} else {
-		logger.Info(fmt.Sprintf("Found custom SLI queries in dynatrace/sli.yaml for project=%s,stage=%s,service=%s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
-		sliMap, _ = addResourceContentToSLIMap(sliMap, "", sliContent, logger)
-	}
-
-	return sliMap, nil
 }
 
 /**

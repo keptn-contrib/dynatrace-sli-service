@@ -31,6 +31,10 @@ const DynatraceDashboardFilename = "dynatrace/dashboard.json"
 const DynatraceSLIFilename = "dynatrace/sli.yaml"
 const KeptnSLOFilename = "slo.yaml"
 
+const ConfigLevelProject = "Project"
+const ConfigLevelStage = "Stage"
+const ConfigLevelService = "Service"
+
 /**
  * Defines the Dynatrace Configuration File structure and supporting Constants
  */
@@ -157,6 +161,53 @@ func GetConfigurationServiceURL() string {
 }
 
 //
+// Downloads a resource from the Keptn Configuration Repo based on the level (Project, Stage, Service)
+// In RunLocal mode it gets it from the local disk
+//
+func GetKeptnResourceOnConfigLevel(keptnEvent *BaseKeptnEvent, resourceURI string, level string, logger *keptn.Logger) (string, error) {
+
+	// if we run in a runlocal mode we are just getting the file from the local disk
+	var fileContent string
+	if RunLocal {
+		resourceURI = strings.ToLower(strings.ReplaceAll(resourceURI, "dynatrace/", "../../../dynatrace/"+level+"_"))
+		localFileContent, err := ioutil.ReadFile(resourceURI)
+		if err != nil {
+			logMessage := fmt.Sprintf("No %s file found LOCALLY for service %s in stage %s in project %s", resourceURI, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project)
+			logger.Info(logMessage)
+			return "", nil
+		}
+		logger.Info("Loaded LOCAL file " + resourceURI)
+		fileContent = string(localFileContent)
+	} else {
+		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
+
+		var keptnResourceContent *keptnmodels.Resource
+		var err error
+		if strings.Compare(level, ConfigLevelProject) == 0 {
+			keptnResourceContent, err = resourceHandler.GetProjectResource(keptnEvent.Project, resourceURI)
+		} else if strings.Compare(level, ConfigLevelStage) == 0 {
+			keptnResourceContent, err = resourceHandler.GetStageResource(keptnEvent.Project, keptnEvent.Stage, resourceURI)
+		} else if strings.Compare(level, ConfigLevelService) == 0 {
+			keptnResourceContent, err = resourceHandler.GetServiceResource(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI)
+		} else {
+			return "", errors.New("Config level not valid: " + level)
+		}
+
+		if err != nil {
+			return "", err
+		}
+
+		if keptnResourceContent == nil {
+			return "", errors.New("Found resource " + resourceURI + " on level " + level + " but didnt contain content")
+		}
+
+		fileContent = keptnResourceContent.ResourceContent
+	}
+
+	return fileContent, nil
+}
+
+//
 // Downloads a resource from the Keptn Configuration Repo
 // In RunLocal mode it gets it from the local disk
 // In normal mode it first tries to find it on service level, then stage and then project level
@@ -201,6 +252,92 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 	}
 
 	return fileContent, nil
+}
+
+/**
+ * Loads SLIs from a local file and adds it to the SLI map
+ */
+func AddResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliFileContent string, logger *keptn.Logger) (map[string]string, error) {
+
+	if sliFilePath != "" {
+		localFileContent, err := ioutil.ReadFile(sliFilePath)
+		if err != nil {
+			logMessage := fmt.Sprintf("Couldn't load file content from %s", sliFilePath)
+			logger.Info(logMessage)
+			return nil, nil
+		}
+		logger.Info("Loaded LOCAL file " + sliFilePath)
+		sliFileContent = string(localFileContent)
+	} else {
+		// we just take what was passed in the sliFileContent
+	}
+
+	if sliFileContent != "" {
+		sliConfig := keptn.SLIConfig{}
+		err := yaml.Unmarshal([]byte(sliFileContent), &sliConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		for key, value := range sliConfig.Indicators {
+			SLIs[key] = value
+		}
+	}
+	return SLIs, nil
+}
+
+/**
+ * getCustomQueries loads custom SLIs from dynatrace/sli.yaml
+ * if there is no sli.yaml it will just return an empty map
+ */
+func GetCustomQueries(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (map[string]string, error) {
+	var sliMap = map[string]string{}
+	/*if common.RunLocal || common.RunLocalTest {
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "", logger)
+		return sliMap, nil
+	}*/
+
+	// We need to load sli.yaml in the sequence of project, stage then service level where service level will overwrite stage & project and stage will overwrite project level sli defintions
+	// details can be found here: https://github.com/keptn-contrib/dynatrace-sli-service/issues/112
+
+	// Step 1: Load Project Level
+	foundLocation := ""
+	sliContent, err := GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelProject, logger)
+	if err == nil && sliContent != "" {
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+		foundLocation = "project,"
+	}
+
+	// Step 2: Load Stage Level
+	sliContent, err = GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelStage, logger)
+	if err == nil && sliContent != "" {
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+		foundLocation = foundLocation + "stage,"
+	}
+
+	// Step 3: Load Service Level
+	sliContent, err = GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelService, logger)
+	if err == nil && sliContent != "" {
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+		foundLocation = foundLocation + "service"
+	}
+
+	// couldnt load any SLIs
+	if len(sliMap) == 0 {
+		logger.Info(fmt.Sprintf("No custom SLI queries for project=%s,stage=%s,service=%s found as no dynatrace/sli.yaml in repo. Going with default!", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
+	} else {
+		logger.Info(fmt.Sprintf("Found a total of %d SLI queries for project=%s,stage=%s,service=%s in dynatrace/sli.yaml in locations: %s", len(sliMap), keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, foundLocation))
+	}
+
+	// load dynatrace/sli.yaml - if its there we add it to the sliMap
+	/* if err != nil {
+		logger.Info(fmt.Sprintf("No custom SLI queries for project=%s,stage=%s,service=%s found as no dynatrace/sli.yaml in repo. Going with default!", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
+	} else {
+		logger.Info(fmt.Sprintf("Found custom SLI queries in dynatrace/sli.yaml for project=%s,stage=%s,service=%s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+	}*/
+
+	return sliMap, nil
 }
 
 // GetDynatraceConfig loads dynatrace.conf for the current service

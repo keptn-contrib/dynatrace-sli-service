@@ -1,6 +1,7 @@
 package dynatrace
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -369,7 +370,7 @@ func TestExecuteGetDynatraceSLO(t *testing.T) {
 		t.Errorf("No SLO Result returned for " + sloID)
 	}
 
-	if sloResult.EvaluatedPercentage != 95.63515421588417 {
+	if sloResult.EvaluatedPercentage != 95.66405076939219 {
 		t.Error("Not returning expected value for SLO")
 	}
 }
@@ -390,6 +391,23 @@ func TestGetSLIValueWithSLOPrefix(t *testing.T) {
 
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestGetCustomQueries(t *testing.T) {
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	keptn.NewLogger("test-context", "test-event", "dynatrace-sli-service-testing")
+
+	common.RunLocal = true
+
+	customQueries, err := common.GetCustomQueries(keptnEvent, nil)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	for k, v := range customQueries {
+		fmt.Printf("%s: %s\n", k, v)
 	}
 }
 
