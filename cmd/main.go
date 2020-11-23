@@ -36,6 +36,8 @@ const eventbroker = "EVENTBROKER"
 const configservice = "CONFIGURATION_SERVICE"
 const sliResourceURI = "dynatrace/sli.yaml"
 
+const PROBLEM_OPEN_SLI = "problem_open"
+
 type envConfig struct {
 	// Port on which to listen for cloudevents
 	Port int    `envconfig:"RCV_PORT" default:"8080"`
@@ -400,24 +402,28 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 		// query all indicators
 		for _, indicator := range eventData.Indicators {
-			stdLogger.Info("Fetching indicator: " + indicator)
-			sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix)
-			if err != nil {
-				stdLogger.Error(err.Error())
-				// failed to fetch metric
-				sliResults = append(sliResults, &keptn.SLIResult{
-					Metric:  indicator,
-					Value:   0,
-					Success: false, // Mark as failure
-					Message: err.Error(),
-				})
+			if strings.Compare(indicator, PROBLEM_OPEN_SLI) == 0 {
+				stdLogger.Info("Skip " + indicator + " as it is handled later!")
 			} else {
-				// successfully fetched metric
-				sliResults = append(sliResults, &keptn.SLIResult{
-					Metric:  indicator,
-					Value:   sliValue,
-					Success: true, // mark as success
-				})
+				stdLogger.Info("Fetching indicator: " + indicator)
+				sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix)
+				if err != nil {
+					stdLogger.Error(err.Error())
+					// failed to fetch metric
+					sliResults = append(sliResults, &keptn.SLIResult{
+						Metric:  indicator,
+						Value:   0,
+						Success: false, // Mark as failure
+						Message: err.Error(),
+					})
+				} else {
+					// successfully fetched metric
+					sliResults = append(sliResults, &keptn.SLIResult{
+						Metric:  indicator,
+						Value:   sliValue,
+						Success: true, // mark as success
+					})
+				}
 			}
 		}
 
@@ -435,7 +441,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	// If so - we should try to query the status of the Dynatrace Problem that triggered this evaluation
 	problemId := getDynatraceProblemContext(eventData)
 	if problemId != "" {
-		problemIndicator := "problem_open"
+		problemIndicator := PROBLEM_OPEN_SLI
 		openProblemValue := 0.0
 		success := false
 		message := ""

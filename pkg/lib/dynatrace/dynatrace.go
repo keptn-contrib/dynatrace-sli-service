@@ -543,7 +543,7 @@ func (ph *Handler) loadDynatraceDashboard(keptnEvent *common.BaseKeptnEvent, das
 	}
 
 	if resp == nil || resp.StatusCode != 200 {
-		return nil, dashboard, fmt.Errorf("No valid response came back")
+		return nil, dashboard, fmt.Errorf("No valid response from Dashboard API")
 	}
 
 	// parse json
