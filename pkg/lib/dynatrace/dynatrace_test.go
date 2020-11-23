@@ -636,7 +636,7 @@ func TestParsePassAndWarningFromString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, got2, got3, got4 := ParsePassAndWarningFromString(tt.args.customName, []string{}, []string{})
+			got, got1, got2, got3, got4 := common.ParsePassAndWarningFromString(tt.args.customName, []string{}, []string{})
 			if got != tt.want {
 				t.Errorf("ParsePassAndWarningFromString() got = %v, want %v", got, tt.want)
 			}
@@ -665,7 +665,7 @@ func TestParseMarkdownConfiguration(t *testing.T) {
 	}
 
 	// first run - single result
-	ParseMarkdownConfiguration("KQG.Total.Pass=90%;KQG.Total.Warning=70%;KQG.Compare.WithScore=pass;KQG.Compare.Results=1;KQG.Compare.Function=avg", dashboardSLO1)
+	common.ParseMarkdownConfiguration("KQG.Total.Pass=90%;KQG.Total.Warning=70%;KQG.Compare.WithScore=pass;KQG.Compare.Results=1;KQG.Compare.Function=avg", dashboardSLO1)
 
 	if dashboardSLO1.TotalScore.Pass != "90%" {
 		t.Errorf("Total Pass not 90% - is " + dashboardSLO1.TotalScore.Pass)
@@ -692,7 +692,7 @@ func TestParseMarkdownConfiguration(t *testing.T) {
 		TotalScore: &keptn.SLOScore{Pass: "", Warning: ""},
 		Comparison: &keptn.SLOComparison{CompareWith: "", IncludeResultWithScore: "", NumberOfComparisonResults: 0, AggregateFunction: ""},
 	}
-	ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=p50", dashboardSLO2)
+	common.ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=p50", dashboardSLO2)
 
 	if dashboardSLO2.TotalScore.Pass != "50%" {
 		t.Errorf("Total Pass not 50% - is " + dashboardSLO2.TotalScore.Pass)
@@ -719,7 +719,7 @@ func TestParseMarkdownConfiguration(t *testing.T) {
 		TotalScore: &keptn.SLOScore{Pass: "", Warning: ""},
 		Comparison: &keptn.SLOComparison{CompareWith: "", IncludeResultWithScore: "", NumberOfComparisonResults: 0, AggregateFunction: ""},
 	}
-	ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=INVALID", dashboardSLO3)
+	common.ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=INVALID", dashboardSLO3)
 
 	if dashboardSLO3.TotalScore.Pass != "50%" {
 		t.Errorf("Total Pass not 50% - is " + dashboardSLO3.TotalScore.Pass)
