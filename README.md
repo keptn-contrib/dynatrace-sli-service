@@ -310,6 +310,37 @@ Currently the *dynatrace-sli-service* does the following conversions before retu
 
 If you want to have a more flexible way to convert metric units please let us know by creating an issue and explain your use case
 
+## SLIs & SLOs for Problem Remediation
+
+If Dynatrace sends problems to Keptn which triggers an Auto-Remediation workflow Keptn also evaluates your SLOs after the remediation action was executed.
+The default behavior that users expect is that the auto-remediation workflow can stop if the problem has been closed in Dynatrace and that it should continue otherwise!
+
+When a Dynatrace Problem initiates a Keptn auto-remediation workflow the *dynatrace-service* adds the Dynatrace Problem URL as a label with the name "Problem URL". As labels are passed all the way through every event along a Keptn process it also ends up being passed as part of the `sh.keptn.internal.event.get-sli` which is handled by *dynatrace-sli-service*
+Here is an excerpt of that event showing the label:
+```json
+ "labels": {
+      "Problem URL": "https://abc12345.live.dynatrace.com/#problems/problemdetails;pid=3734886735257827488_1606270560000V2",
+      "firstaction": "action.triggered.firstaction.sh"
+    },
+    "project": "demo-remediation"
+```
+
+So, if the *dynatrace-sli-service* detects that it gets called in context of a remediation workflow and finds a Dynatrace Problem ID (PID) as part of the Problem URL it will query the status of that problem (OPEN or CLOSED) using Dynatrace's Problem API v2. It will then return an SLI called `problem_open` and the value  either be 0 (=problem no longer open) or 1 (=problem still open). 
+The *dynatrace-sli-service* will also define a key SLO for `problem_open` with a default pass criteria of `<=0` -> meaning: the evaluation will only succeed if the problem is closed. Following shows an excerpt of that SLO definition:
+```yaml
+objectives:
+- sli: problem_open
+  pass:
+  - criteria:
+    - <=0
+  key_sli: true
+```
+
+Here the final result of the evaluation as part of an auto-remediation workflow:
+![](./images/problemopen_sloevaluation.png)
+
+As the SLO gets added if its not defined and as the sli named `problem_open` will always be returned this capability allows you to either define your own custom SLO including `problem_open`as an SLO or you just go with the default that *dynatrace-sli-service* creates.
+
 ## SLIs & SLOs via Dynatrace Dashboard
 
 Based on user feedback we learned that defining custom SLIs via the SLI.yaml and then defining SLOs via SLO.yaml can be challenging as one has to be familiar with the Dynatrace Metrics V2 API to craft the necessary SLI queries.
@@ -458,6 +489,29 @@ Here a couple of examples from tiles and how they translate into SLI.yaml and SL
           ...
     ```
 
+### Support for SLO Tiles
+
+SLOs in Dynatrace are a new feature to monitor SLOs in production and report on status and error budget. As explained in the readme above the *dynatrace-sli-service* already provides support for querying the SLO and returning the evaluatedPercentage field. All you need to do is add the SLO tile on your dashboard and it will be included. The *dynatrace-sli-service* will not only return the value but also use the warning and pass criteria defined in the SLO definition for the SLO.yaml for Keptn:
+
+![](./images/slo_tile_dynatrace.png)
+
+### Support for Problem Tile
+
+A great use case is to validate whether there are any open problems in a given enviornment as part of your Keptn Quality Gate Evaluation. As desribed above the *dynatrace-sli-service* supports querying the number of problems that have a certain status using Dynatrace's Problem API v2.
+To include the open problem count that matches your dashboards management zone you can simply add the "Problems" tile to your dashboard. If this tile is on the dashboard you will get an SLI with the name `problems`, the value will be the total count of problems open. The default SLO will be that `problems` is a `key sli` with a pass criteria of `<=0`. Here is a screenshot of that tile:
+
+![](./images/problemstile.png)
+
+And here is the SLO.yaml entry that gets generated:
+```yaml
+objectives:
+- sli: problem_open
+  pass:
+  - criteria:
+    - <=0
+  key_sli: true
+```
+
 ### Support for USQL Tiles
 
 The *dynatrace-sli-service* also supports Dynatrace USQL tiles. The query will be executed as defined in the dashboard for the given timeframe of the SLI evaluation.
@@ -482,6 +536,7 @@ This will translate into two SLIs called `camp_adoption` and `camp_conv`. The SL
 This should work with any existing Keptn project you have. Just make sure you have the *dynatrace-sli-service* enabled for your project. 
 Then create a dashboard as explained above that the *dynatrace-sli-service* can match to your project/service/stage. 
 
+**Until Keptn 0.7.2**
 If you start from scratch and you have never run an evaluation in your project make sure you upload an empty SLO.yaml to your service. Why? Because otherwise the Lighthouse service will skip evaluation and never triggers the *dynatrace-sli-service*. This is just a one time initialization effort.
 Here is an empty slo.yaml you can use:
 ```
