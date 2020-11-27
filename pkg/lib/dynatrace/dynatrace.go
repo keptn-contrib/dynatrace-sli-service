@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	keptnevents "github.com/keptn/go-utils/pkg/lib"
+	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -246,12 +247,12 @@ type Handler struct {
 	HTTPClient    *http.Client
 	Headers       map[string]string
 	CustomQueries map[string]string
-	CustomFilters []*keptnevents.SLIFilter
+	CustomFilters []*keptnv2.SLIFilter
 	Logger        *keptn.Logger
 }
 
 // NewDynatraceHandler returns a new dynatrace handler that interacts with the Dynatrace REST API
-func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, headers map[string]string, customFilters []*keptnevents.SLIFilter, keptnContext string, eventID string) *Handler {
+func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, headers map[string]string, customFilters []*keptnv2.SLIFilter, keptnContext string, eventID string) *Handler {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: !IsHttpSSLVerificationEnabled()},
 	}
@@ -861,7 +862,7 @@ func (ph *Handler) GetEntitySelectorFromEntityFilter(filtersPerEntityType map[st
 //  #3: ServiceLevelObjectives
 //  #4: SLIResult
 //  #5: Error
-func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEvent, dashboard string, startUnix time.Time, endUnix time.Time) (string, *DynatraceDashboard, *SLI, *keptnevents.ServiceLevelObjectives, []*keptnevents.SLIResult, error) {
+func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEvent, dashboard string, startUnix time.Time, endUnix time.Time) (string, *DynatraceDashboard, *SLI, *keptnevents.ServiceLevelObjectives, []*keptnv2.SLIResult, error) {
 
 	// Lets see if there is a dashboard.json already in the configuration repo - if so its an indicator that we should query the dashboard
 	// This check is espcially important for backward compatibilty as the new dynatrace.conf.yaml:dashboard property is changing the default behavior
@@ -883,7 +884,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 	}
 
 	// generate our own SLIResult array based on the dashboard configuration
-	var sliResults []*keptnevents.SLIResult
+	var sliResults []*keptnv2.SLIResult
 	dashboardSLI := &SLI{}
 	dashboardSLI.SpecVersion = "0.1.4"
 	dashboardSLI.Indicators = make(map[string]string)
@@ -1056,7 +1057,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 
 					// ERROR-CASE: Metric API return no values or an error
 					// we couldnt query data - so - we return the error back as part of our SLIResults
-					sliResults = append(sliResults, &keptnevents.SLIResult{
+					sliResults = append(sliResults, &keptnv2.SLIResult{
 						Metric:  baseIndicatorName,
 						Value:   0,
 						Success: false, // Mark as failure
@@ -1128,7 +1129,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 								ph.Logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, value))
 
 								// lets add the value to our SLIResult array
-								sliResults = append(sliResults, &keptnevents.SLIResult{
+								sliResults = append(sliResults, &keptnv2.SLIResult{
 									Metric:  indicatorName,
 									Value:   value,
 									Success: true,
@@ -1204,7 +1205,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, dimensionValue))
 
 					// lets add the value to our SLIResult array
-					sliResults = append(sliResults, &keptnevents.SLIResult{
+					sliResults = append(sliResults, &keptnv2.SLIResult{
 						Metric:  indicatorName,
 						Value:   dimensionValue,
 						Success: true,

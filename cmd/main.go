@@ -142,7 +142,7 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
 /**
  * Tries to find a dynatrace dashboard that matches our project. If so - returns the SLI, SLO and SLIResults
  */
-func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string) (string, []*keptnevents.SLIResult, error) {
+func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string) (string, []*keptnv2.SLIResult, error) {
 
 	//
 	// Option 1: We query the data from a dashboard instead of the uploaded SLI.yaml
@@ -205,7 +205,7 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 func retrieveMetrics(event cloudevents.Event) error {
 	var shkeptncontext string
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
-	eventData := &keptnevents.InternalGetSLIEventData{}
+	eventData := &keptnv2.GetSLITriggeredEventData{}
 	err := event.DataAs(eventData)
 	if err != nil {
 		return err
@@ -222,8 +222,13 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	//
 	// do not continue if SLIProvider is not dynatrace
-	if eventData.SLIProvider != "dynatrace" {
+	if eventData.GetSLI.SLIProvider != "dynatrace" {
 		return nil
+	}
+
+	// send get-sli.started event
+	if err := sendGetSLIStartedEvent(event, eventData); err != nil {
+		return sendGetSLIFinishedEvent(event, eventData, nil, err)
 	}
 
 	//
@@ -237,7 +242,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 	keptnEvent.Project = eventData.Project
 	keptnEvent.Stage = eventData.Stage
 	keptnEvent.Service = eventData.Service
-	keptnEvent.TestStrategy = eventData.TestStrategy
 	keptnEvent.Labels = eventData.Labels
 	keptnEvent.Context = shkeptncontext
 	dynatraceConfigFile, _ := common.GetDynatraceConfig(keptnEvent, stdLogger)
@@ -266,31 +270,27 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if err != nil {
 		stdLogger.Error("Failed to fetch Dynatrace credentials: " + err.Error())
 		// Implementing: https://github.com/keptn-contrib/dynatrace-sli-service/issues/49
-		return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
-			nil, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
-			eventData.Deployment, eventData.Labels, eventData.Indicators, err)
+		return sendGetSLIFinishedEvent(event, eventData, nil, err)
 	}
 
 	//
 	// creating Dynatrace Handler which allows us to call the Dynatrace API
 	dynatraceHandler := dynatrace.NewDynatraceHandler(dtCredentials.Tenant, keptnEvent, map[string]string{
 		"Authorization": "Api-Token " + dtCredentials.ApiToken,
-	}, eventData.CustomFilters, shkeptncontext, event.ID())
+	}, eventData.GetSLI.CustomFilters, shkeptncontext, event.ID())
 
 	//
 	// parse start and end (which are datetime strings) and convert them into unix timestamps
-	startUnix, endUnix, err := ensureRightTimestamps(eventData.Start, eventData.End, stdLogger)
+	startUnix, endUnix, err := ensureRightTimestamps(eventData.GetSLI.Start, eventData.GetSLI.End, stdLogger)
 	if err != nil {
 		stdLogger.Error(err.Error())
-		return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
-			nil, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
-			eventData.Deployment, eventData.Labels, eventData.Indicators, err)
+		return sendGetSLIFinishedEvent(event, eventData, nil, err)
 	}
 
 	//
 	// THIS IS OUR RETURN OBJECT: sliResult
 	// Whether option 1 or option 2 - this will hold our SLIResults
-	var sliResults []*keptnevents.SLIResult
+	var sliResults []*keptnv2.SLIResult
 
 	//
 	// Option 1 - see if we can get the data from a Dnatrace Dashboard
@@ -320,13 +320,13 @@ func retrieveMetrics(event cloudevents.Event) error {
 		}
 
 		// query all indicators
-		for _, indicator := range eventData.Indicators {
+		for _, indicator := range eventData.GetSLI.Indicators {
 			stdLogger.Info("Fetching indicator: " + indicator)
 			sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix)
 			if err != nil {
 				stdLogger.Error(err.Error())
 				// failed to fetch metric
-				sliResults = append(sliResults, &keptnevents.SLIResult{
+				sliResults = append(sliResults, &keptnv2.SLIResult{
 					Metric:  indicator,
 					Value:   0,
 					Success: false, // Mark as failure
@@ -334,7 +334,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 				})
 			} else {
 				// successfully fetched metric
-				sliResults = append(sliResults, &keptnevents.SLIResult{
+				sliResults = append(sliResults, &keptnv2.SLIResult{
 					Metric:  indicator,
 					Value:   sliValue,
 					Success: true, // mark as success
@@ -360,9 +360,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	stdLogger.Info("Finished fetching metrics; Sending SLIDone event now ...")
 
-	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
-		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy,
-		eventData.Deployment, eventData.Labels, eventData.Indicators, err)
+	return sendGetSLIFinishedEvent(event, eventData, sliResults, err)
 }
 
 /**
@@ -448,9 +446,7 @@ func getDynatraceCredentials(secretName string, project string, logger *keptn.Lo
 /**
  * Sends the SLI Done Event. If err != nil it will send an error message
  */
-func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
-	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string,
-	teststrategy string, deploymentStrategy string, deployment string, labels map[string]string, indicators []string, err error) error {
+func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData, indicatorValues []*keptnv2.SLIResult, err error) error {
 
 	source, _ := url.Parse("dynatrace-sli-service")
 
@@ -459,12 +455,12 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		errMessage := err.Error()
 
 		if (indicatorValues == nil) || (len(indicatorValues) == 0) {
-			if indicators == nil || len(indicators) == 0 {
-				indicators = []string{"no metric"}
+			if eventData.GetSLI.Indicators == nil || len(eventData.GetSLI.Indicators) == 0 {
+				eventData.GetSLI.Indicators = []string{"no metric"}
 			}
 
-			for _, indicatorName := range indicators {
-				indicatorValues = []*keptnevents.SLIResult{
+			for _, indicatorName := range eventData.GetSLI.Indicators {
+				indicatorValues = []*keptnv2.SLIResult{
 					{
 						Metric: indicatorName,
 						Value:  0.0,
@@ -479,25 +475,71 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		}
 	}
 
-	getSLIEvent := keptnevents.InternalGetSLIDoneEventData{
-		Project:            project,
-		Service:            service,
-		Stage:              stage,
-		IndicatorValues:    indicatorValues,
-		Start:              start,
-		End:                end,
-		TestStrategy:       teststrategy,
-		DeploymentStrategy: deploymentStrategy,
-		Deployment:         deployment,
-		Labels:             labels,
+	getSLIEvent := keptnv2.GetSLIFinishedEventData{
+		EventData: keptnv2.EventData{
+			Project: eventData.Project,
+			Stage:   eventData.Stage,
+			Service: eventData.Service,
+			Labels:  eventData.Labels,
+			Status:  keptnv2.StatusSucceeded,
+			Result:  keptnv2.ResultPass,
+		},
+		GetSLI: struct {
+			Start           string               `json:"start"`
+			End             string               `json:"end"`
+			IndicatorValues []*keptnv2.SLIResult `json:"indicatorValues"`
+		}{
+			IndicatorValues: indicatorValues,
+			Start:           eventData.GetSLI.Start,
+			End:             eventData.GetSLI.End,
+		},
+	}
+
+	keptnContext, err := inputEvent.Context.GetExtension("shkeptncontext")
+
+	if err != nil {
+		return fmt.Errorf("could not determine keptnContext of input event: %s", err.Error())
 	}
 
 	event := cloudevents.NewEvent()
-	event.SetType(keptnevents.InternalGetSLIDoneEventType)
+	event.SetType(keptnv2.GetFinishedEventType(keptnv2.GetSLITaskName))
 	event.SetSource(source.String())
 	event.SetDataContentType(cloudevents.ApplicationJSON)
-	event.SetExtension("shkeptncontext", shkeptncontext)
+	event.SetExtension("shkeptncontext", keptnContext)
+	event.SetExtension("triggeredid", inputEvent.ID())
 	event.SetData(cloudevents.ApplicationJSON, getSLIEvent)
+
+	return sendEvent(event)
+}
+
+func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData) error {
+
+	source, _ := url.Parse("dynatrace-sli-service")
+
+	getSLIStartedEvent := keptnv2.GetSLIStartedEventData{
+		EventData: keptnv2.EventData{
+			Project: eventData.Project,
+			Stage:   eventData.Stage,
+			Service: eventData.Service,
+			Labels:  eventData.Labels,
+			Status:  keptnv2.StatusSucceeded,
+			Result:  keptnv2.ResultPass,
+		},
+	}
+
+	keptnContext, err := inputEvent.Context.GetExtension("shkeptncontext")
+
+	if err != nil {
+		return fmt.Errorf("could not determine keptnContext of input event: %s", err.Error())
+	}
+
+	event := cloudevents.NewEvent()
+	event.SetType(keptnv2.GetStartedEventType(keptnv2.GetSLITaskName))
+	event.SetSource(source.String())
+	event.SetDataContentType(cloudevents.ApplicationJSON)
+	event.SetExtension("shkeptncontext", keptnContext)
+	event.SetExtension("triggeredid", inputEvent.ID())
+	event.SetData(cloudevents.ApplicationJSON, getSLIStartedEvent)
 
 	return sendEvent(event)
 }

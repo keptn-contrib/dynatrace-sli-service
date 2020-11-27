@@ -199,6 +199,12 @@ github.com/kelseyhightower/envconfig v1.4.0 h1:Im6hONhd3pLkfDFsbRgu68RDNkGF1r3dv
 github.com/kelseyhightower/envconfig v1.4.0/go.mod h1:cccZRl6mQpaq41TPp5QxidR+Sa3axMbJDNb//FQX6Gg=
 github.com/keptn/go-utils v0.6.3-0.20201104145324-b4fabd54ef88 h1:csTLzDPkYAvqz72d/Gw1FjBjWn6J/H7S41slMWPLqgE=
 github.com/keptn/go-utils v0.6.3-0.20201104145324-b4fabd54ef88/go.mod h1:jD+ZvrkwYyDMgeKANzVZsBSYgjYQxTJvxw/RB3vYFAE=
+github.com/keptn/go-utils v0.6.3-0.20201126151229-3207e8ec99c4 h1:+OgTgvlD0+fa0R1fc+xXaKbUggrLvZPpaCqbQuuIu44=
+github.com/keptn/go-utils v0.6.3-0.20201126151229-3207e8ec99c4/go.mod h1:jD+ZvrkwYyDMgeKANzVZsBSYgjYQxTJvxw/RB3vYFAE=
+github.com/keptn/go-utils v0.6.3-0.20201126153559-17ea85f70061 h1:PCR9veX1CD73Lu+8SLetddSvyNLydpFdMxYNPblK2FY=
+github.com/keptn/go-utils v0.6.3-0.20201126153559-17ea85f70061/go.mod h1:jD+ZvrkwYyDMgeKANzVZsBSYgjYQxTJvxw/RB3vYFAE=
+github.com/keptn/go-utils v0.6.3-0.20201126154203-d12fe6bf7a06 h1:KGk2MGCsnCAhB5LLmMRy/7t7hiThaLqq7InNFf2ipBk=
+github.com/keptn/go-utils v0.6.3-0.20201126154203-d12fe6bf7a06/go.mod h1:jD+ZvrkwYyDMgeKANzVZsBSYgjYQxTJvxw/RB3vYFAE=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
