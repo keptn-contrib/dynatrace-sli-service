@@ -532,7 +532,7 @@ func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
 		t.Errorf("dh.getTimeseriesConfig() returned (\"%s\"), expected(\"\")", got)
 	}
 
-	expected := "unsupported SLI metric foobar"
+	expected := "Unsupported SLI metric foobar"
 
 	if err == nil {
 		t.Errorf("dh.getTimeseriesConfig() did not return an error")
