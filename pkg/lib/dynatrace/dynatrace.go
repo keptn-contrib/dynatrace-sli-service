@@ -1742,7 +1742,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 		result, err := ph.ExecuteMetricsAPIQuery(metricsQuery)
 
 		if err != nil {
-			return 0, fmt.Errorf("error from Execute Metrics API Query: %s\n", err.Error())
+			return 0, fmt.Errorf("Dynatrace Metrics API returned an error: %s\nThis was the query executed: %s", err.Error(), metricsQuery)
 		}
 
 		if result != nil {
@@ -1753,7 +1753,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 
 					if len(i.Data) != 1 {
 						jsonString, _ := json.Marshal(i)
-						return 0, fmt.Errorf("Dynatrace Metrics API returned %d result values, expected 1. Please ensure the response contains exactly one value (e.g., by using :merge(0):avg for the metric). Here is the output for troubleshooting: %s", len(i.Data), string(jsonString))
+						return 0, fmt.Errorf("Dynatrace Metrics API returned %d result values, expected 1 for query: %s.\nPlease ensure the response contains exactly one value (e.g., by using :merge(0):avg for the metric). Here is the output for troubleshooting: %s", len(i.Data), metricsQuery, string(jsonString))
 					}
 
 					actualMetricValue = i.Data[0].Values[0]
@@ -1824,6 +1824,9 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 		return val, nil
 	}
 
+	//
+	ph.Logger.Debug(fmt.Sprintf("No custom SLI for %s found - Looking in defaults", metric))
+
 	// default SLI configs
 	// Switched to new metric v2 query langugae as discussed here: https://github.com/keptn-contrib/dynatrace-sli-service/issues/91
 	switch metric {
@@ -1838,6 +1841,6 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 	case ResponseTimeP95:
 		return "metricSelector=builtin:service.response.time:merge(0):percentile(95)&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	default:
-		return "", fmt.Errorf("unsupported SLI metric %s", metric)
+		return "", fmt.Errorf("Unsupported SLI metric %s", metric)
 	}
 }
