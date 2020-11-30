@@ -1048,7 +1048,7 @@ func (ph *Handler) ProcessSLOTile(sloID string, startUnix time.Time, endUnix tim
 
 	// lets add the SLO definitin in case we need to generate an SLO.yaml
 	// we normally parse these values from the tile name. In this case we just build that tile name -> maybe in the future we will allow users to add additional SLO defs via the Tile Name, e.g: weight or KeySli
-	sloString := fmt.Sprintf("sli=%s;pass=>=%f;warning=>=%f", indicatorName, sloResult.TargetSuccess, sloResult.TargetWarning)
+	sloString := fmt.Sprintf("sli=%s;pass=>=%f;warning=>=%f", indicatorName, sloResult.TargetWarning, sloResult.TargetSuccess)
 	_, passSLOs, warningSLOs, weight, keySli := common.ParsePassAndWarningFromString(sloString, []string{}, []string{})
 	sloDefinition := &keptn.SLO{
 		SLI:     indicatorName,
