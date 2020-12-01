@@ -24,10 +24,16 @@ By default these metrics (SLIs) are queried from a Dynatrace-monitored service e
 
 As highlighted above, the *dynatrace-sli-service* also provides the following capabilities
 * Connecting to different Dynatrace Tenants (SaaS or Managed) depending on Keptn Project, Stage or Service
-* Defining a custom list of SLIs based on the Dynatrace Metrics API v2 in your SLI.yaml
+* Defining a custom list of SLIs based on the Dynatrace Metrics API v2. As the *The following is an example from above:
+
+
+dynatrace-sli-provider*  in your SLI.yaml executes your query
 * Visually defining SLIs & SLOs through a Dynatrace Dashboard instead of SLI.yaml and SLO.yaml
 
-As *dynatrace-sli-service* uses the Metrics API v2 this opens up your SLIs to any metric in Dynatrace: Application, Service, Process Groups, Host, Custom Devices, Calculated Service Metrics, External Metrics ...
+As *dynatrace-sli-service* uses the Metrics API v2. As the *dynatrace-sli-provider*  this opens up your SLIs to any The following is an example from above:
+
+
+metric in Dynatrace: Application, Service, Process executes your queryGroups, Host, Custom Devices, Calculated Service Metrics, External Metrics ...
 
 ## Compatibility Matrix
 
@@ -40,6 +46,7 @@ As *dynatrace-sli-service* uses the Metrics API v2 this opens up your SLIs to an
 |   0.7.0    | keptncontrib/dynatrace-sli-service:0.5.0 |
 |   0.7.1    | keptncontrib/dynatrace-sli-service:0.6.0 |
 |   0.7.2    | keptncontrib/dynatrace-sli-service:0.7.0 |
+|   0.7.2+    | keptncontrib/dynatrace-sli-service:0.7.1 |
 
 ## Installation
 
@@ -252,6 +259,90 @@ indicators:
 
 Hope these examples help you see what is possible. If you want to explore more about Dynatrace Metrics, and the queries you need to create to extract them I suggest you explore the Dynatrace API Explorer (Swagger UI) as well as the [Metric API v2](https://www.dynatrace.com/support/help/extend-dynatrace/dynatrace-api/environment-api/metric-v2/) documentation.
 
+### Advanced SLI Queries for Dynatrace
+
+Here are a couple of additional query options that have been added to the Dynatrace SLI Service over time to extend the capabilities of querying more relevant data:
+
+**Dynatrace SLO Definition**
+With Dynatrace Version 207 Dynatrace introduced native support for SLO monitoring. The *dynatrace-sli-service* is able to query these SLO definitions by referencing them by SLO-ID. Here is such an SLO in a dashboard:
+
+![](./images/slo_tile_dynatrace.png)
+
+And here is the corresponding SLI query which is specified as `SLO;<SLOID>`:
+```yaml
+indicators:
+    rt_faster_500ms: SLO;524ca177-849b-3e8c-8175-42b93fbc33c5
+```
+
+The *dynatrace-sli-service* basically queries the SLO using the /api/v2/slo/<sloid> endpoint and will return evaluatedPercentage field!
+
+**Open Problems**
+One interesting metric is the number of open problems you may have in a particular environment or those that match a particular problem type. Dynatrace provides the Problem APIv2 which allows you to query problems by entitySelector as well as problemSelector. You can pass both fields as part of an SLI query prefixing it with PV2. Here is an example on how such an SLI definition would look like:
+```yaml
+indicators:
+    problems: PV2;problemSelector=status(open)&entitySelector=managementZoneIds(7030365576649815430)
+```
+
+The *dynatrace-sli-service* will return the totalCount field of the /api/v2/problems endpoint passing your query string!
+
+**Define Metric Unit for Metrics Query**
+Most SLIs you define are queried using the Metrics API v2. The following is an example from above:
+```yaml
+indicators:
+ teststep_rt_Basic_Check: "metricSelector=calc:service.teststepresponsetime:merge(0):avg:names:filter(eq(Test Step,Basic Check));entitySelector=type(SERVICE)"
+```
+
+When the *dynatrace-sli-provider* executes this query it simply returns the value of that metric. What is not always known is the metric unit. Depending on the metric definition this could be nanoseconds, microseconds, milliseconds, seconds or even bytes, kilobytes, megabytes, ...
+
+For some of the metrics the *dynatrace-sli-provider* makes metric unit assumptions and for instance converts MicroSecond into MilliSeconds and Bytes into KiloBytes. However - these  assumptions only work for builtin metrics and are therefore not a valid approach unless we would start querying the Metric Definition everytime we query these metrics. While this would work it is a lot of extra API calls we want to avoid.
+To let the *dynatrace-sli-service* know about the expected *Metric Unit* you can prefix your query with `MV2;<MetricUnit>;<Regular Query>`. So - the above example can be changed to this to tell the service that this metric is returned in MicroSeconds:
+
+```yaml
+indicators:
+ teststep_rt_Basic_Check: "MV2;MicroSecond;metricSelector=calc:service.teststepresponsetime:merge(0):avg:names:filter(eq(Test Step,Basic Check));entitySelector=type(SERVICE)"
+```
+
+The possible metric units are those that Dynatrace specifies in the API. Please have a look at the Metric API documentation for a complete overview.
+Currently the *dynatrace-sli-service* does the following conversions before returning the value to Keptn. While this doesnt yet solve every request we have seen from our users I hope this solves many use cases of users asking for better handling of MicroSeconds and Bytes:
+
+| Source Data Tye | Converted To |
+|:----------------|:-----------------|
+| MicroSeconds | MilliSeconds |
+| Bytes | KiloBytes |
+
+If you want to have a more flexible way to convert metric units please let us know by creating an issue and explain your use case
+
+## SLIs & SLOs for Problem Remediation
+
+If Dynatrace sends problems to Keptn which triggers an Auto-Remediation workflow Keptn also evaluates your SLOs after the remediation action was executed.
+The default behavior that users expect is that the auto-remediation workflow can stop if the problem has been closed in Dynatrace and that it should continue otherwise!
+
+When a Dynatrace Problem initiates a Keptn auto-remediation workflow the *dynatrace-service* adds the Dynatrace Problem URL as a label with the name "Problem URL". As labels are passed all the way through every event along a Keptn process it also ends up being passed as part of the `sh.keptn.internal.event.get-sli` which is handled by *dynatrace-sli-service*
+Here is an excerpt of that event showing the label:
+```json
+ "labels": {
+      "Problem URL": "https://abc12345.live.dynatrace.com/#problems/problemdetails;pid=3734886735257827488_1606270560000V2",
+      "firstaction": "action.triggered.firstaction.sh"
+    },
+    "project": "demo-remediation"
+```
+
+So, if the *dynatrace-sli-service* detects that it gets called in context of a remediation workflow and finds a Dynatrace Problem ID (PID) as part of the Problem URL it will query the status of that problem (OPEN or CLOSED) using Dynatrace's Problem API v2. It will then return an SLI called `problem_open` and the value  either be 0 (=problem no longer open) or 1 (=problem still open). 
+The *dynatrace-sli-service* will also define a key SLO for `problem_open` with a default pass criteria of `<=0` -> meaning: the evaluation will only succeed if the problem is closed. Following shows an excerpt of that SLO definition:
+```yaml
+objectives:
+- sli: problem_open
+  pass:
+  - criteria:
+    - <=0
+  key_sli: true
+```
+
+Here the final result of the evaluation as part of an auto-remediation workflow:
+![](./images/problemopen_sloevaluation.png)
+
+As the SLO gets added if its not defined and as the sli named `problem_open` will always be returned this capability allows you to either define your own custom SLO including `problem_open`as an SLO or you just go with the default that *dynatrace-sli-service* creates.
+
 ## SLIs & SLOs via Dynatrace Dashboard
 
 Based on user feedback we learned that defining custom SLIs via the SLI.yaml and then defining SLOs via SLO.yaml can be challenging as one has to be familiar with the Dynatrace Metrics V2 API to craft the necessary SLI queries.
@@ -400,6 +491,29 @@ Here a couple of examples from tiles and how they translate into SLI.yaml and SL
           ...
     ```
 
+### Support for SLO Tiles
+
+SLOs in Dynatrace are a new feature to monitor SLOs in production and report on status and error budget. As explained in the readme above the *dynatrace-sli-service* already provides support for querying the SLO and returning the evaluatedPercentage field. All you need to do is add the SLO tile on your dashboard and it will be included. The *dynatrace-sli-service* will not only return the value but also use the warning and pass criteria defined in the SLO definition for the SLO.yaml for Keptn:
+
+![](./images/slo_tile_dynatrace.png)
+
+### Support for Problem Tile
+
+A great use case is to validate whether there are any open problems in a given enviornment as part of your Keptn Quality Gate Evaluation. As desribed above the *dynatrace-sli-service* supports querying the number of problems that have a certain status using Dynatrace's Problem API v2.
+To include the open problem count that matches your dashboards management zone you can simply add the "Problems" tile to your dashboard. If this tile is on the dashboard you will get an SLI with the name `problems`, the value will be the total count of problems open. The default SLO will be that `problems` is a `key sli` with a pass criteria of `<=0`. Here is a screenshot of that tile:
+
+![](./images/problemstile.png)
+
+And here is the SLO.yaml entry that gets generated:
+```yaml
+objectives:
+- sli: problem_open
+  pass:
+  - criteria:
+    - <=0
+  key_sli: true
+```
+
 ### Support for USQL Tiles
 
 The *dynatrace-sli-service* also supports Dynatrace USQL tiles. The query will be executed as defined in the dashboard for the given timeframe of the SLI evaluation.
@@ -424,6 +538,7 @@ This will translate into two SLIs called `camp_adoption` and `camp_conv`. The SL
 This should work with any existing Keptn project you have. Just make sure you have the *dynatrace-sli-service* enabled for your project. 
 Then create a dashboard as explained above that the *dynatrace-sli-service* can match to your project/service/stage. 
 
+**Until Keptn 0.7.2**
 If you start from scratch and you have never run an evaluation in your project make sure you upload an empty SLO.yaml to your service. Why? Because otherwise the Lighthouse service will skip evaluation and never triggers the *dynatrace-sli-service*. This is just a one time initialization effort.
 Here is an empty slo.yaml you can use:
 ```

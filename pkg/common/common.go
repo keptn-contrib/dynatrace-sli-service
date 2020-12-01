@@ -31,6 +31,10 @@ const DynatraceDashboardFilename = "dynatrace/dashboard.json"
 const DynatraceSLIFilename = "dynatrace/sli.yaml"
 const KeptnSLOFilename = "slo.yaml"
 
+const ConfigLevelProject = "Project"
+const ConfigLevelStage = "Stage"
+const ConfigLevelService = "Service"
+
 /**
  * Defines the Dynatrace Configuration File structure and supporting Constants
  */
@@ -157,6 +161,53 @@ func GetConfigurationServiceURL() string {
 }
 
 //
+// Downloads a resource from the Keptn Configuration Repo based on the level (Project, Stage, Service)
+// In RunLocal mode it gets it from the local disk
+//
+func GetKeptnResourceOnConfigLevel(keptnEvent *BaseKeptnEvent, resourceURI string, level string, logger *keptn.Logger) (string, error) {
+
+	// if we run in a runlocal mode we are just getting the file from the local disk
+	var fileContent string
+	if RunLocal {
+		resourceURI = strings.ToLower(strings.ReplaceAll(resourceURI, "dynatrace/", "../../../dynatrace/"+level+"_"))
+		localFileContent, err := ioutil.ReadFile(resourceURI)
+		if err != nil {
+			logMessage := fmt.Sprintf("No %s file found LOCALLY for service %s in stage %s in project %s", resourceURI, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project)
+			logger.Info(logMessage)
+			return "", nil
+		}
+		logger.Info("Loaded LOCAL file " + resourceURI)
+		fileContent = string(localFileContent)
+	} else {
+		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
+
+		var keptnResourceContent *keptnmodels.Resource
+		var err error
+		if strings.Compare(level, ConfigLevelProject) == 0 {
+			keptnResourceContent, err = resourceHandler.GetProjectResource(keptnEvent.Project, resourceURI)
+		} else if strings.Compare(level, ConfigLevelStage) == 0 {
+			keptnResourceContent, err = resourceHandler.GetStageResource(keptnEvent.Project, keptnEvent.Stage, resourceURI)
+		} else if strings.Compare(level, ConfigLevelService) == 0 {
+			keptnResourceContent, err = resourceHandler.GetServiceResource(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI)
+		} else {
+			return "", errors.New("Config level not valid: " + level)
+		}
+
+		if err != nil {
+			return "", err
+		}
+
+		if keptnResourceContent == nil {
+			return "", errors.New("Found resource " + resourceURI + " on level " + level + " but didnt contain content")
+		}
+
+		fileContent = keptnResourceContent.ResourceContent
+	}
+
+	return fileContent, nil
+}
+
+//
 // Downloads a resource from the Keptn Configuration Repo
 // In RunLocal mode it gets it from the local disk
 // In normal mode it first tries to find it on service level, then stage and then project level
@@ -201,6 +252,82 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 	}
 
 	return fileContent, nil
+}
+
+/**
+ * Loads SLIs from a local file and adds it to the SLI map
+ */
+func AddResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliFileContent string, logger *keptn.Logger) (map[string]string, error) {
+
+	if sliFilePath != "" {
+		localFileContent, err := ioutil.ReadFile(sliFilePath)
+		if err != nil {
+			logMessage := fmt.Sprintf("Couldn't load file content from %s", sliFilePath)
+			logger.Info(logMessage)
+			return nil, nil
+		}
+		logger.Info("Loaded LOCAL file " + sliFilePath)
+		sliFileContent = string(localFileContent)
+	}
+
+	if sliFileContent != "" {
+		sliConfig := keptn.SLIConfig{}
+		err := yaml.Unmarshal([]byte(sliFileContent), &sliConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		for key, value := range sliConfig.Indicators {
+			SLIs[key] = value
+		}
+	}
+	return SLIs, nil
+}
+
+/**
+ * getCustomQueries loads custom SLIs from dynatrace/sli.yaml
+ * if there is no sli.yaml it will just return an empty map
+ */
+func GetCustomQueries(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (map[string]string, error) {
+	var sliMap = map[string]string{}
+	/*if common.RunLocal || common.RunLocalTest {
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "", logger)
+		return sliMap, nil
+	}*/
+
+	// We need to load sli.yaml in the sequence of project, stage then service level where service level will overwrite stage & project and stage will overwrite project level sli defintions
+	// details can be found here: https://github.com/keptn-contrib/dynatrace-sli-service/issues/112
+
+	// Step 1: Load Project Level
+	foundLocation := ""
+	sliContent, err := GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelProject, logger)
+	if err == nil && sliContent != "" {
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+		foundLocation = "project,"
+	}
+
+	// Step 2: Load Stage Level
+	sliContent, err = GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelStage, logger)
+	if err == nil && sliContent != "" {
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+		foundLocation = foundLocation + "stage,"
+	}
+
+	// Step 3: Load Service Level
+	sliContent, err = GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelService, logger)
+	if err == nil && sliContent != "" {
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+		foundLocation = foundLocation + "service"
+	}
+
+	// couldnt load any SLIs
+	if len(sliMap) == 0 {
+		logger.Info(fmt.Sprintf("No custom SLI queries for project=%s,stage=%s,service=%s found as no dynatrace/sli.yaml in repo. Going with default!", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
+	} else {
+		logger.Info(fmt.Sprintf("Found a total of %d SLI queries for project=%s,stage=%s,service=%s in dynatrace/sli.yaml in locations: %s", len(sliMap), keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, foundLocation))
+	}
+
+	return sliMap, nil
 }
 
 // GetDynatraceConfig loads dynatrace.conf for the current service
@@ -331,4 +458,137 @@ func ParseUnixTimestamp(timestamp string) (time.Time, error) {
 // TimestampToString converts time stamp into string
 func TimestampToString(time time.Time) string {
 	return strconv.FormatInt(time.Unix()*1000, 10)
+}
+
+// ParsePassAndWarningFromString takes a value such as
+// Example 1: Some description;sli=teststep_rt;pass=<500ms,<+10%;warning=<1000ms,<+20%;weight=1;key=true
+// Example 2: Response time (P95);sli=svc_rt_p95;pass=<+10%,<600
+// Example 3: Host Disk Queue Length (max);sli=host_disk_queue;pass=<=0;warning=<1;key=false
+// can also take a value like "KQG;project=myproject;pass=90%;warning=75%;"
+// This will return
+// #1: teststep_rt
+// #2: []SLOCriteria { Criteria{"<500ms","<+10%"}}
+// #3: []SLOCriteria { ["<1000ms","<+20%" }}
+// #4: 1
+// #5: true
+func ParsePassAndWarningFromString(customName string, defaultPass []string, defaultWarning []string) (string, []*keptn.SLOCriteria, []*keptn.SLOCriteria, int, bool) {
+	nameValueSplits := strings.Split(customName, ";")
+
+	// lets initialize it
+	sliName := ""
+	weight := 1
+	keySli := false
+	passCriteria := []*keptn.SLOCriteria{}
+	warnCriteria := []*keptn.SLOCriteria{}
+
+	// lets iterate through all name-value pairs which are seprated through ";" to extract keys such as warning, pass, weight, key, sli
+	for i := 0; i < len(nameValueSplits); i++ {
+
+		nameValueDividerIndex := strings.Index(nameValueSplits[i], "=")
+		if nameValueDividerIndex < 0 {
+			continue
+		}
+
+		// for each name=value pair we get the name as first part of the string until the first =
+		// the value is the after that =
+		nameString := nameValueSplits[i][:nameValueDividerIndex]
+		valueString := nameValueSplits[i][nameValueDividerIndex+1:]
+		switch nameString /*nameValueSplit[0]*/ {
+		case "sli":
+			sliName = valueString
+		case "pass":
+			passCriteria = append(passCriteria, &keptn.SLOCriteria{
+				Criteria: strings.Split(valueString, ","),
+			})
+		case "warning":
+			warnCriteria = append(warnCriteria, &keptn.SLOCriteria{
+				Criteria: strings.Split(valueString, ","),
+			})
+		case "key":
+			keySli, _ = strconv.ParseBool(valueString)
+		case "weight":
+			weight, _ = strconv.Atoi(valueString)
+		}
+	}
+
+	// use the defaults if nothing was specified
+	if (len(passCriteria) == 0) && (len(defaultPass) > 0) {
+		passCriteria = append(passCriteria, &keptn.SLOCriteria{
+			Criteria: defaultPass,
+		})
+	}
+
+	if (len(warnCriteria) == 0) && (len(defaultWarning) > 0) {
+		warnCriteria = append(warnCriteria, &keptn.SLOCriteria{
+			Criteria: defaultWarning,
+		})
+	}
+
+	// if we have no criteria for warn or pass we just return nil
+	if len(passCriteria) == 0 {
+		passCriteria = nil
+	}
+	if len(warnCriteria) == 0 {
+		warnCriteria = nil
+	}
+
+	return sliName, passCriteria, warnCriteria, weight, keySli
+}
+
+// ParseMarkdownConfiguration parses a text that can be used in a Markdown tile to specify global SLO properties
+func ParseMarkdownConfiguration(markdown string, slo *keptn.ServiceLevelObjectives) {
+	markdownSplits := strings.Split(markdown, ";")
+
+	for _, markdownSplitValue := range markdownSplits {
+		configValueSplits := strings.Split(markdownSplitValue, "=")
+		if len(configValueSplits) != 2 {
+			continue
+		}
+
+		// lets get configname and value
+		configName := strings.ToLower(configValueSplits[0])
+		configValue := configValueSplits[1]
+
+		switch configName {
+		case "kqg.total.pass":
+			slo.TotalScore.Pass = configValue
+		case "kqg.total.warning":
+			slo.TotalScore.Warning = configValue
+		case "kqg.compare.withscore":
+			slo.Comparison.IncludeResultWithScore = configValue
+			if (configValue == "pass") || (configValue == "pass_or_warn") || (configValue == "all") {
+				slo.Comparison.IncludeResultWithScore = configValue
+			} else {
+				slo.Comparison.IncludeResultWithScore = "pass"
+			}
+		case "kqg.compare.results":
+			noresults, err := strconv.Atoi(configValue)
+			if err != nil {
+				slo.Comparison.NumberOfComparisonResults = 1
+			} else {
+				slo.Comparison.NumberOfComparisonResults = noresults
+			}
+			if slo.Comparison.NumberOfComparisonResults > 1 {
+				slo.Comparison.CompareWith = "several_results"
+			} else {
+				slo.Comparison.CompareWith = "single_result"
+			}
+		case "kqg.compare.function":
+			if (configValue == "avg") || (configValue == "p50") || (configValue == "p90") || (configValue == "p95") {
+				slo.Comparison.AggregateFunction = configValue
+			} else {
+				slo.Comparison.AggregateFunction = "avg"
+			}
+		}
+	}
+}
+
+// cleanIndicatorName makes sure we have a valid indicator name by getting rid of special characters
+func CleanIndicatorName(indicatorName string) string {
+	// TODO: check more than just blanks
+	indicatorName = strings.ReplaceAll(indicatorName, " ", "_")
+	indicatorName = strings.ReplaceAll(indicatorName, "/", "_")
+	indicatorName = strings.ReplaceAll(indicatorName, "%", "_")
+
+	return indicatorName
 }
