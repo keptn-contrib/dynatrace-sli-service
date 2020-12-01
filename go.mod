@@ -7,7 +7,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/keptn/go-utils v0.6.3-0.20201126154203-d12fe6bf7a06
+	github.com/keptn/go-utils v0.6.3-0.20201130133737-f0768b80687e
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
 	golang.org/x/time v0.0.0-20191023065245-6d3f0bb11be5 // indirect
