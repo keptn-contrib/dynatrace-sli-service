@@ -40,6 +40,7 @@ As *dynatrace-sli-service* uses the Metrics API v2 this opens up your SLIs to an
 |   0.7.0    | keptncontrib/dynatrace-sli-service:0.5.0 |
 |   0.7.1    | keptncontrib/dynatrace-sli-service:0.6.0 |
 |   0.7.2    | keptncontrib/dynatrace-sli-service:0.7.0 |
+|   0.7.2+	  | keptncontrib/dynatrace-sli-service:0.7.1 |
 
 ## Installation
 
