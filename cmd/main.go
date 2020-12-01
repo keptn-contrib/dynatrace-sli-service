@@ -261,7 +261,7 @@ func getDynatraceProblemContext(eventData *keptn.InternalGetSLIEventData) string
 	}
 
 	for labelName, labelValue := range eventData.Labels {
-		if labelName == "Problem URL" {
+		if strings.ToLower(labelName) == "problem url" {
 			// the value should be of form https://dynatracetenant/#problems/problemdetails;pid=8485558334848276629_1604413609638V2
 			// so - lets get the last part after pid=
 
@@ -289,16 +289,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if err != nil {
 		return err
 	}
-
-	/* 	//
-	   	// Lets get a new Keptn Handler
-	   	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{
-	   		ConfigurationServiceURL: os.Getenv(configservice),
-	   	})
-	   	if err != nil {
-	   		return err
-	   	}
-	*/
 
 	//
 	// do not continue if SLIProvider is not dynatrace

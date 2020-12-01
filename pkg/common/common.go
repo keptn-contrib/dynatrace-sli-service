@@ -268,8 +268,6 @@ func AddResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliF
 		}
 		logger.Info("Loaded LOCAL file " + sliFilePath)
 		sliFileContent = string(localFileContent)
-	} else {
-		// we just take what was passed in the sliFileContent
 	}
 
 	if sliFileContent != "" {
@@ -328,14 +326,6 @@ func GetCustomQueries(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (map[str
 	} else {
 		logger.Info(fmt.Sprintf("Found a total of %d SLI queries for project=%s,stage=%s,service=%s in dynatrace/sli.yaml in locations: %s", len(sliMap), keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, foundLocation))
 	}
-
-	// load dynatrace/sli.yaml - if its there we add it to the sliMap
-	/* if err != nil {
-		logger.Info(fmt.Sprintf("No custom SLI queries for project=%s,stage=%s,service=%s found as no dynatrace/sli.yaml in repo. Going with default!", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
-	} else {
-		logger.Info(fmt.Sprintf("Found custom SLI queries in dynatrace/sli.yaml for project=%s,stage=%s,service=%s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
-		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
-	}*/
 
 	return sliMap, nil
 }

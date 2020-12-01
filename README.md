@@ -27,7 +27,7 @@ As highlighted above, the *dynatrace-sli-service* also provides the following ca
 * Defining a custom list of SLIs based on the Dynatrace Metrics API v2. As the *The following is an example from above:
 
 
-dynatrace-sli-provider*  in your SLI.yamlexecutes your query
+dynatrace-sli-provider*  in your SLI.yaml executes your query
 * Visually defining SLIs & SLOs through a Dynatrace Dashboard instead of SLI.yaml and SLO.yaml
 
 As *dynatrace-sli-service* uses the Metrics API v2. As the *dynatrace-sli-provider*  this opens up your SLIs to any The following is an example from above:
@@ -45,6 +45,8 @@ metric in Dynatrace: Application, Service, Process executes your queryGroups, Ho
 |   0.6.1,0.6.2    | keptncontrib/dynatrace-sli-service:0.4.2 |
 |   0.7.0    | keptncontrib/dynatrace-sli-service:0.5.0 |
 |   0.7.1    | keptncontrib/dynatrace-sli-service:0.6.0 |
+|   0.7.2    | keptncontrib/dynatrace-sli-service:0.7.0 |
+|   0.7.2+    | keptncontrib/dynatrace-sli-service:0.7.1 |
 
 ## Installation
 
