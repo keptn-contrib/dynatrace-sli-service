@@ -21,7 +21,6 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	keptnevents "github.com/keptn/go-utils/pkg/lib"
 	"github.com/keptn/go-utils/pkg/lib/keptn"
 	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
 	// configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
@@ -76,7 +75,7 @@ func _main(args []string, env envConfig) int {
 func gotEvent(ctx context.Context, event cloudevents.Event) error {
 
 	switch event.Type() {
-	case keptnevents.InternalGetSLIEventType:
+	case keptnv2.GetTriggeredEventType(keptnv2.GetSLITaskName):
 		return retrieveMetrics(event)
 	default:
 		return errors.New("received unknown event type")
