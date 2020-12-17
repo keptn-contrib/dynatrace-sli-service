@@ -487,7 +487,7 @@ func IsValidUUID(uuid string) bool {
 func (ph *Handler) findDynatraceDashboard(keptnEvent *common.BaseKeptnEvent) (string, error) {
 	// Lets query the list of all Dashboards and find the one that matches project, stage, service based on the title (in the future - we can do it via tags)
 	// create dashboard query URL and set additional headers
-	// ph.Logger.Debug(fmt.Sprintf("Query all dashboards\n"))
+	// ph.Logger.Debug(fmt.Sprintf("Query all dashboards"))
 
 	dashboardAPIUrl := ph.ApiURL + fmt.Sprintf("/api/config/v1/dashboards")
 	resp, body, err := ph.executeDynatraceREST("GET", dashboardAPIUrl, nil)
@@ -867,7 +867,7 @@ func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
 
 // BuildDynatraceUSQLQuery builds a USQL query based on the incoming values
 func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, endUnix time.Time) string {
-	ph.Logger.Debug(fmt.Sprintf("Finalize USQL query for %s\n", query))
+	ph.Logger.Debug(fmt.Sprintf("Finalize USQL query for %s", query))
 
 	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
 	usql := ph.replaceQueryParameters(query)
@@ -907,7 +907,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 	metricquery = ph.replaceQueryParameters(metricquery)
 
 	if strings.HasPrefix(metricquery, "?metricSelector=") {
-		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Provided query string %s is not compatible. Auto-removing the ? in front (see %s for details).\n", metricquery, MetricsAPIOldFormatNewFormatDoc))
+		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Provided query string %s is not compatible. Auto-removing the ? in front (see %s for details).", metricquery, MetricsAPIOldFormatNewFormatDoc))
 		metricquery = strings.Replace(metricquery, "?metricSelector=", "metricSelector=", 1)
 	}
 
@@ -922,7 +922,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 		// new format without "?" -> everything within the query string are query parameters
 		metricQueryParams = querySplit[0]
 	} else {
-		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Your query %s still uses the old format (see %s for details).\n", metricQueryParams, MetricsAPIOldFormatNewFormatDoc))
+		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Your query %s still uses the old format (see %s for details).", metricQueryParams, MetricsAPIOldFormatNewFormatDoc))
 		// old format with "?" - everything left of the ? is the identifier, everything right are query params
 		metricSelector = querySplit[0]
 
@@ -984,17 +984,17 @@ func (ph *Handler) isMatchingMetricID(singleResultMetricID string, queryMetricID
 
 	// lets do some basic fuzzy matching
 	if strings.Contains(singleResultMetricID, "~") {
-		ph.Logger.Debug(fmt.Sprintf("Need Fuzzy Matching between %s and %s\n", singleResultMetricID, queryMetricID))
+		ph.Logger.Debug(fmt.Sprintf("Need Fuzzy Matching between %s and %s. ", singleResultMetricID, queryMetricID))
 
 		//
 		// lets just see whether everything until the first : matches
 		if strings.Contains(singleResultMetricID, ":") && strings.Contains(singleResultMetricID, ":") {
-			ph.Logger.Debug(fmt.Sprintf("Just compare before first :\n"))
+			ph.Logger.Debug(fmt.Sprintf("Just compare before first :. "))
 
 			fuzzyResultMetricID := strings.Split(singleResultMetricID, ":")[0]
 			fuzzyQueryMetricID := strings.Split(queryMetricID, ":")[0]
 			if strings.Compare(fuzzyResultMetricID, fuzzyQueryMetricID) == 0 {
-				ph.Logger.Debug(fmt.Sprintf("FUZZY MATCH!!\n"))
+				ph.Logger.Debug(fmt.Sprintf("FUZZY MATCH!!. "))
 				return true
 			}
 		}
@@ -1215,7 +1215,7 @@ func (ph *Handler) GenerateMetricQueryFromDataExplorer(dataQuery DataExplorerQue
 	// Lets query the metric definition as we need to know how many dimension the metric has
 	metricDefinition, err := ph.ExecuteMetricAPIDescribe(dataQuery.Metric)
 	if err != nil {
-		ph.Logger.Debug(fmt.Sprintf("Error retrieving Metric Description for %s: %s\n", dataQuery.Metric, err.Error()))
+		ph.Logger.Debug(fmt.Sprintf("Error retrieving Metric Description for %s: %s. ", dataQuery.Metric, err.Error()))
 		return "", "", "", "", "", "", err
 	}
 
@@ -1244,7 +1244,7 @@ func (ph *Handler) GenerateMetricQueryFromDataExplorer(dataQuery DataExplorerQue
 
 		if doMergeDimension {
 			// this is a dimension we want to merge as it is not split by in the chart
-			ph.Logger.Debug(fmt.Sprintf("merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Key))
+			ph.Logger.Debug(fmt.Sprintf("merging dimension %s. ", metricDefinition.DimensionDefinitions[metricDimIx].Key))
 			mergeAggregator = mergeAggregator + fmt.Sprintf(":merge(%d)", metricDimIx)
 		}
 	}
@@ -1302,7 +1302,7 @@ func (ph *Handler) GenerateMetricQueryFromChart(series ChartSeries, tileManageme
 	// Lets query the metric definition as we need to know how many dimension the metric has
 	metricDefinition, err := ph.ExecuteMetricAPIDescribe(series.Metric)
 	if err != nil {
-		ph.Logger.Debug(fmt.Sprintf("Error retrieving Metric Description for %s: %s\n", series.Metric, err.Error()))
+		ph.Logger.Debug(fmt.Sprintf("Error retrieving Metric Description for %s: %s. ", series.Metric, err.Error()))
 		return "", "", "", "", "", "", err
 	}
 
@@ -1321,10 +1321,10 @@ func (ph *Handler) GenerateMetricQueryFromChart(series ChartSeries, tileManageme
 		metricDimIxAsString := strconv.Itoa(metricDimIx)
 		// lets check if this dimension is in the chart
 		for _, seriesDim := range series.Dimensions {
-			ph.Logger.Debug(fmt.Sprintf("seriesDim.id: %s; metricDimIx: %s\n", seriesDim.ID, metricDimIxAsString))
+			ph.Logger.Debug(fmt.Sprintf("seriesDim.id: %s; metricDimIx: %s. ", seriesDim.ID, metricDimIxAsString))
 			if strings.Compare(seriesDim.ID, metricDimIxAsString) == 0 {
 				// this is a dimension we want to keep and not merge
-				ph.Logger.Debug(fmt.Sprintf("not merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name))
+				ph.Logger.Debug(fmt.Sprintf("not merging dimension %s. ", metricDefinition.DimensionDefinitions[metricDimIx].Name))
 				doMergeDimension = false
 
 				// lets check if we need to apply a dimension filter
@@ -1345,7 +1345,7 @@ func (ph *Handler) GenerateMetricQueryFromChart(series ChartSeries, tileManageme
 
 		if doMergeDimension {
 			// this is a dimension we want to merge as it is not split by in the chart
-			ph.Logger.Debug(fmt.Sprintf("merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name))
+			ph.Logger.Debug(fmt.Sprintf("merging dimension %s. ", metricDefinition.DimensionDefinitions[metricDimIx].Name))
 			mergeAggregator = mergeAggregator + fmt.Sprintf(":merge(%d)", metricDimIx)
 		}
 	}
@@ -1425,7 +1425,7 @@ func (ph *Handler) GenerateSLISLOFromMetricsAPIQuery(noOfDimensionsInChart int, 
 			if ph.isMatchingMetricID(singleResult.MetricID, metricID) {
 				dataResultCount := len(singleResult.Data)
 				if dataResultCount == 0 {
-					ph.Logger.Debug(fmt.Sprintf("No data for this metric!\n"))
+					ph.Logger.Debug(fmt.Sprintf("No data for this metric!. "))
 				}
 				for _, singleDataEntry := range singleResult.Data {
 					//
@@ -1478,7 +1478,7 @@ func (ph *Handler) GenerateSLISLOFromMetricsAPIQuery(noOfDimensionsInChart int, 
 
 					// we got our metric, slos and the value
 
-					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, value))
+					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f", indicatorName, value))
 
 					// lets add the value to our SLIResult array
 					sliResults = append(sliResults, &keptn.SLIResult{
@@ -1503,7 +1503,7 @@ func (ph *Handler) GenerateSLISLOFromMetricsAPIQuery(noOfDimensionsInChart int, 
 					dashboardSLO.Objectives = append(dashboardSLO.Objectives, sloDefinition)
 				}
 			} else {
-				ph.Logger.Debug(fmt.Sprintf("Retrieving unintened metric %s while expecting %s\n", singleResult.MetricID, metricID))
+				ph.Logger.Debug(fmt.Sprintf("Retrieving unintened metric %s while expecting %s. ", singleResult.MetricID, metricID))
 			}
 		}
 	}
@@ -1668,7 +1668,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 			// first - lets figure out if this tile should be included in SLI validation or not - we parse the title and look for "sli=sliname"
 			baseIndicatorName, passSLOs, warningSLOs, weight, keySli := common.ParsePassAndWarningFromString(tile.Name, []string{}, []string{})
 			if baseIndicatorName == "" {
-				ph.Logger.Debug(fmt.Sprintf("Data Explorer Tile %s - NOT included as name doesnt include sli=SLINAME\n", tile.Name))
+				ph.Logger.Debug(fmt.Sprintf("Data Explorer Tile %s - NOT included as name doesnt include sli=SLINAME. ", tile.Name))
 				continue
 			}
 
@@ -1699,7 +1699,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 		// first - lets figure out if this tile should be included in SLI validation or not - we parse the title and look for "sli=sliname"
 		baseIndicatorName, passSLOs, warningSLOs, weight, keySli := common.ParsePassAndWarningFromString(tileTitle, []string{}, []string{})
 		if baseIndicatorName == "" {
-			ph.Logger.Debug(fmt.Sprintf("Tile %s - NOT included as name doesnt include sli=SLINAME\n", tileTitle))
+			ph.Logger.Debug(fmt.Sprintf("Tile %s - NOT included as name doesnt include sli=SLINAME. ", tileTitle))
 			continue
 		}
 
@@ -1765,7 +1765,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 						indicatorName = indicatorName + "_" + dimensionName
 					}
 
-					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, dimensionValue))
+					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f. ", indicatorName, dimensionValue))
 
 					// lets add the value to our SLIResult array
 					sliResults = append(sliResults, &keptn.SLIResult{
@@ -1804,7 +1804,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	// first we get the query from the SLI configuration based on its logical name
 	metricsQuery, err := ph.getTimeseriesConfig(metric)
 	if err != nil {
-		return 0, fmt.Errorf("Error when fetching SLI config for %s %s\n", metric, err.Error())
+		return 0, fmt.Errorf("Error when fetching SLI config for %s %s. ", metric, err.Error())
 	}
 	ph.Logger.Debug(fmt.Sprintf("Retrieved SLI config for %s: %s", metric, metricsQuery))
 
@@ -1928,7 +1928,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 		result, err := ph.ExecuteMetricsAPIQuery(metricsQuery)
 
 		if err != nil {
-			return 0, fmt.Errorf("Dynatrace Metrics API returned an error: %s\nThis was the query executed: %s", err.Error(), metricsQuery)
+			return 0, fmt.Errorf("Dynatrace Metrics API returned an error: %s. This was the query executed: %s", err.Error(), metricsQuery)
 		}
 
 		if result != nil {
