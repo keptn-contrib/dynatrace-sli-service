@@ -31,9 +31,10 @@ const ResponseTimeP95 = "response_time_p95"
 const MetricsAPIOldFormatNewFormatDoc = "https://github.com/keptn-contrib/dynatrace-sli-service/blob/master/docs/CustomQueryFormatMigration.md"
 
 type MetricQueryResultNumbers struct {
-	Dimensions []string  `json:"dimensions"`
-	Timestamps []int64   `json:"timestamps"`
-	Values     []float64 `json:"values"`
+	Dimensions   []string          `json:"dimensions"`
+	DimensionMap map[string]string `json:"dimensionMap,omitempty"`
+	Timestamps   []int64           `json:"timestamps"`
+	Values       []float64         `json:"values"`
 }
 
 type MetricQueryResultValues struct {
@@ -1206,8 +1207,8 @@ func (ph *Handler) ProcessOpenSecurityProblemTile(securityProblemSelector string
  * #2: metricUnit, e.g: MilliSeconds
  * #3: metricQuery, e.g: metricSelector=metric&filter...
  * #4: fullMetricQuery, e.g: metricQuery&from=123213&to=2323
- * #5: entitySelectirSLIDefinition, e.g: ,entityid(ID)
- * #6: filterSLIDefinitionAttregator, e.g: , filter(entity())
+ * #5: entitySelectirSLIDefinition, e.g: ,entityid(FILTERDIMENSIONVALUE)
+ * #6: filterSLIDefinitionAttregator, e.g: , filter(eq(Test Step,FILTERDIMENSIONVALUE))
  */
 func (ph *Handler) GenerateMetricQueryFromDataExplorer(dataQuery DataExplorerQuery, tileManagementZoneFilter string, startUnix time.Time, endUnix time.Time) (string, string, string, string, string, string, error) {
 
@@ -1248,7 +1249,8 @@ func (ph *Handler) GenerateMetricQueryFromDataExplorer(dataQuery DataExplorerQue
 		}
 	}
 
-	// TODO - create th right entity Selectors for the queries execute - we currently only support a single filter
+	// Create the right entity Selectors for the queries execute
+	// TODO: we currently only support a single filter - if we want to support more we need to build this in
 	if dataQuery.FilterBy != nil && len(dataQuery.FilterBy.NestedFilters) > 0 {
 
 		if len(dataQuery.FilterBy.NestedFilters[0].Criteria) == 1 {
@@ -1261,6 +1263,16 @@ func (ph *Handler) GenerateMetricQueryFromDataExplorer(dataQuery DataExplorerQue
 			}
 		} else {
 			ph.Logger.Debug(fmt.Sprintf("CURRENTLY ONLY SUPPORTING A SINGLE FILTER FOR DATA EXPLORER!!"))
+		}
+	}
+
+	// TODO: we currently only support one split dimension
+	// but - if we split by a dimension we need to include that dimension in our individual SLI query definitions - thats why we hand this back in the filter clause
+	if dataQuery.SplitBy != nil {
+		if len(dataQuery.SplitBy) == 1 {
+			filterSLIDefinitionAggregator = fmt.Sprintf("%s:filter(eq(%s,FILTERDIMENSIONVALUE))", filterSLIDefinitionAggregator, dataQuery.SplitBy[0])
+		} else {
+			ph.Logger.Debug(fmt.Sprintf("CURRENTLY ONLY SUPPORTING A SINGLE SPLITBY DIMENSION FOR DATA EXPLORER!!"))
 		}
 	}
 
@@ -1283,8 +1295,8 @@ func (ph *Handler) GenerateMetricQueryFromDataExplorer(dataQuery DataExplorerQue
  * #2: metricUnit, e.g: MilliSeconds
  * #3: metricQuery, e.g: metricSelector=metric&filter...
  * #4: fullMetricQuery, e.g: metricQuery&from=123213&to=2323
- * #5: entitySelectirSLIDefinition, e.g: ,entityid(ID)
- * #6: filterSLIDefinitionAttregator, e.g: , filter(entity())
+ * #5: entitySelectirSLIDefinition, e.g: ,entityid(FILTERDIMENSIONVALUE)
+ * #6: filterSLIDefinitionAttregator, e.g: , filter(eq(Test Step,FILTERDIMENSIONVALUE))
  */
 func (ph *Handler) GenerateMetricQueryFromChart(series ChartSeries, tileManagementZoneFilter string, filtersPerEntityType map[string]map[string][]string, startUnix time.Time, endUnix time.Time) (string, string, string, string, string, string, error) {
 	// Lets query the metric definition as we need to know how many dimension the metric has
@@ -1409,7 +1421,7 @@ func (ph *Handler) GenerateSLISLOFromMetricsAPIQuery(noOfDimensionsInChart int, 
 	} else {
 		// SUCCESS-CASE: we retrieved values - now we interate through the results and create an indicator result for every dimension
 		for _, singleResult := range queryResult.Result {
-			ph.Logger.Debug(fmt.Sprintf("Processing result for %s\n", singleResult.MetricID))
+			ph.Logger.Debug(fmt.Sprintf("Processing result for %s - %s:%s", singleResult.MetricID, filterSLIDefinitionAggregator, entitySelectorSLIDefinition))
 			if ph.isMatchingMetricID(singleResult.MetricID, metricID) {
 				dataResultCount := len(singleResult.Data)
 				if dataResultCount == 0 {
@@ -1428,21 +1440,21 @@ func (ph *Handler) GenerateSLISLOFromMetricsAPIQuery(noOfDimensionsInChart int, 
 					filterSLIDefinitionAggregatorValue := ":names"
 
 					if dataResultCount > 1 {
-						// because we use the ":names" transformation we always get two dimension names. First is the NAme, then the ID
+						// because we use the ":names" transformation we always get two dimension entries for entity dimensions, e.g: Host, Service .... First is the Name of the entity, then the ID of the Entity
 						// lets first validate that we really received Dimension Names
 						dimensionCount := len(singleDataEntry.Dimensions)
 						dimensionIncrement := 2
 						if dimensionCount != (noOfDimensionsInChart * 2) {
-							ph.Logger.Debug(fmt.Sprintf("DIDNT RECEIVE ID and Names. Lets assume we just received the dimension IDs"))
+							// ph.Logger.Debug(fmt.Sprintf("DIDNT RECEIVE ID and Names. Lets assume we just received the dimension IDs"))
 							dimensionIncrement = 1
 						}
 
 						// lets iterate through the list and get all names
 						for dimIx := 0; dimIx < len(singleDataEntry.Dimensions); dimIx = dimIx + dimensionIncrement {
-							dimensionName := singleDataEntry.Dimensions[dimIx]
-							indicatorName = indicatorName + "_" + dimensionName
+							dimensionValue := singleDataEntry.Dimensions[dimIx]
+							indicatorName = indicatorName + "_" + dimensionValue
 
-							filterSLIDefinitionAggregatorValue = ":names" + strings.Replace(filterSLIDefinitionAggregator, "FILTERDIMENSIONVALUE", dimensionName, 1)
+							filterSLIDefinitionAggregatorValue = ":names" + strings.Replace(filterSLIDefinitionAggregator, "FILTERDIMENSIONVALUE", dimensionValue, 1)
 
 							if entitySelectorSLIDefinition != "" && dimensionIncrement == 2 {
 								dimensionEntityID := singleDataEntry.Dimensions[dimIx+1]
@@ -1669,7 +1681,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 
 				// if there was no error we generate the SLO & SLO definition
 				if err == nil {
-					newSliResults := ph.GenerateSLISLOFromMetricsAPIQuery(len(dataQuery.SplitBy), baseIndicatorName, passSLOs, warningSLOs, weight, keySli, metricID, metricUnit, metricQuery, fullMetricQuery, entitySelectorSLIDefinition, filterSLIDefinitionAggregator, dashboardSLI, dashboardSLO)
+					newSliResults := ph.GenerateSLISLOFromMetricsAPIQuery(len(dataQuery.SplitBy), baseIndicatorName, passSLOs, warningSLOs, weight, keySli, metricID, metricUnit, metricQuery, fullMetricQuery, filterSLIDefinitionAggregator, entitySelectorSLIDefinition, dashboardSLI, dashboardSLO)
 					sliResults = append(sliResults, newSliResults...)
 				}
 
@@ -1703,7 +1715,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 
 				// if there was no error we generate the SLO & SLO definition
 				if err == nil {
-					newSliResults := ph.GenerateSLISLOFromMetricsAPIQuery(len(series.Dimensions), baseIndicatorName, passSLOs, warningSLOs, weight, keySli, metricID, metricUnit, metricQuery, fullMetricQuery, entitySelectorSLIDefinition, filterSLIDefinitionAggregator, dashboardSLI, dashboardSLO)
+					newSliResults := ph.GenerateSLISLOFromMetricsAPIQuery(len(series.Dimensions), baseIndicatorName, passSLOs, warningSLOs, weight, keySli, metricID, metricUnit, metricQuery, fullMetricQuery, filterSLIDefinitionAggregator, entitySelectorSLIDefinition, dashboardSLI, dashboardSLO)
 					sliResults = append(sliResults, newSliResults...)
 				}
 			}
