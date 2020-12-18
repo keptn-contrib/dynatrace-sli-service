@@ -329,7 +329,12 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if eventData.Labels == nil {
 		eventData.Labels = make(map[string]string)
 	}
-	eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
+
+	if dynatraceConfigFile.DtCreds == "" {
+		eventData.Labels["DtCreds"] = "dynatrace" // thats the default credential
+	} else {
+		eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
+	}
 
 	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
 

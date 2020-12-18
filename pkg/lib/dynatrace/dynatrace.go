@@ -31,9 +31,10 @@ const ResponseTimeP95 = "response_time_p95"
 const MetricsAPIOldFormatNewFormatDoc = "https://github.com/keptn-contrib/dynatrace-sli-service/blob/master/docs/CustomQueryFormatMigration.md"
 
 type MetricQueryResultNumbers struct {
-	Dimensions []string  `json:"dimensions"`
-	Timestamps []int64   `json:"timestamps"`
-	Values     []float64 `json:"values"`
+	Dimensions   []string          `json:"dimensions"`
+	DimensionMap map[string]string `json:"dimensionMap,omitempty"`
+	Timestamps   []int64           `json:"timestamps"`
+	Values       []float64         `json:"values"`
 }
 
 type MetricQueryResultValues struct {
@@ -61,6 +62,52 @@ type DynatraceDashboards struct {
 		Name  string `json:"name"`
 		Owner string `json:"owner"`
 	} `json:"dashboards"`
+}
+
+type NestedFilterDataExplorer struct {
+	Filter         string                     `json:"filter"`
+	FilterType     string                     `json:"filterType"`
+	FilterOperator string                     `json:"filterOperator"`
+	NestedFilters  []NestedFilterDataExplorer `json:"nestedFilters"`
+	Criteria       []struct {
+		Value     string `json:"value"`
+		Evaluator string `json:"evaluator"`
+	} `json:"criteria"`
+}
+
+// Query Definition for DATA_EXPLORER dashboard tile
+type DataExplorerQuery struct {
+	ID               string   `json:"id"`
+	Metric           string   `json:"metric"`
+	SpaceAggregation string   `json:"spaceAggregation"`
+	TimeAggregation  string   `json:"timeAggregation"`
+	SplitBy          []string `json:"splitBy"`
+	FilterBy         *struct {
+		FilterOperator string                     `json:"filterOperator"`
+		NestedFilters  []NestedFilterDataExplorer `json:"nestedFilters"`
+		Criteria       []struct {
+			Value     string `json:"value"`
+			Evaluator string `json:"evaluator"`
+		} `json:"criteria"`
+	} `json:"filterBy,omitempty"`
+}
+
+// Chart Series for a regular Chart
+type ChartSeries struct {
+	Metric      string      `json:"metric"`
+	Aggregation string      `json:"aggregation"`
+	Percentile  interface{} `json:"percentile"`
+	Type        string      `json:"type"`
+	EntityType  string      `json:"entityType"`
+	Dimensions  []struct {
+		ID              string   `json:"id"`
+		Name            string   `json:"name"`
+		Values          []string `json:"values"`
+		EntityDimension bool     `json:"entitiyDimension"`
+	} `json:"dimensions"`
+	SortAscending   bool   `json:"sortAscending"`
+	SortColumn      bool   `json:"sortColumn"`
+	AggregationRate string `json:"aggregationRate"`
 }
 
 // DynatraceDashboard is struct for /dashboards/<dashboardID> endpoint
@@ -108,30 +155,16 @@ type DynatraceDashboard struct {
 				Name string `json:"name"`
 			} `json:"managementZone,omitempty"`
 		} `json:"tileFilter"`
-		AssignedEntities []string `json:"assignedEntities"`
+		Queries          []DataExplorerQuery `json:"queries"`
+		AssignedEntities []string            `json:"assignedEntities"`
 		FilterConfig     struct {
 			Type        string `json:"type"`
 			CustomName  string `json:"customName"`
 			DefaultName string `json:"defaultName"`
 			ChartConfig struct {
-				LegendShown bool   `json:"legendShown"`
-				Type        string `json:"type"`
-				Series      []struct {
-					Metric      string      `json:"metric"`
-					Aggregation string      `json:"aggregation"`
-					Percentile  interface{} `json:"percentile"`
-					Type        string      `json:"type"`
-					EntityType  string      `json:"entityType"`
-					Dimensions  []struct {
-						ID              string   `json:"id"`
-						Name            string   `json:"name"`
-						Values          []string `json:"values"`
-						EntityDimension bool     `json:"entitiyDimension"`
-					} `json:"dimensions"`
-					SortAscending   bool   `json:"sortAscending"`
-					SortColumn      bool   `json:"sortColumn"`
-					AggregationRate string `json:"aggregationRate"`
-				} `json:"series"`
+				LegendShown    bool          `json:"legendShown"`
+				Type           string        `json:"type"`
+				Series         []ChartSeries `json:"series"`
 				ResultMetadata struct {
 				} `json:"resultMetadata"`
 			} `json:"chartConfig"`
@@ -193,8 +226,10 @@ type MetricDefinition struct {
 		Type string `json:"type"`
 	} `json:"defaultAggregation"`
 	DimensionDefinitions []struct {
-		Name string `json:"name"`
-		Type string `json:"type"`
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Key         string `json:"key"`
+		DisplayName string `json:"displayName"`
 	} `json:"dimensionDefinitions"`
 	EntityType []string `json:"entityType"`
 }
@@ -452,7 +487,7 @@ func IsValidUUID(uuid string) bool {
 func (ph *Handler) findDynatraceDashboard(keptnEvent *common.BaseKeptnEvent) (string, error) {
 	// Lets query the list of all Dashboards and find the one that matches project, stage, service based on the title (in the future - we can do it via tags)
 	// create dashboard query URL and set additional headers
-	// ph.Logger.Debug(fmt.Sprintf("Query all dashboards\n"))
+	// ph.Logger.Debug(fmt.Sprintf("Query all dashboards"))
 
 	dashboardAPIUrl := ph.ApiURL + fmt.Sprintf("/api/config/v1/dashboards")
 	resp, body, err := ph.executeDynatraceREST("GET", dashboardAPIUrl, nil)
@@ -832,7 +867,7 @@ func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
 
 // BuildDynatraceUSQLQuery builds a USQL query based on the incoming values
 func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, endUnix time.Time) string {
-	ph.Logger.Debug(fmt.Sprintf("Finalize USQL query for %s\n", query))
+	ph.Logger.Debug(fmt.Sprintf("Finalize USQL query for %s", query))
 
 	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
 	usql := ph.replaceQueryParameters(query)
@@ -867,13 +902,12 @@ func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, en
 // Returns:
 //  #1: Finalized Dynatrace API Query
 //  #2: MetricID that this query will return, e.g: builtin:host.cpu
-//  #3: error
 func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time.Time, endUnix time.Time) (string, string) {
 	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
 	metricquery = ph.replaceQueryParameters(metricquery)
 
 	if strings.HasPrefix(metricquery, "?metricSelector=") {
-		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Provided query string %s is not compatible. Auto-removing the ? in front (see %s for details).\n", metricquery, MetricsAPIOldFormatNewFormatDoc))
+		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Provided query string %s is not compatible. Auto-removing the ? in front (see %s for details).", metricquery, MetricsAPIOldFormatNewFormatDoc))
 		metricquery = strings.Replace(metricquery, "?metricSelector=", "metricSelector=", 1)
 	}
 
@@ -888,7 +922,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 		// new format without "?" -> everything within the query string are query parameters
 		metricQueryParams = querySplit[0]
 	} else {
-		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Your query %s still uses the old format (see %s for details).\n", metricQueryParams, MetricsAPIOldFormatNewFormatDoc))
+		ph.Logger.Debug(fmt.Sprintf("COMPATIBILITY WARNING: Your query %s still uses the old format (see %s for details).", metricQueryParams, MetricsAPIOldFormatNewFormatDoc))
 		// old format with "?" - everything left of the ? is the identifier, everything right are query params
 		metricSelector = querySplit[0]
 
@@ -950,17 +984,17 @@ func (ph *Handler) isMatchingMetricID(singleResultMetricID string, queryMetricID
 
 	// lets do some basic fuzzy matching
 	if strings.Contains(singleResultMetricID, "~") {
-		ph.Logger.Debug(fmt.Sprintf("Need Fuzzy Matching between %s and %s\n", singleResultMetricID, queryMetricID))
+		ph.Logger.Debug(fmt.Sprintf("Need Fuzzy Matching between %s and %s. ", singleResultMetricID, queryMetricID))
 
 		//
 		// lets just see whether everything until the first : matches
 		if strings.Contains(singleResultMetricID, ":") && strings.Contains(singleResultMetricID, ":") {
-			ph.Logger.Debug(fmt.Sprintf("Just compare before first :\n"))
+			ph.Logger.Debug(fmt.Sprintf("Just compare before first :. "))
 
 			fuzzyResultMetricID := strings.Split(singleResultMetricID, ":")[0]
 			fuzzyQueryMetricID := strings.Split(queryMetricID, ":")[0]
 			if strings.Compare(fuzzyResultMetricID, fuzzyQueryMetricID) == 0 {
-				ph.Logger.Debug(fmt.Sprintf("FUZZY MATCH!!\n"))
+				ph.Logger.Debug(fmt.Sprintf("FUZZY MATCH!!. "))
 				return true
 			}
 		}
@@ -1166,6 +1200,317 @@ func (ph *Handler) ProcessOpenSecurityProblemTile(securityProblemSelector string
 	return sliResult, indicatorName, sliQuery, sloDefinition, nil
 }
 
+/**
+ * Looks at the DataExplorerQuery configuration of a data explorer chart and generates the Metrics Query
+ * Returns
+ * #1: metricId, e.g: built-in:mymetric
+ * #2: metricUnit, e.g: MilliSeconds
+ * #3: metricQuery, e.g: metricSelector=metric&filter...
+ * #4: fullMetricQuery, e.g: metricQuery&from=123213&to=2323
+ * #5: entitySelectirSLIDefinition, e.g: ,entityid(FILTERDIMENSIONVALUE)
+ * #6: filterSLIDefinitionAttregator, e.g: , filter(eq(Test Step,FILTERDIMENSIONVALUE))
+ */
+func (ph *Handler) GenerateMetricQueryFromDataExplorer(dataQuery DataExplorerQuery, tileManagementZoneFilter string, startUnix time.Time, endUnix time.Time) (string, string, string, string, string, string, error) {
+
+	// Lets query the metric definition as we need to know how many dimension the metric has
+	metricDefinition, err := ph.ExecuteMetricAPIDescribe(dataQuery.Metric)
+	if err != nil {
+		ph.Logger.Debug(fmt.Sprintf("Error retrieving Metric Description for %s: %s. ", dataQuery.Metric, err.Error()))
+		return "", "", "", "", "", "", err
+	}
+
+	// building the merge aggregator string, e.g: merge(1):merge(0) - or merge(0)
+	metricDimensionCount := len(metricDefinition.DimensionDefinitions)
+	metricAggregation := metricDefinition.DefaultAggregation.Type
+	mergeAggregator := ""
+	filterAggregator := ""
+	filterSLIDefinitionAggregator := ""
+	entitySelectorSLIDefinition := ""
+	entityFilter := ""
+
+	// we need to merge all those dimensions based on the metric definition that are not included in the "splitBy"
+	// so - we iterate through the dimensions based on the metric definition from the back to front - and then merge those not included in splitBy
+	for metricDimIx := metricDimensionCount - 1; metricDimIx >= 0; metricDimIx-- {
+		ph.Logger.Debug(fmt.Sprintf("Processing Dimension Ix: %d", metricDimIx))
+
+		doMergeDimension := true
+		for _, splitDimension := range dataQuery.SplitBy {
+			ph.Logger.Debug(fmt.Sprintf("Comparing Dimensions %s - %s", splitDimension, metricDefinition.DimensionDefinitions[metricDimIx].Key))
+
+			if strings.Compare(splitDimension, metricDefinition.DimensionDefinitions[metricDimIx].Key) == 0 {
+				doMergeDimension = false
+			}
+		}
+
+		if doMergeDimension {
+			// this is a dimension we want to merge as it is not split by in the chart
+			ph.Logger.Debug(fmt.Sprintf("merging dimension %s. ", metricDefinition.DimensionDefinitions[metricDimIx].Key))
+			mergeAggregator = mergeAggregator + fmt.Sprintf(":merge(%d)", metricDimIx)
+		}
+	}
+
+	// Create the right entity Selectors for the queries execute
+	// TODO: we currently only support a single filter - if we want to support more we need to build this in
+	if dataQuery.FilterBy != nil && len(dataQuery.FilterBy.NestedFilters) > 0 {
+
+		if len(dataQuery.FilterBy.NestedFilters[0].Criteria) == 1 {
+			if strings.HasPrefix(dataQuery.FilterBy.NestedFilters[0].Filter, "dt.entity.") {
+				entitySelectorSLIDefinition = ",entityId(FILTERDIMENSIONVALUE)"
+				entityFilter = fmt.Sprintf("&entitySelector=entityId(%s)", dataQuery.FilterBy.NestedFilters[0].Criteria[0].Value)
+			} else {
+				filterSLIDefinitionAggregator = fmt.Sprintf(":filter(eq(%s,FILTERDIMENSIONVALUE))", dataQuery.FilterBy.NestedFilters[0].Filter)
+				filterAggregator = fmt.Sprintf(":filter(%s(%s,%s))", dataQuery.FilterBy.NestedFilters[0].Criteria[0].Evaluator, dataQuery.FilterBy.NestedFilters[0].Filter, dataQuery.FilterBy.NestedFilters[0].Criteria[0].Value)
+			}
+		} else {
+			ph.Logger.Debug(fmt.Sprintf("CURRENTLY ONLY SUPPORTING A SINGLE FILTER FOR DATA EXPLORER!!"))
+		}
+	}
+
+	// TODO: we currently only support one split dimension
+	// but - if we split by a dimension we need to include that dimension in our individual SLI query definitions - thats why we hand this back in the filter clause
+	if dataQuery.SplitBy != nil {
+		if len(dataQuery.SplitBy) == 1 {
+			filterSLIDefinitionAggregator = fmt.Sprintf("%s:filter(eq(%s,FILTERDIMENSIONVALUE))", filterSLIDefinitionAggregator, dataQuery.SplitBy[0])
+		} else {
+			ph.Logger.Debug(fmt.Sprintf("CURRENTLY ONLY SUPPORTING A SINGLE SPLITBY DIMENSION FOR DATA EXPLORER!!"))
+		}
+	}
+
+	// lets create the metricSelector and entitySelector
+	// ATTENTION: adding :names so we also get the names of the dimensions and not just the entities. This means we get two values for each dimension
+	metricQuery := fmt.Sprintf("metricSelector=%s%s%s:%s:names%s%s",
+		dataQuery.Metric, mergeAggregator, filterAggregator, strings.ToLower(metricAggregation),
+		entityFilter, tileManagementZoneFilter)
+
+	// lets build the Dynatrace API Metric query for the proposed timeframe and additonal filters!
+	fullMetricQuery, metricID := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix)
+
+	return metricID, metricDefinition.Unit, metricQuery, fullMetricQuery, entitySelectorSLIDefinition, filterSLIDefinitionAggregator, nil
+}
+
+/**
+ * Looks at the ChartSeries configuration of a regular chart and generates the Metrics Query
+ * Returns
+ * #1: metricId, e.g: built-in:mymetric
+ * #2: metricUnit, e.g: MilliSeconds
+ * #3: metricQuery, e.g: metricSelector=metric&filter...
+ * #4: fullMetricQuery, e.g: metricQuery&from=123213&to=2323
+ * #5: entitySelectirSLIDefinition, e.g: ,entityid(FILTERDIMENSIONVALUE)
+ * #6: filterSLIDefinitionAttregator, e.g: , filter(eq(Test Step,FILTERDIMENSIONVALUE))
+ */
+func (ph *Handler) GenerateMetricQueryFromChart(series ChartSeries, tileManagementZoneFilter string, filtersPerEntityType map[string]map[string][]string, startUnix time.Time, endUnix time.Time) (string, string, string, string, string, string, error) {
+	// Lets query the metric definition as we need to know how many dimension the metric has
+	metricDefinition, err := ph.ExecuteMetricAPIDescribe(series.Metric)
+	if err != nil {
+		ph.Logger.Debug(fmt.Sprintf("Error retrieving Metric Description for %s: %s. ", series.Metric, err.Error()))
+		return "", "", "", "", "", "", err
+	}
+
+	// building the merge aggregator string, e.g: merge(1):merge(0) - or merge(0)
+	metricDimensionCount := len(metricDefinition.DimensionDefinitions)
+	metricAggregation := metricDefinition.DefaultAggregation.Type
+	mergeAggregator := ""
+	filterAggregator := ""
+	filterSLIDefinitionAggregator := ""
+	entitySelectorSLIDefinition := ""
+
+	// now we need to merge all the dimensions that are not part of the series.dimensions, e.g: if the metric has two dimensions but only one dimension is used in the chart we need to merge the others
+	// as multiple-merges are possible but as they are executed in sequence we have to use the right index
+	for metricDimIx := metricDimensionCount - 1; metricDimIx >= 0; metricDimIx-- {
+		doMergeDimension := true
+		metricDimIxAsString := strconv.Itoa(metricDimIx)
+		// lets check if this dimension is in the chart
+		for _, seriesDim := range series.Dimensions {
+			ph.Logger.Debug(fmt.Sprintf("seriesDim.id: %s; metricDimIx: %s. ", seriesDim.ID, metricDimIxAsString))
+			if strings.Compare(seriesDim.ID, metricDimIxAsString) == 0 {
+				// this is a dimension we want to keep and not merge
+				ph.Logger.Debug(fmt.Sprintf("not merging dimension %s. ", metricDefinition.DimensionDefinitions[metricDimIx].Name))
+				doMergeDimension = false
+
+				// lets check if we need to apply a dimension filter
+				// TODO: support multiple filters - right now we only support 1
+				if len(seriesDim.Values) > 0 {
+					filterAggregator = fmt.Sprintf(":filter(eq(%s,%s))", seriesDim.Name, seriesDim.Values[0])
+				} else {
+					// we need this for the generation of the SLI for each individual dimension value
+					// if the dimension is a dt.entity we have to add an addiotnal entityId to the entitySelector - otherwise we add a filter for the dimension
+					if strings.HasPrefix(seriesDim.Name, "dt.entity.") {
+						entitySelectorSLIDefinition = fmt.Sprintf(",entityId(FILTERDIMENSIONVALUE)")
+					} else {
+						filterSLIDefinitionAggregator = fmt.Sprintf(":filter(eq(%s,FILTERDIMENSIONVALUE))", seriesDim.Name)
+					}
+				}
+			}
+		}
+
+		if doMergeDimension {
+			// this is a dimension we want to merge as it is not split by in the chart
+			ph.Logger.Debug(fmt.Sprintf("merging dimension %s. ", metricDefinition.DimensionDefinitions[metricDimIx].Name))
+			mergeAggregator = mergeAggregator + fmt.Sprintf(":merge(%d)", metricDimIx)
+		}
+	}
+
+	// handle aggregation. If "NONE" is specified we go to the defaultAggregration
+	if series.Aggregation != "NONE" {
+		metricAggregation = series.Aggregation
+	}
+	// for percentile we need to specify the percentile itself
+	if metricAggregation == "PERCENTILE" {
+		metricAggregation = fmt.Sprintf("%s(%f)", metricAggregation, series.Percentile)
+	}
+	// for rate measures such as failure rate we take average if it is "OF_INTEREST_RATIO"
+	if metricAggregation == "OF_INTEREST_RATIO" {
+		metricAggregation = "avg"
+	}
+	// for rate measures charting also provides the "OTHER_RATIO" option which is the inverse
+	// TODO: not supported via API - so we default to avg
+	if metricAggregation == "OTHER_RATIO" {
+		metricAggregation = "avg"
+	}
+
+	// TODO - handle aggregation rates -> probably doesnt make sense as we always evalute a short timeframe
+	// if series.AggregationRate
+
+	// lets get the true entity type as the one in the dashboard might not be accurate, e.g: IOT might be used instead of CUSTOM_DEVICE
+	// so - if the metric definition has EntityTypes defined we take the first one
+	entityType := series.EntityType
+	if len(metricDefinition.EntityType) > 0 {
+		entityType = metricDefinition.EntityType[0]
+	}
+
+	// Need to implement chart filters per entity type, e.g: its possible that a chart has a filter on entites or tags
+	// lets see if we have a FiltersPerEntityType for the tiles EntityType
+	entityTileFilter := ph.GetEntitySelectorFromEntityFilter(filtersPerEntityType, entityType)
+
+	// lets create the metricSelector and entitySelector
+	// ATTENTION: adding :names so we also get the names of the dimensions and not just the entities. This means we get two values for each dimension
+	metricQuery := fmt.Sprintf("metricSelector=%s%s%s:%s:names&entitySelector=type(%s)%s%s",
+		series.Metric, mergeAggregator, filterAggregator, strings.ToLower(metricAggregation),
+		entityType, entityTileFilter, tileManagementZoneFilter)
+
+	// lets build the Dynatrace API Metric query for the proposed timeframe and additonal filters!
+	fullMetricQuery, metricID := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix)
+
+	return metricID, metricDefinition.Unit, metricQuery, fullMetricQuery, entitySelectorSLIDefinition, filterSLIDefinitionAggregator, nil
+}
+
+/**
+ * Generates the relvant SLIs & SLO definitions based on the metric query
+ * noOfDimensionsInChart: how many dimensions did we have in the chart definition
+ */
+func (ph *Handler) GenerateSLISLOFromMetricsAPIQuery(noOfDimensionsInChart int, baseIndicatorName string, passSLOs []*keptn.SLOCriteria, warningSLOs []*keptn.SLOCriteria, weight int, keySli bool, metricID string, metricUnit string, metricQuery string, fullMetricQuery string, filterSLIDefinitionAggregator string, entitySelectorSLIDefinition string, dashboardSLI *SLI, dashboardSLO *keptn.ServiceLevelObjectives) []*keptn.SLIResult {
+
+	var sliResults []*keptn.SLIResult
+
+	// Lets run the Query and iterate through all data per dimension. Each Dimension will become its own indicator
+	queryResult, err := ph.ExecuteMetricsAPIQuery(fullMetricQuery)
+	if err != nil {
+		ph.Logger.Debug(fmt.Sprintf("No result for query: %v", err))
+
+		// ERROR-CASE: Metric API return no values or an error
+		// we couldnt query data - so - we return the error back as part of our SLIResults
+		sliResults = append(sliResults, &keptn.SLIResult{
+			Metric:  baseIndicatorName,
+			Value:   0,
+			Success: false, // Mark as failure
+			Message: err.Error(),
+		})
+
+		// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
+		dashboardSLI.Indicators[baseIndicatorName] = metricQuery
+	} else {
+		// SUCCESS-CASE: we retrieved values - now we interate through the results and create an indicator result for every dimension
+		for _, singleResult := range queryResult.Result {
+			ph.Logger.Debug(fmt.Sprintf("Processing result for %s - %s:%s", singleResult.MetricID, filterSLIDefinitionAggregator, entitySelectorSLIDefinition))
+			if ph.isMatchingMetricID(singleResult.MetricID, metricID) {
+				dataResultCount := len(singleResult.Data)
+				if dataResultCount == 0 {
+					ph.Logger.Debug(fmt.Sprintf("No data for this metric!. "))
+				}
+				for _, singleDataEntry := range singleResult.Data {
+					//
+					// we need to generate the indicator name based on the base name + all dimensions, e.g: teststep_MYTESTSTEP, teststep_MYOTHERTESTSTEP
+					// EXCEPTION: If there is only ONE data value then we skip this and just use the base SLI name
+					indicatorName := baseIndicatorName
+
+					metricQueryForSLI := metricQuery
+
+					// we need this one to "fake" the MetricQuery for the SLi.yaml to include the dynamic dimension name for each value
+					// we initialize it with ":names" as this is the part of the metric query string we will replace
+					filterSLIDefinitionAggregatorValue := ":names"
+
+					if dataResultCount > 1 {
+						// because we use the ":names" transformation we always get two dimension entries for entity dimensions, e.g: Host, Service .... First is the Name of the entity, then the ID of the Entity
+						// lets first validate that we really received Dimension Names
+						dimensionCount := len(singleDataEntry.Dimensions)
+						dimensionIncrement := 2
+						if dimensionCount != (noOfDimensionsInChart * 2) {
+							// ph.Logger.Debug(fmt.Sprintf("DIDNT RECEIVE ID and Names. Lets assume we just received the dimension IDs"))
+							dimensionIncrement = 1
+						}
+
+						// lets iterate through the list and get all names
+						for dimIx := 0; dimIx < len(singleDataEntry.Dimensions); dimIx = dimIx + dimensionIncrement {
+							dimensionValue := singleDataEntry.Dimensions[dimIx]
+							indicatorName = indicatorName + "_" + dimensionValue
+
+							filterSLIDefinitionAggregatorValue = ":names" + strings.Replace(filterSLIDefinitionAggregator, "FILTERDIMENSIONVALUE", dimensionValue, 1)
+
+							if entitySelectorSLIDefinition != "" && dimensionIncrement == 2 {
+								dimensionEntityID := singleDataEntry.Dimensions[dimIx+1]
+								metricQueryForSLI = metricQueryForSLI + strings.Replace(entitySelectorSLIDefinition, "FILTERDIMENSIONVALUE", dimensionEntityID, 1)
+							}
+						}
+					}
+
+					// make sure we have a valid indicator name by getting rid of special characters
+					indicatorName = common.CleanIndicatorName(indicatorName)
+
+					// calculating the value
+					value := 0.0
+					for _, singleValue := range singleDataEntry.Values {
+						value = value + singleValue
+					}
+					value = value / float64(len(singleDataEntry.Values))
+
+					// lets scale the metric
+					value = scaleData(metricID, metricUnit, value)
+
+					// we got our metric, slos and the value
+
+					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f", indicatorName, value))
+
+					// lets add the value to our SLIResult array
+					sliResults = append(sliResults, &keptn.SLIResult{
+						Metric:  indicatorName,
+						Value:   value,
+						Success: true,
+					})
+
+					// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
+					// we use ":names" to find the right spot to add our custom dimension filter
+					// we also "pre-pend" the metricDefinition.Unit - which allows us later on to do the scaling right
+					dashboardSLI.Indicators[indicatorName] = fmt.Sprintf("MV2;%s;%s", metricUnit, strings.Replace(metricQueryForSLI, ":names", filterSLIDefinitionAggregatorValue, 1))
+
+					// lets add the SLO definitin in case we need to generate an SLO.yaml
+					sloDefinition := &keptn.SLO{
+						SLI:     indicatorName,
+						Weight:  weight,
+						KeySLI:  keySli,
+						Pass:    passSLOs,
+						Warning: warningSLOs,
+					}
+					dashboardSLO.Objectives = append(dashboardSLO.Objectives, sloDefinition)
+				}
+			} else {
+				ph.Logger.Debug(fmt.Sprintf("Retrieving unintened metric %s while expecting %s. ", singleResult.MetricID, metricID))
+			}
+		}
+	}
+
+	return sliResults
+}
+
 // QueryDynatraceDashboardForSLIs implements - https://github.com/keptn-contrib/dynatrace-sli-service/issues/60
 // Queries Dynatrace for the existance of a dashboard tagged with keptn_project:project, keptn_stage:stage, keptn_service:service, SLI
 // if this dashboard exists it will be parsed and a custom SLI_dashboard.yaml and an SLO_dashboard.yaml will be created
@@ -1249,6 +1594,13 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 			continue
 		}
 
+		// get the tile specific management zone filter that might be needed by different tile processors
+		// Check for tile management zone filter - this would overwrite the dashboardManagementZoneFilter
+		tileManagementZoneFilter := dashboardManagementZoneFilter
+		if tile.TileFilter.ManagementZone != nil {
+			tileManagementZoneFilter = fmt.Sprintf(",mzId(%s)", tile.TileFilter.ManagementZone.ID)
+		}
+
 		if tile.TileType == "SLO" {
 			// we will take the SLO definition from Dynatrace
 			for _, sloEntity := range tile.AssignedEntities {
@@ -1309,6 +1661,35 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 			}
 		}
 
+		//
+		// here we handle the new Metric Data Explorer Tile
+		if tile.TileType == "DATA_EXPLORER" {
+
+			// first - lets figure out if this tile should be included in SLI validation or not - we parse the title and look for "sli=sliname"
+			baseIndicatorName, passSLOs, warningSLOs, weight, keySli := common.ParsePassAndWarningFromString(tile.Name, []string{}, []string{})
+			if baseIndicatorName == "" {
+				ph.Logger.Debug(fmt.Sprintf("Data Explorer Tile %s - NOT included as name doesnt include sli=SLINAME. ", tile.Name))
+				continue
+			}
+
+			// now lets process that tile - lets run through each query
+			for _, dataQuery := range tile.Queries {
+				ph.Logger.Debug(fmt.Sprintf("Processing Data Explorer Query: %s", dataQuery.Metric))
+
+				// First lets generate the query and extract all important metric information we need for generating SLIs & SLOs
+				metricID, metricUnit, metricQuery, fullMetricQuery, entitySelectorSLIDefinition, filterSLIDefinitionAggregator, err := ph.GenerateMetricQueryFromDataExplorer(dataQuery, tileManagementZoneFilter, startUnix, endUnix)
+
+				// if there was no error we generate the SLO & SLO definition
+				if err == nil {
+					newSliResults := ph.GenerateSLISLOFromMetricsAPIQuery(len(dataQuery.SplitBy), baseIndicatorName, passSLOs, warningSLOs, weight, keySli, metricID, metricUnit, metricQuery, fullMetricQuery, filterSLIDefinitionAggregator, entitySelectorSLIDefinition, dashboardSLI, dashboardSLO)
+					sliResults = append(sliResults, newSliResults...)
+				}
+
+			}
+			continue
+
+		}
+
 		// custom chart and usql have different ways to define their tile names - so - lets figure it out by looking at the potential values
 		tileTitle := tile.FilterConfig.CustomName // this is for all custom charts
 		if tileTitle == "" {
@@ -1318,7 +1699,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 		// first - lets figure out if this tile should be included in SLI validation or not - we parse the title and look for "sli=sliname"
 		baseIndicatorName, passSLOs, warningSLOs, weight, keySli := common.ParsePassAndWarningFromString(tileTitle, []string{}, []string{})
 		if baseIndicatorName == "" {
-			ph.Logger.Debug(fmt.Sprintf("Chart Tile %s - NOT included as name doesnt include sli=SLINAME\n", tileTitle))
+			ph.Logger.Debug(fmt.Sprintf("Tile %s - NOT included as name doesnt include sli=SLINAME. ", tileTitle))
 			continue
 		}
 
@@ -1329,208 +1710,13 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 			// we can potentially have multiple series on that chart
 			for _, series := range tile.FilterConfig.ChartConfig.Series {
 
-				// Lets query the metric definition as we need to know how many dimension the metric has
-				metricDefinition, err := ph.ExecuteMetricAPIDescribe(series.Metric)
-				if err != nil {
-					ph.Logger.Debug(fmt.Sprintf("Error retrieving Metric Description for %s: %s\n", series.Metric, err.Error()))
-					continue
-				}
+				// First lets generate the query and extract all important metric information we need for generating SLIs & SLOs
+				metricID, metricUnit, metricQuery, fullMetricQuery, entitySelectorSLIDefinition, filterSLIDefinitionAggregator, err := ph.GenerateMetricQueryFromChart(series, tileManagementZoneFilter, tile.FilterConfig.FiltersPerEntityType, startUnix, endUnix)
 
-				// building the merge aggregator string, e.g: merge(1):merge(0) - or merge(0)
-				metricDimensionCount := len(metricDefinition.DimensionDefinitions)
-				metricAggregation := metricDefinition.DefaultAggregation.Type
-				mergeAggregator := ""
-				filterAggregator := ""
-				filterSLIDefinitionAggregator := ""
-				entitySelectorSLIDefinition := ""
-
-				// now we need to merge all the dimensions that are not part of the series.dimensions, e.g: if the metric has two dimensions but only one dimension is used in the chart we need to merge the others
-				// as multiple-merges are possible but as they are executed in sequence we have to use the right index
-				for metricDimIx := metricDimensionCount - 1; metricDimIx >= 0; metricDimIx-- {
-					doMergeDimension := true
-					metricDimIxAsString := strconv.Itoa(metricDimIx)
-					// lets check if this dimension is in the chart
-					for _, seriesDim := range series.Dimensions {
-						ph.Logger.Debug(fmt.Sprintf("seriesDim.id: %s; metricDimIx: %s\n", seriesDim.ID, metricDimIxAsString))
-						if strings.Compare(seriesDim.ID, metricDimIxAsString) == 0 {
-							// this is a dimension we want to keep and not merge
-							ph.Logger.Debug(fmt.Sprintf("not merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name))
-							doMergeDimension = false
-
-							// lets check if we need to apply a dimension filter
-							// TODO: support multiple filters - right now we only support 1
-							if len(seriesDim.Values) > 0 {
-								filterAggregator = fmt.Sprintf(":filter(eq(%s,%s))", seriesDim.Name, seriesDim.Values[0])
-							} else {
-								// we need this for the generation of the SLI for each individual dimension value
-								// if the dimension is a dt.entity we have to add an addiotnal entityId to the entitySelector - otherwise we add a filter for the dimension
-								if strings.HasPrefix(seriesDim.Name, "dt.entity.") {
-									entitySelectorSLIDefinition = fmt.Sprintf(",entityId(FILTERDIMENSIONVALUE)")
-								} else {
-									filterSLIDefinitionAggregator = fmt.Sprintf(":filter(eq(%s,FILTERDIMENSIONVALUE))", seriesDim.Name)
-								}
-							}
-						}
-					}
-
-					if doMergeDimension {
-						// this is a dimension we want to merge as it is not split by in the chart
-						ph.Logger.Debug(fmt.Sprintf("merging dimension %s\n", metricDefinition.DimensionDefinitions[metricDimIx].Name))
-						mergeAggregator = mergeAggregator + fmt.Sprintf(":merge(%d)", metricDimIx)
-					}
-				}
-
-				// handle aggregation. If "NONE" is specified we go to the defaultAggregration
-				if series.Aggregation != "NONE" {
-					metricAggregation = series.Aggregation
-				}
-				// for percentile we need to specify the percentile itself
-				if metricAggregation == "PERCENTILE" {
-					metricAggregation = fmt.Sprintf("%s(%f)", metricAggregation, series.Percentile)
-				}
-				// for rate measures such as failure rate we take average if it is "OF_INTEREST_RATIO"
-				if metricAggregation == "OF_INTEREST_RATIO" {
-					metricAggregation = "avg"
-				}
-				// for rate measures charting also provides the "OTHER_RATIO" option which is the inverse
-				// TODO: not supported via API - so we default to avg
-				if metricAggregation == "OTHER_RATIO" {
-					metricAggregation = "avg"
-				}
-
-				// TODO - handle aggregation rates -> probably doesnt make sense as we always evalute a short timeframe
-				// if series.AggregationRate
-
-				// lets get the true entity type as the one in the dashboard might not be accurate, e.g: IOT might be used instead of CUSTOM_DEVICE
-				// so - if the metric definition has EntityTypes defined we take the first one
-				entityType := series.EntityType
-				if len(metricDefinition.EntityType) > 0 {
-					entityType = metricDefinition.EntityType[0]
-				}
-
-				// Need to implement chart filters per entity type, e.g: its possible that a chart has a filter on entites or tags
-				// lets see if we have a FiltersPerEntityType for the tiles EntityType
-				entityTileFilter := ph.GetEntitySelectorFromEntityFilter(tile.FilterConfig.FiltersPerEntityType, entityType)
-
-				// Check for tile management zone filter - this would overwrite the dashboardManagementZoneFilter
-				tileManagementZoneFilter := dashboardManagementZoneFilter
-				if tile.TileFilter.ManagementZone != nil {
-					tileManagementZoneFilter = fmt.Sprintf(",mzId(%s)", tile.TileFilter.ManagementZone.ID)
-				}
-
-				// lets create the metricSelector and entitySelector
-				// ATTENTION: adding :names so we also get the names of the dimensions and not just the entities. This means we get two values for each dimension
-				metricQuery := fmt.Sprintf("metricSelector=%s%s%s:%s:names&entitySelector=type(%s)%s%s",
-					series.Metric, mergeAggregator, filterAggregator, strings.ToLower(metricAggregation),
-					entityType, entityTileFilter, tileManagementZoneFilter)
-
-				// lets build the Dynatrace API Metric query for the proposed timeframe and additonal filters!
-				fullMetricQuery, metricID := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix)
-
-				// Lets run the Query and iterate through all data per dimension. Each Dimension will become its own indicator
-				queryResult, err := ph.ExecuteMetricsAPIQuery(fullMetricQuery)
-				if err != nil {
-					ph.Logger.Debug(fmt.Sprintf("No result for query: %v", err))
-
-					// ERROR-CASE: Metric API return no values or an error
-					// we couldnt query data - so - we return the error back as part of our SLIResults
-					sliResults = append(sliResults, &keptn.SLIResult{
-						Metric:  baseIndicatorName,
-						Value:   0,
-						Success: false, // Mark as failure
-						Message: err.Error(),
-					})
-
-					// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
-					dashboardSLI.Indicators[baseIndicatorName] = metricQuery
-				} else {
-					// SUCCESS-CASE: we retrieved values - now we interate through the results and create an indicator result for every dimension
-					for _, singleResult := range queryResult.Result {
-						ph.Logger.Debug(fmt.Sprintf("Processing result for %s\n", singleResult.MetricID))
-						if ph.isMatchingMetricID(singleResult.MetricID, metricID) {
-							dataResultCount := len(singleResult.Data)
-							if dataResultCount == 0 {
-								ph.Logger.Debug(fmt.Sprintf("No data for this metric!\n"))
-							}
-							for _, singleDataEntry := range singleResult.Data {
-								//
-								// we need to generate the indicator name based on the base name + all dimensions, e.g: teststep_MYTESTSTEP, teststep_MYOTHERTESTSTEP
-								// EXCEPTION: If there is only ONE data value then we skip this and just use the base SLI name
-								indicatorName := baseIndicatorName
-
-								metricQueryForSLI := metricQuery
-
-								// we need this one to "fake" the MetricQuery for the SLi.yaml to include the dynamic dimension name for each value
-								// we initialize it with ":names" as this is the part of the metric query string we will replace
-								filterSLIDefinitionAggregatorValue := ":names"
-
-								if dataResultCount > 1 {
-									// because we use the ":names" transformation we always get two dimension names. First is the NAme, then the ID
-									// lets first validate that we really received Dimension Names
-									dimensionCount := len(singleDataEntry.Dimensions)
-									dimensionIncrement := 2
-									if dimensionCount != (len(series.Dimensions) * 2) {
-										ph.Logger.Debug(fmt.Sprintf("DIDNT RECEIVE ID and Names. Lets assume we just received the dimension IDs"))
-										dimensionIncrement = 1
-									}
-
-									// lets iterate through the list and get all names
-									for dimIx := 0; dimIx < len(singleDataEntry.Dimensions); dimIx = dimIx + dimensionIncrement {
-										dimensionName := singleDataEntry.Dimensions[dimIx]
-										indicatorName = indicatorName + "_" + dimensionName
-
-										filterSLIDefinitionAggregatorValue = ":names" + strings.Replace(filterSLIDefinitionAggregator, "FILTERDIMENSIONVALUE", dimensionName, 1)
-
-										if entitySelectorSLIDefinition != "" && dimensionIncrement == 2 {
-											dimensionEntityID := singleDataEntry.Dimensions[dimIx+1]
-											metricQueryForSLI = metricQueryForSLI + strings.Replace(entitySelectorSLIDefinition, "FILTERDIMENSIONVALUE", dimensionEntityID, 1)
-										}
-									}
-								}
-
-								// make sure we have a valid indicator name by getting rid of special characters
-								indicatorName = common.CleanIndicatorName(indicatorName)
-
-								// calculating the value
-								value := 0.0
-								for _, singleValue := range singleDataEntry.Values {
-									value = value + singleValue
-								}
-								value = value / float64(len(singleDataEntry.Values))
-
-								// lets scale the metric
-								value = scaleData(metricDefinition.MetricID, metricDefinition.Unit, value)
-
-								// we got our metric, slos and the value
-
-								ph.Logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, value))
-
-								// lets add the value to our SLIResult array
-								sliResults = append(sliResults, &keptn.SLIResult{
-									Metric:  indicatorName,
-									Value:   value,
-									Success: true,
-								})
-
-								// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
-								// we use ":names" to find the right spot to add our custom dimension filter
-								// we also "pre-pend" the metricDefinition.Unit - which allows us later on to do the scaling right
-								dashboardSLI.Indicators[indicatorName] = fmt.Sprintf("MV2;%s;%s", metricDefinition.Unit, strings.Replace(metricQueryForSLI, ":names", filterSLIDefinitionAggregatorValue, 1))
-
-								// lets add the SLO definitin in case we need to generate an SLO.yaml
-								sloDefinition := &keptn.SLO{
-									SLI:     indicatorName,
-									Weight:  weight,
-									KeySLI:  keySli,
-									Pass:    passSLOs,
-									Warning: warningSLOs,
-								}
-								dashboardSLO.Objectives = append(dashboardSLO.Objectives, sloDefinition)
-							}
-						} else {
-							ph.Logger.Debug(fmt.Sprintf("Retrieving unintened metric %s while expecting %s\n", singleResult.MetricID, metricID))
-						}
-					}
+				// if there was no error we generate the SLO & SLO definition
+				if err == nil {
+					newSliResults := ph.GenerateSLISLOFromMetricsAPIQuery(len(series.Dimensions), baseIndicatorName, passSLOs, warningSLOs, weight, keySli, metricID, metricUnit, metricQuery, fullMetricQuery, filterSLIDefinitionAggregator, entitySelectorSLIDefinition, dashboardSLI, dashboardSLO)
+					sliResults = append(sliResults, newSliResults...)
 				}
 			}
 		}
@@ -1579,7 +1765,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 						indicatorName = indicatorName + "_" + dimensionName
 					}
 
-					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f\n", indicatorName, dimensionValue))
+					ph.Logger.Debug(fmt.Sprintf("%s: %0.2f. ", indicatorName, dimensionValue))
 
 					// lets add the value to our SLIResult array
 					sliResults = append(sliResults, &keptn.SLIResult{
@@ -1618,7 +1804,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 	// first we get the query from the SLI configuration based on its logical name
 	metricsQuery, err := ph.getTimeseriesConfig(metric)
 	if err != nil {
-		return 0, fmt.Errorf("Error when fetching SLI config for %s %s\n", metric, err.Error())
+		return 0, fmt.Errorf("Error when fetching SLI config for %s %s. ", metric, err.Error())
 	}
 	ph.Logger.Debug(fmt.Sprintf("Retrieved SLI config for %s: %s", metric, metricsQuery))
 
@@ -1742,7 +1928,7 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 		result, err := ph.ExecuteMetricsAPIQuery(metricsQuery)
 
 		if err != nil {
-			return 0, fmt.Errorf("Dynatrace Metrics API returned an error: %s\nThis was the query executed: %s", err.Error(), metricsQuery)
+			return 0, fmt.Errorf("Dynatrace Metrics API returned an error: %s. This was the query executed: %s", err.Error(), metricsQuery)
 		}
 
 		if result != nil {
