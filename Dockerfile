@@ -53,8 +53,8 @@ EXPOSE 8080
 ENV GOTRACEBACK=all
 
 # KEEP THE FOLLOWING LINES COMMENTED OUT!!! (they will be included within the travis-ci build)
-#travis-uncomment ADD docker/MANIFEST /
-#travis-uncomment COPY docker/entrypoint.sh /
-#travis-uncomment ENTRYPOINT ["/entrypoint.sh"]
+#build-uncomment ADD docker/MANIFEST /
+#build-uncomment COPY docker/entrypoint.sh /
+#build-uncomment ENTRYPOINT ["/entrypoint.sh"]
 
 CMD ["/dynatrace-sli-service"]
