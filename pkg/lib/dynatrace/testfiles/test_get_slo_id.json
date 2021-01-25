@@ -12,6 +12,8 @@
   "metricDenominator": "calc:service.webrequesttotalcount:splitBy()",
   "targetSuccess": 99.98,
   "targetWarning": 99.99,
+  "target": 99.98,
+  "Warning": 99.99,
   "evaluationType": "AGGREGATE",
   "timeWindow": "-1w",
   "filter": "type(SERVICE),entityName(\"simplenode.prod.primary\")"

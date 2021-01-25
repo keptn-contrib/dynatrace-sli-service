@@ -13,7 +13,7 @@ By default, even if you do not specify a custom SLI.yaml or a Dynatrace dashboar
 
 ```
  - throughput: builtin:service.requestCount.total
- - error_rate: builtin:service.errors.total.count
+ - error_rate: builtin:service.errors.total.rate
  - response_time_p50: builtin:service.response.time:percentile(50)
  - response_time_p90: builtin:service.response.time:percentile(90)
  - response_time_p95: builtin:service.response.time:percentile(95)
@@ -48,6 +48,7 @@ metric in Dynatrace: Application, Service, Process executes your queryGroups, Ho
 |   0.7.2    | keptncontrib/dynatrace-sli-service:0.7.0 |
 |   0.7.2+    | keptncontrib/dynatrace-sli-service:0.7.1 |
 |   0.7.3    | keptncontrib/dynatrace-sli-service:0.7.2 |
+|   0.7.3    | keptncontrib/dynatrace-sli-service:0.7.3 |
 
 ## Installation
 
@@ -194,7 +195,7 @@ The default SLI queries that come with the *dynatrace-sli-service* are defined a
 spec_version: "1.0"
 indicators:
  throughput: "metricSelector=builtin:service.requestCount.total:merge(0):sum&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"
- error_rate: "metricSelector=builtin:service.errors.total.count:merge(0):avg&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"
+ error_rate: "metricSelector=builtin:service.errors.total.rate:merge(0):avg&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"
  response_time_p50: "metricSelector=builtin:service.response.time:merge(0):percentile(50)&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"
  response_time_p90: "metricSelector=builtin:service.response.time:merge(0):percentile(90)&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"
  response_time_p95: "metricSelector=builtin:service.response.time:merge(0):percentile(95)&entitySelector=tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT),type(SERVICE)"

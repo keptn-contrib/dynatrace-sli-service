@@ -473,7 +473,7 @@ func ParsePassAndWarningFromString(customName string, defaultPass []string, defa
 
 		// for each name=value pair we get the name as first part of the string until the first =
 		// the value is the after that =
-		nameString := nameValueSplits[i][:nameValueDividerIndex]
+		nameString := strings.ToLower(nameValueSplits[i][:nameValueDividerIndex])
 		valueString := nameValueSplits[i][nameValueDividerIndex+1:]
 		switch nameString /*nameValueSplit[0]*/ {
 		case "sli":
