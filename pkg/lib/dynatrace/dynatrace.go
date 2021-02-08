@@ -257,7 +257,7 @@ func NewDynatraceHandler(apiURL string, keptnEvent *common.BaseKeptnEvent, heade
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: !IsHttpSSLVerificationEnabled()},
 	}
 	ph := &Handler{
-		ApiURL:        apiURL,
+		ApiURL:        strings.TrimSuffix(apiURL, "/"),
 		KeptnEvent:    keptnEvent,
 		HTTPClient:    &http.Client{Transport: tr},
 		Headers:       headers,
@@ -571,7 +571,7 @@ func (ph *Handler) BuildDynatraceUSQLQuery(query string, startUnix time.Time, en
 //  #1: Finalized Dynatrace API Query
 //  #2: MetricID that this query will return, e.g: builtin:host.cpu
 //  #3: error
-func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time.Time, endUnix time.Time) (string, string) {
+func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time.Time, endUnix time.Time) (string, string, error) {
 	// replace query params (e.g., $PROJECT, $STAGE, $SERVICE ...)
 	metricquery = ph.replaceQueryParameters(metricquery)
 
@@ -608,8 +608,14 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 		"to":         common.TimestampToString(endUnix),
 	}
 	// append queryParams to targetURL
-	u, _ := url.Parse(targetURL)
-	q, _ := url.ParseQuery(u.RawQuery)
+	u, err := url.Parse(targetURL)
+	if err != nil {
+		return "", "", fmt.Errorf("could not parse metrics URL: %s", err.Error())
+	}
+	q, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return "", "", fmt.Errorf("could not parse metrics URL: %s", err.Error())
+	}
 
 	for param, value := range queryParams {
 		q.Add(param, value)
@@ -638,7 +644,7 @@ func (ph *Handler) BuildDynatraceMetricsQuery(metricquery string, startUnix time
 	u.RawQuery = q.Encode()
 	ph.Logger.Debug(fmt.Sprintf("Final Query=%s", u.String()))
 
-	return u.String(), metricSelector
+	return u.String(), metricSelector, nil
 }
 
 // ParsePassAndWarningFromString takes a value such as
@@ -1047,8 +1053,24 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 					series.Metric, mergeAggregator, filterAggregator, strings.ToLower(metricAggregation),
 					entityType, entityTileFilter, tileManagementZoneFilter)
 
-				// lets build the Dynatrace API Metric query for the proposed timeframe and additonal filters!
-				fullMetricQuery, metricID := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix)
+				// lets build the Dynatrace API Metric query for the proposed timeframe and additional filters!
+				fullMetricQuery, metricID, err := ph.BuildDynatraceMetricsQuery(metricQuery, startUnix, endUnix)
+				if err != nil {
+					ph.Logger.Debug(fmt.Sprintf("could not build query: %v", err))
+
+					// ERROR-CASE: Metric API return no values or an error
+					// we couldn't query data - so - we return the error back as part of our SLIResults
+					sliResults = append(sliResults, &keptnv2.SLIResult{
+						Metric:  baseIndicatorName,
+						Value:   0,
+						Success: false, // Mark as failure
+						Message: err.Error(),
+					})
+
+					// add this to our SLI Indicator JSON in case we need to generate an SLI.yaml
+					dashboardSLI.Indicators[baseIndicatorName] = metricQuery
+					continue
+				}
 
 				// Lets run the Query and iterate through all data per dimension. Each Dimension will become its own indicator
 				queryResult, err := ph.ExecuteMetricsAPIQuery(fullMetricQuery)
@@ -1056,7 +1078,7 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 					ph.Logger.Debug(fmt.Sprintf("No result for query: %v", err))
 
 					// ERROR-CASE: Metric API return no values or an error
-					// we couldnt query data - so - we return the error back as part of our SLIResults
+					// we couldn't query data - so - we return the error back as part of our SLIResults
 					sliResults = append(sliResults, &keptnv2.SLIResult{
 						Metric:  baseIndicatorName,
 						Value:   0,
@@ -1312,7 +1334,10 @@ func (ph *Handler) GetSLIValue(metric string, startUnix time.Time, endUnix time.
 		//
 		// In this case we are querying regular MEtrics
 		// now we are enriching it with all the additonal parameters, e.g: time, filters ...
-		metricsQuery, metricID := ph.BuildDynatraceMetricsQuery(metricsQuery, startUnix, endUnix)
+		metricsQuery, metricID, err := ph.BuildDynatraceMetricsQuery(metricsQuery, startUnix, endUnix)
+		if err != nil {
+			return 0, err
+		}
 		result, err := ph.ExecuteMetricsAPIQuery(metricsQuery)
 
 		if err != nil {
