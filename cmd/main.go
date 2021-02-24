@@ -483,11 +483,8 @@ func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *keptnv2.Ge
 			Status:  keptnv2.StatusSucceeded,
 			Result:  keptnv2.ResultPass,
 		},
-		GetSLI: struct {
-			Start           string               `json:"start"`
-			End             string               `json:"end"`
-			IndicatorValues []*keptnv2.SLIResult `json:"indicatorValues"`
-		}{
+
+		GetSLI: keptnv2.GetSLIFinished{
 			IndicatorValues: indicatorValues,
 			Start:           eventData.GetSLI.Start,
 			End:             eventData.GetSLI.End,
