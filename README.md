@@ -50,6 +50,7 @@ metric in Dynatrace: Application, Service, Process executes your queryGroups, Ho
 |   0.7.3    | keptncontrib/dynatrace-sli-service:0.7.2 |
 |   0.7.3    | keptncontrib/dynatrace-sli-service:0.7.3 |
 | 0.8.0-alpha	| keptncontrib/dynatrace-sli-service:0.8.0-alpha |
+| 0.8.0	| keptncontrib/dynatrace-sli-service:0.8.0 |
 
 ## Installation
 
@@ -91,7 +92,7 @@ To delete a deployed *dynatrace-sli-service*, use the file `deploy/*.yaml` files
 kubectl delete -f deploy/service.yaml -n keptn
 ```
 
-## Pre-Requisits: Dynatrace Tenant URL & API Token
+## Pre-Requisites: Dynatrace Tenant URL & API Token
 
 In order for the *dynatrace-sli-service* to connect to Dynatrace you need to provide a Dynatrace Tenant URL and a Dynatrace API Token. In our examples below we use the best practice to export these values in the environment variables DT_TENANT and DT_API_TOKEN as explained in the [Keptn documentation for Dynatrace](https://keptn.sh/docs/0.7.x/monitoring/dynatrace/install/)
 
