@@ -202,9 +202,10 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
  * Second will go to parse the SLI.yaml and returns the SLI as passed in by the event
  */
 func retrieveMetrics(event cloudevents.Event) error {
+
 	var shkeptncontext string
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
-	eventData := &keptnv2.GetSLITriggeredEventData{}
+	eventData := &GetSLITriggeredExtendedEventData{}
 	err := event.DataAs(eventData)
 	if err != nil {
 		return err
@@ -242,6 +243,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	keptnEvent.Stage = eventData.Stage
 	keptnEvent.Service = eventData.Service
 	keptnEvent.Labels = eventData.Labels
+	keptnEvent.Deployment = eventData.Deployment
 	keptnEvent.Context = shkeptncontext
 	dynatraceConfigFile, _ := common.GetDynatraceConfig(keptnEvent, stdLogger)
 
@@ -445,7 +447,7 @@ func getDynatraceCredentials(secretName string, project string, logger *keptn.Lo
 /**
  * Sends the SLI Done Event. If err != nil it will send an error message
  */
-func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData, indicatorValues []*keptnv2.SLIResult, err error) error {
+func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *GetSLITriggeredExtendedEventData, indicatorValues []*keptnv2.SLIResult, err error) error {
 
 	source, _ := url.Parse("dynatrace-sli-service")
 
@@ -508,7 +510,7 @@ func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *keptnv2.Ge
 	return sendEvent(event)
 }
 
-func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData) error {
+func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *GetSLITriggeredExtendedEventData) error {
 
 	source, _ := url.Parse("dynatrace-sli-service")
 
@@ -553,4 +555,11 @@ func sendEvent(event cloudevents.Event) error {
 	_ = keptnHandler.SendCloudEvent(event)
 
 	return nil
+}
+
+// GetSLITriggeredExtendedEventData is a wrapper around the keptnv2.GetSLITriggeredEventData to also include
+// The deployment field needed by the SLI service (https://github.com/keptn/keptn/issues/3411)
+type GetSLITriggeredExtendedEventData struct {
+	keptnv2.GetSLITriggeredEventData
+	Deployment string `json:"deployment"`
 }
