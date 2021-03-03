@@ -9,6 +9,7 @@
 ## Fixed Issues
 
   - Added error handling for metrics queries #122
+  - Fixed a problem with `deployment` field not being populated (occured after #102)
 
 ## Known Limitations
 
