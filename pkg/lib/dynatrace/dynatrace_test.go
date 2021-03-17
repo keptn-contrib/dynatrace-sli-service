@@ -2,6 +2,7 @@ package dynatrace
 
 import (
 	"fmt"
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -49,6 +50,7 @@ func testingDynatraceHTTPClient() (*http.Client, string, func()) {
 			"/api/v2/metrics/builtin:host.mem.usage":                         "./testfiles/test_get_metrics_hostmemusage.json",
 			"/api/v2/metrics/builtin:host.disk.queueLength":                  "./testfiles/test_get_metrics_hostdiskqueue.json",
 			"/api/v2/metrics/builtin:service.nonDbChildCallCount":            "./testfiles/test_get_metrics_nondbcallcount.json",
+			"/api/v2/metrics/jmeter.usermetrics.transaction.meantime":        "./testfiles/test_get_metrics_jmeter_usermetrics_transaction_meantime.json",
 		}
 
 		log.Println("Mock for: " + r.URL.Path)
@@ -315,7 +317,7 @@ func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
 		t.Errorf("No Dashboard JSON returned")
 	}
 
-	expectedSLOs := 12
+	expectedSLOs := 14
 
 	// validate the SLIs - there should be 9 SLIs coming back
 	if dashboardSLI == nil {
@@ -396,7 +398,7 @@ func TestGetSLIValueWithSLOPrefix(t *testing.T) {
 
 func TestGetCustomQueries(t *testing.T) {
 	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
-	keptn.NewLogger("test-context", "test-event", "dynatrace-sli-service-testing")
+	keptncommon.NewLogger("test-context", "test-event", "dynatrace-sli-service-testing")
 
 	common.RunLocal = true
 

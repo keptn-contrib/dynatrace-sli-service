@@ -96,24 +96,6 @@ func GetKubernetesClient() (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-/**
- * Returns the Keptn Domain stored in the keptn-domainconfigmap
- */
-func GetKeptnDomain() (string, error) {
-	kubeAPI, err := GetKubernetesClient()
-	if kubeAPI == nil || err != nil {
-		return "", err
-	}
-
-	keptnDomainCM, errCM := kubeAPI.CoreV1().ConfigMaps(namespace).Get("keptn-domain", metav1.GetOptions{})
-	if errCM != nil {
-		return "", errors.New("Could not retrieve keptn-domain ConfigMap: " + errCM.Error())
-	}
-
-	keptnDomain := keptnDomainCM.Data["app_domain"]
-	return keptnDomain, nil
-}
-
 //
 // replaces $ placeholders with actual values
 // $CONTEXT, $EVENT, $SOURCE
@@ -242,12 +224,12 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 					return "", err
 				}
 
-				logger.Debug("Found " + resourceURI + " on project level")
+				logger.Debug("Found " + resourceURI + " on project level: " + keptnEvent.Project)
 			} else {
-				logger.Debug("Found " + resourceURI + " on stage level")
+				logger.Debug("Found " + resourceURI + " on stage level: " + keptnEvent.Stage)
 			}
 		} else {
-			logger.Debug("Found " + resourceURI + " on service level")
+			logger.Debug("Found " + resourceURI + " on service level: " + keptnEvent.Service)
 		}
 		fileContent = keptnResourceContent.ResourceContent
 	}
@@ -419,7 +401,7 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 		secret, err := kubeAPI.CoreV1().Secrets(namespace).Get(dynatraceSecretName, metav1.GetOptions{})
 
 		if err != nil {
-			return nil, fmt.Errorf("error retrieving Dynatrace credentials: could not retrieve secret %s: %v", dynatraceSecretName, err)
+			return nil, fmt.Errorf("error retrieving Dynatrace credentials: could not retrieve secret %s.%s: %v", namespace, dynatraceSecretName, err)
 		}
 
 		// grabnerandi: remove check on DT_PAAS_TOKEN as it is not relevant for quality-gate-only use case
