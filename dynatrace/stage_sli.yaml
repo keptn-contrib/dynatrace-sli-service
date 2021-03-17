@@ -1,0 +1,6 @@
+spec_version: ""
+indicators:
+  bounce_rate: "metricSelector=builtin:apps.web.bouncedSessionRatio:merge(2):merge(1):value:names;entitySelector=type(APPLICATION),mzId(3454183460044244211)"
+  camp_adoption: "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign='spring_sale'"
+  camp_bounces: "select count(internalUserId) as \"Session Count\" FROM usersession where usersession.stringProperties.web_utm_campaign is not null and usersession.stringProperties.web_utm_campaign='spring_sale' and bounce = true"
+  vis_complete: "metricSelector=builtin:apps.web.visuallyComplete.load.browser:merge(1):avg:names&entitySelector=type(APPLICATION),mzId(3454183460044244211)"

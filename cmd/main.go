@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	keptncommon "github.com/keptn/go-utils/pkg/lib"
 	"log"
 	"net/url"
 	"os"
@@ -31,7 +31,8 @@ import (
 
 const eventbroker = "EVENTBROKER"
 const configservice = "CONFIGURATION_SERVICE"
-const sliResourceURI = "dynatrace/sli.yaml"
+
+const PROBLEM_OPEN_SLI = "problem_open"
 
 type envConfig struct {
 	// Port on which to listen for cloudevents
@@ -139,6 +140,50 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
 }
 
 /**
+ * Adds an SLO Entry to the SLO.yaml
+ */
+func addSLO(keptnEvent *common.BaseKeptnEvent, newSLO *keptncommon.SLO, logger *keptn.Logger) error {
+
+	// this is the default SLO in case none has yet been uploaded
+	dashboardSLO := &keptncommon.ServiceLevelObjectives{
+		Objectives: []*keptncommon.SLO{},
+		TotalScore: &keptncommon.SLOScore{Pass: "90%", Warning: "75%"},
+		Comparison: &keptncommon.SLOComparison{CompareWith: "single_result", IncludeResultWithScore: "pass", NumberOfComparisonResults: 1, AggregateFunction: "avg"},
+	}
+
+	// first - lets load the SLO.yaml from the config repo
+	sloContent, err := common.GetKeptnResource(keptnEvent, common.KeptnSLOFilename, logger)
+	if err == nil && sloContent != "" {
+		err := json.Unmarshal([]byte(sloContent), dashboardSLO)
+		if err != nil {
+			return fmt.Errorf("Couldnt parse existing SLO.yaml: %v", err)
+		}
+	}
+
+	// now we add the SLO Definition to the objectives - but first validate if it is not already there
+	for _, objective := range dashboardSLO.Objectives {
+		if objective.SLI == newSLO.SLI {
+			return nil
+		}
+	}
+
+	// now - lets add our newSLO to the list
+	dashboardSLO.Objectives = append(dashboardSLO.Objectives, newSLO)
+
+	// and now we save it back to Keptn
+	if dashboardSLO != nil {
+		yamlAsByteArray, _ := yaml.Marshal(dashboardSLO)
+
+		err := common.UploadKeptnResource(yamlAsByteArray, common.KeptnSLOFilename, keptnEvent, logger)
+		if err != nil {
+			return fmt.Errorf("could not store %s : %v", common.KeptnSLOFilename, err)
+		}
+	}
+
+	return nil
+}
+
+/**
  * Tries to find a dynatrace dashboard that matches our project. If so - returns the SLI, SLO and SLIResults
  */
 func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEvent *common.BaseKeptnEvent, startUnix time.Time, endUnix time.Time, dashboardConfig string) (string, []*keptnv2.SLIResult, error) {
@@ -196,6 +241,33 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 }
 
 /**
+ * getDynatraceProblemContext
+ *
+ * Will evaluate the event and - if it finds a dynatrace problem ID - will return this - otherwise it will return 0
+ */
+func getDynatraceProblemContext(eventData *keptnv2.GetSLITriggeredEventData) string {
+
+	// iterate through the labels and find Problem URL
+	if eventData.Labels == nil || len(eventData.Labels) == 0 {
+		return ""
+	}
+
+	for labelName, labelValue := range eventData.Labels {
+		if strings.ToLower(labelName) == "problem url" {
+			// the value should be of form https://dynatracetenant/#problems/problemdetails;pid=8485558334848276629_1604413609638V2
+			// so - lets get the last part after pid=
+
+			ix := strings.LastIndex(labelValue, ";pid=")
+			if ix > 0 {
+				return labelValue[ix+5:]
+			}
+		}
+	}
+
+	return ""
+}
+
+/**
  * Handles keptn.InternalGetSLIEventType
  *
  * First tries to find a Dynatrace dashboard and then parses it for SLIs and SLOs
@@ -206,15 +278,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
 	eventData := &keptnv2.GetSLITriggeredEventData{}
 	err := event.DataAs(eventData)
-	if err != nil {
-		return err
-	}
-
-	//
-	// Lets get a new Keptn Handler
-	keptnHandler, err := keptnv2.NewKeptn(&event, keptn.KeptnOpts{
-		ConfigurationServiceURL: os.Getenv(configservice),
-	})
 	if err != nil {
 		return err
 	}
@@ -312,7 +375,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	// Option 2: If we have not received any data via a Dynatrace Dashboard lets query the SLIs based on the SLI.yaml definition
 	if sliResults == nil {
 		// get custom metrics for project if they exist
-		projectCustomQueries, _ := getCustomQueries(keptnEvent, keptnHandler, stdLogger)
+		projectCustomQueries, _ := common.GetCustomQueries(keptnEvent, stdLogger)
 
 		// set our list of queries on the handler
 		if projectCustomQueries != nil {
@@ -321,24 +384,28 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 		// query all indicators
 		for _, indicator := range eventData.GetSLI.Indicators {
-			stdLogger.Info("Fetching indicator: " + indicator)
-			sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix)
-			if err != nil {
-				stdLogger.Error(err.Error())
-				// failed to fetch metric
-				sliResults = append(sliResults, &keptnv2.SLIResult{
-					Metric:  indicator,
-					Value:   0,
-					Success: false, // Mark as failure
-					Message: err.Error(),
-				})
+			if strings.Compare(indicator, PROBLEM_OPEN_SLI) == 0 {
+				stdLogger.Info("Skip " + indicator + " as it is handled later!")
 			} else {
-				// successfully fetched metric
-				sliResults = append(sliResults, &keptnv2.SLIResult{
-					Metric:  indicator,
-					Value:   sliValue,
-					Success: true, // mark as success
-				})
+				stdLogger.Info("Fetching indicator: " + indicator)
+				sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix)
+				if err != nil {
+					stdLogger.Error(err.Error())
+					// failed to fetch metric
+					sliResults = append(sliResults, &keptnv2.SLIResult{
+						Metric:  indicator,
+						Value:   0,
+						Success: false, // Mark as failure
+						Message: err.Error(),
+					})
+				} else {
+					// successfully fetched metric
+					sliResults = append(sliResults, &keptnv2.SLIResult{
+						Metric:  indicator,
+						Value:   sliValue,
+						Success: true, // mark as success
+					})
+				}
 			}
 		}
 
@@ -349,73 +416,62 @@ func retrieveMetrics(event cloudevents.Event) error {
 			}
 			return nil
 		}
+	}
 
+	//
+	// ARE WE CALLED IN CONTEXT OF A PROBLEM REMEDIATION??
+	// If so - we should try to query the status of the Dynatrace Problem that triggered this evaluation
+	problemId := getDynatraceProblemContext(eventData)
+	if problemId != "" {
+		problemIndicator := PROBLEM_OPEN_SLI
+		openProblemValue := 0.0
+		success := false
+		message := ""
+
+		// lets query the status of this problem and add it to the SLI Result
+		dynatraceProblem, err := dynatraceHandler.ExecuteGetDynatraceProblemById(problemId)
+		if err != nil {
+			message = err.Error()
+		}
+
+		if dynatraceProblem != nil {
+			success = true
+			if dynatraceProblem.Status == "OPEN" {
+				openProblemValue = 1.0
+			}
+		}
+
+		// lets add this to the sliResults
+		sliResults = append(sliResults, &keptnv2.SLIResult{
+			Metric:  problemIndicator,
+			Value:   openProblemValue,
+			Success: success,
+			Message: message,
+		})
+
+		// lets add this to the SLO in case this indicator is not yet in SLO.yaml. Becuase if it doesnt get added the lighthouse wont evaluate the SLI values
+		// we default it to open_problems<=0
+		sloString := fmt.Sprintf("sli=%s;pass=<=0;key=true", problemIndicator)
+		_, passSLOs, warningSLOs, weight, keySli := common.ParsePassAndWarningFromString(sloString, []string{}, []string{})
+		sloDefinition := &keptncommon.SLO{
+			SLI:     problemIndicator,
+			Weight:  weight,
+			KeySLI:  keySli,
+			Pass:    passSLOs,
+			Warning: warningSLOs,
+		}
+		addSLO(keptnEvent, sloDefinition, dynatraceHandler.Logger)
 	}
 
 	// now - lets see if we have captured any result values - if not - return send an error
 	err = nil
 	if sliResults == nil {
-		err = errors.New("Couldnt retrieve any SLI Results")
+		err = errors.New("Couldn't retrieve any SLI Results")
 	}
 
 	stdLogger.Info("Finished fetching metrics; Sending SLIDone event now ...")
 
 	return sendGetSLIFinishedEvent(event, eventData, sliResults, err)
-}
-
-/**
- * Loads SLIs from a local file and adds it to the SLI map
- */
-func addResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliFileContent string, logger *keptn.Logger) (map[string]string, error) {
-
-	if sliFilePath != "" {
-		localFileContent, err := ioutil.ReadFile(sliFilePath)
-		if err != nil {
-			logMessage := fmt.Sprintf("Couldn't load file content from %s", sliFilePath)
-			logger.Info(logMessage)
-			return nil, nil
-		}
-		logger.Info("Loaded LOCAL file " + sliFilePath)
-		sliFileContent = string(localFileContent)
-	} else {
-		// we just take what was passed in the sliFileContent
-	}
-
-	if sliFileContent != "" {
-		sliConfig := keptn.SLIConfig{}
-		err := yaml.Unmarshal([]byte(sliFileContent), &sliConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		for key, value := range sliConfig.Indicators {
-			SLIs[key] = value
-		}
-	}
-	return SLIs, nil
-}
-
-/**
- * getCustomQueries loads custom SLIs from dynatrace/sli.yaml
- * if there is no sli.yaml it will just return an empty map
- */
-func getCustomQueries(keptnEvent *common.BaseKeptnEvent, keptnHandler *keptnv2.Keptn, logger *keptn.Logger) (map[string]string, error) {
-	var sliMap = map[string]string{}
-	if common.RunLocal || common.RunLocalTest {
-		sliMap, _ = addResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "", logger)
-		return sliMap, nil
-	}
-
-	// load dynatrace/sli.yaml - if its there we add it to the sliMap
-	sliContent, err := common.GetKeptnResource(keptnEvent, sliResourceURI, logger)
-	if err != nil {
-		logger.Info(fmt.Sprintf("No custom SLI queries for project=%s,stage=%s,service=%s found as no dynatrace/sli.yaml in repo. Going with default!", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
-	} else {
-		logger.Info(fmt.Sprintf("Found custom SLI queries in dynatrace/sli.yaml for project=%s,stage=%s,service=%s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
-		sliMap, _ = addResourceContentToSLIMap(sliMap, "", sliContent, logger)
-	}
-
-	return sliMap, nil
 }
 
 /**
