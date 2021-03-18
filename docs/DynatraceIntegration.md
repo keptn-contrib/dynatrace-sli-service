@@ -48,7 +48,7 @@ and mapped to Dynatrace metrics as follows:
 | Name               | Metric                                          | AggregationType[^2]           |
 |--------------------|-------------------------------------------------|-------------------------------|
 | Throughput         | builtin:service.requestCount.total              | `:merge(0):sum`               |
-| ErrorRate          | builtin:service.errors.total.count              | `:merge(0):avg`               |
+| ErrorRate          | builtin:service.errors.total.rate               | `:merge(0):avg`               |
 | ResponseTimeP50    | builtin:service.response.time[^1]               | `:merge(0):percentile(50)`    |
 | ResponseTimeP90    | builtin:service.response.time[^1]               | `:merge(0):percentile(90)`    |
 | ResponseTimeP95    | builtin:service.response.time[^1]               | `:merge(0):percentile(95)`    |

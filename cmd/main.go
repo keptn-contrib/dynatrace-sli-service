@@ -343,9 +343,14 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	//
 	// creating Dynatrace Handler which allows us to call the Dynatrace API
-	dynatraceHandler := dynatrace.NewDynatraceHandler(dtCredentials.Tenant, keptnEvent, map[string]string{
-		"Authorization": "Api-Token " + dtCredentials.ApiToken,
-	}, eventData.GetSLI.CustomFilters, shkeptncontext, event.ID())
+	dynatraceHandler := dynatrace.NewDynatraceHandler(
+		dtCredentials.Tenant,
+		keptnEvent,
+		map[string]string{
+			"Authorization": "Api-Token " + dtCredentials.ApiToken,
+			"User-Agent":    "keptn-contrib/dynatrace-sli-service:" + os.Getenv("version"),
+		},
+		eventData.GetSLI.CustomFilters, shkeptncontext, event.ID())
 
 	//
 	// parse start and end (which are datetime strings) and convert them into unix timestamps

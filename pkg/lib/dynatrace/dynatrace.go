@@ -250,8 +250,10 @@ type DynatraceSLOResult struct {
 	MetricRate          string  `json:"metricRate"`
 	MetricNumerator     string  `json:"metricNumerator"`
 	MetricDenominator   string  `json:"metricDenominator"`
-	TargetSuccess       float64 `json:"targetSuccess"`
-	TargetWarning       float64 `json:"targetWarning"`
+	TargetSuccessOLD    float64 `json:"targetSuccess"`
+	TargetWarningOLD    float64 `json:"targetWarning"`
+	Target              float64 `json:"target"`
+	Warning             float64 `json:"warning"`
 	EvaluationType      string  `json:"evaluationType"`
 	TimeWindow          string  `json:"timeWindow"`
 	Filter              string  `json:"filter"`
@@ -611,15 +613,8 @@ func (ph *Handler) ExecuteGetDynatraceSLO(sloID string, startUnix time.Time, end
 	if err != nil {
 		return nil, err
 	}
-	if resp == nil || resp.StatusCode != 200 {
+	if resp == nil {
 		return nil, fmt.Errorf("No valid response from SLO api for query: %s", targetURL)
-	}
-
-	// parse response json
-	var result DynatraceSLOResult
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
 	}
 
 	// make sure the status code from the API is 200
@@ -630,12 +625,19 @@ func (ph *Handler) ExecuteGetDynatraceSLO(sloID string, startUnix time.Time, end
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtApiv2Error.Error.Code, dtApiv2Error.Error.Message)
 		}
 		return nil, fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
-	} else {
-		// for SLO - its also possible that there is an HTTP 200 but there is an error text in the error property!
-		// Since Sprint 206 the error property is always there - but - will have the value "NONE" in case there is no actual error retrieving the value
-		if result.Error != "NONE" {
-			return nil, fmt.Errorf("Dynatrace API returned an error: %s", result.Error)
-		}
+	}
+
+	// parse response json
+	var result DynatraceSLOResult
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	// for SLO - its also possible that there is an HTTP 200 but there is an error text in the error property!
+	// Since Sprint 206 the error property is always there - but - will have the value "NONE" in case there is no actual error retrieving the value
+	if result.Error != "NONE" {
+		return nil, fmt.Errorf("Dynatrace API returned an error: %s", result.Error)
 	}
 
 	return &result, nil
@@ -657,15 +659,8 @@ func (ph *Handler) ExecuteGetDynatraceProblems(problemQuery string, startUnix ti
 	if err != nil {
 		return nil, err
 	}
-	if resp == nil || resp.StatusCode != 200 {
+	if resp == nil {
 		return nil, fmt.Errorf("No valid response from problem api for query: %s", targetURL)
-	}
-
-	// parse response json
-	var result DynatraceProblemQueryResult
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
 	}
 
 	// make sure the status code from the API is 200
@@ -676,6 +671,13 @@ func (ph *Handler) ExecuteGetDynatraceProblems(problemQuery string, startUnix ti
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtApiv2Err.Error.Code, dtApiv2Err.Error.Message)
 		}
 		return nil, fmt.Errorf("Dynatrace API returned status code %d - Problem could not be received.", resp.StatusCode)
+	}
+
+	// parse response json
+	var result DynatraceProblemQueryResult
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -697,15 +699,8 @@ func (ph *Handler) ExecuteGetDynatraceSecurityProblems(problemQuery string, star
 	if err != nil {
 		return nil, err
 	}
-	if resp == nil || resp.StatusCode != 200 {
+	if resp == nil {
 		return nil, fmt.Errorf("No valid response from problem api for query: %s", targetURL)
-	}
-
-	// parse response json
-	var result DynatraceSecurityProblemQueryResult
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
 	}
 
 	// make sure the status code from the API is 200
@@ -716,6 +711,13 @@ func (ph *Handler) ExecuteGetDynatraceSecurityProblems(problemQuery string, star
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtApiv2Error.Error.Code, dtApiv2Error.Error.Message)
 		}
 		return nil, fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
+	}
+
+	// parse response json
+	var result DynatraceSecurityProblemQueryResult
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -732,15 +734,8 @@ func (ph *Handler) ExecuteMetricAPIDescribe(metricID string) (*MetricDefinition,
 	if err != nil {
 		return nil, err
 	}
-	if resp == nil || resp.StatusCode != 200 {
+	if resp == nil {
 		return nil, fmt.Errorf("No valid response from metrics description api for query: %s", targetURL)
-	}
-
-	// parse response json
-	var result MetricDefinition
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
 	}
 
 	// make sure the status code from the API is 200
@@ -751,6 +746,13 @@ func (ph *Handler) ExecuteMetricAPIDescribe(metricID string) (*MetricDefinition,
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtApiv2Error.Error.Code, dtApiv2Error.Error.Message)
 		}
 		return nil, fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
+	}
+
+	// parse response json if we have a 200
+	var result MetricDefinition
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -765,15 +767,8 @@ func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceMetric
 		return nil, err
 	}
 
-	if resp == nil || resp.StatusCode != 200 {
+	if resp == nil {
 		return nil, fmt.Errorf("No valid response from metrics api for query: %s", metricsQuery)
-	}
-
-	// parse response json
-	var result DynatraceMetricsQueryResult
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
 	}
 
 	// make sure the status code from the API is 200
@@ -784,6 +779,13 @@ func (ph *Handler) ExecuteMetricsAPIQuery(metricsQuery string) (*DynatraceMetric
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtApiv2Error.Error.Code, dtApiv2Error.Error.Message)
 		}
 		return nil, fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
+	}
+
+	// parse response json
+	var result DynatraceMetricsQueryResult
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(result.Result) == 0 {
@@ -809,15 +811,8 @@ func (ph *Handler) ExecuteGetDynatraceProblemById(problemId string) (*DynatraceP
 		return nil, err
 	}
 
-	if resp == nil || resp.StatusCode != 200 {
+	if resp == nil {
 		return nil, fmt.Errorf("No valid response from problems api for problemId: %s", problemId)
-	}
-
-	// parse response json
-	var result DynatraceProblem
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
 	}
 
 	// make sure the status code from the API is 200
@@ -828,6 +823,13 @@ func (ph *Handler) ExecuteGetDynatraceProblemById(problemId string) (*DynatraceP
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtApiv2Error.Error.Code, dtApiv2Error.Error.Message)
 		}
 		return nil, fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
+	}
+
+	// parse response json
+	var result DynatraceProblem
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -838,14 +840,7 @@ func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
 	// now we execute the query against the Dynatrace API
 	resp, body, err := ph.executeDynatraceREST("GET", usql, map[string]string{"Content-Type": "application/json"})
 
-	if resp == nil || err != nil || resp.StatusCode != 200 {
-		return nil, err
-	}
-
-	// parse response json
-	var result DTUSQLResult
-	err = json.Unmarshal(body, &result)
-	if err != nil {
+	if resp == nil || err != nil {
 		return nil, err
 	}
 
@@ -857,6 +852,13 @@ func (ph *Handler) ExecuteUSQLQuery(usql string) (*DTUSQLResult, error) {
 			return nil, fmt.Errorf("Dynatrace API returned status code %d: %s", dtApiv2Error.Error.Code, dtApiv2Error.Error.Message)
 		}
 		return nil, fmt.Errorf("Dynatrace API returned status code %d", resp.StatusCode)
+	}
+
+	// parse response json
+	var result DTUSQLResult
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
 	}
 
 	// if no data comes back
@@ -1223,9 +1225,20 @@ func (ph *Handler) ProcessSLOTile(sloID string, startUnix time.Time, endUnix tim
 	// we prepend this with SLO;<SLO-ID>
 	sliQuery := fmt.Sprintf("SLO;%s", sloID)
 
-	// lets add the SLO definitin in case we need to generate an SLO.yaml
+	// lets add the SLO definition in case we need to generate an SLO.yaml
 	// we normally parse these values from the tile name. In this case we just build that tile name -> maybe in the future we will allow users to add additional SLO defs via the Tile Name, e.g: weight or KeySli
-	sloString := fmt.Sprintf("sli=%s;pass=>=%f;warning=>=%f", indicatorName, sloResult.TargetWarning, sloResult.TargetSuccess)
+
+	// Please see https://github.com/keptn-contrib/dynatrace-sli-service/issues/97 - for more information on that change of Dynatrace SLO API
+	// if we still run against an old API we fall back to the old fields
+	warning := sloResult.Warning
+	if warning <= 0.0 {
+		warning = sloResult.TargetWarningOLD
+	}
+	target := sloResult.Target
+	if target <= 0.0 {
+		target = sloResult.TargetSuccessOLD
+	}
+	sloString := fmt.Sprintf("sli=%s;pass=>=%f;warning=>=%f", indicatorName, warning, target)
 	_, passSLOs, warningSLOs, weight, keySli := common.ParsePassAndWarningFromString(sloString, []string{}, []string{})
 	sloDefinition := &keptncommon.SLO{
 		SLI:     indicatorName,
@@ -1728,6 +1741,11 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 	//
 	// now lets iterate through the dashboard to find our SLIs
 	for _, tile := range dashboardJSON.Tiles {
+		if tile.TileType == "HEADER" {
+			// we dont do markdowns or synthetic tests
+			continue
+		}
+
 		if tile.TileType == "SYNTHETIC_TESTS" {
 			// we dont do markdowns or synthetic tests
 			continue
@@ -1843,6 +1861,9 @@ func (ph *Handler) QueryDynatraceDashboardForSLIs(keptnEvent *common.BaseKeptnEv
 		tileTitle := tile.FilterConfig.CustomName // this is for all custom charts
 		if tileTitle == "" {
 			tileTitle = tile.CustomName
+		}
+		if tileTitle == "" {
+			tileTitle = tile.Name
 		}
 
 		// first - lets figure out if this tile should be included in SLI validation or not - we parse the title and look for "sli=sliname"
@@ -2166,12 +2187,12 @@ func (ph *Handler) getTimeseriesConfig(metric string) (string, error) {
 	ph.Logger.Debug(fmt.Sprintf("No custom SLI for %s found - Looking in defaults", metric))
 
 	// default SLI configs
-	// Switched to new metric v2 query langugae as discussed here: https://github.com/keptn-contrib/dynatrace-sli-service/issues/91
+	// Switched to new metric v2 query language as discussed here: https://github.com/keptn-contrib/dynatrace-sli-service/issues/91
 	switch metric {
 	case Throughput:
 		return "metricSelector=builtin:service.requestCount.total:merge(0):sum&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ErrorRate:
-		return "metricSelector=builtin:service.errors.total.count:merge(0):avg&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
+		return "metricSelector=builtin:service.errors.total.rate:merge(0):avg&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP50:
 		return "metricSelector=builtin:service.response.time:merge(0):percentile(50)&entitySelector=type(SERVICE),tag(keptn_project:$PROJECT),tag(keptn_stage:$STAGE),tag(keptn_service:$SERVICE),tag(keptn_deployment:$DEPLOYMENT)", nil
 	case ResponseTimeP90:
