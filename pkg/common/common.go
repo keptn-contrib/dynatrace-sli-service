@@ -18,7 +18,7 @@ import (
 	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
 	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
 	keptncommon "github.com/keptn/go-utils/pkg/lib"
-	keptn "github.com/keptn/go-utils/pkg/lib/keptn"
+	"github.com/keptn/go-utils/pkg/lib/keptn"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -568,7 +568,6 @@ func ParseMarkdownConfiguration(markdown string, slo *keptncommon.ServiceLevelOb
 
 // cleanIndicatorName makes sure we have a valid indicator name by getting rid of special characters
 func CleanIndicatorName(indicatorName string) string {
-	// TODO: check more than just blanks
 	indicatorName = strings.ReplaceAll(indicatorName, " ", "_")
 	indicatorName = strings.ReplaceAll(indicatorName, "/", "_")
 	indicatorName = strings.ReplaceAll(indicatorName, "%", "_")

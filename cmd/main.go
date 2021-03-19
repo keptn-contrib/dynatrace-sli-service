@@ -29,10 +29,7 @@ import (
 	// v1 "k8s.io/client-go/kubernetes/typed/core/// "
 )
 
-const eventbroker = "EVENTBROKER"
-const configservice = "CONFIGURATION_SERVICE"
-
-const PROBLEM_OPEN_SLI = "problem_open"
+const ProblemOpenSLI = "problem_open"
 
 type envConfig struct {
 	// Port on which to listen for cloudevents
@@ -131,7 +128,6 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
 
 	// make sure the end timestamp is at least waitForSeconds seconds in the past such that dynatrace metrics API has processed data
 	for time.Now().Sub(endUnix).Seconds() < waitForSeconds {
-		// ToDo: this should be done in main.go
 		logger.Debug(fmt.Sprintf("Sleeping for %d seconds... (waiting for Dynatrace Metrics API)\n", int(waitForSeconds-time.Now().Sub(endUnix).Seconds())))
 		time.Sleep(10 * time.Second)
 	}
@@ -394,7 +390,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 		// query all indicators
 		for _, indicator := range eventData.GetSLI.Indicators {
-			if strings.Compare(indicator, PROBLEM_OPEN_SLI) == 0 {
+			if strings.Compare(indicator, ProblemOpenSLI) == 0 {
 				stdLogger.Info("Skip " + indicator + " as it is handled later!")
 			} else {
 				stdLogger.Info("Fetching indicator: " + indicator)
@@ -431,15 +427,15 @@ func retrieveMetrics(event cloudevents.Event) error {
 	//
 	// ARE WE CALLED IN CONTEXT OF A PROBLEM REMEDIATION??
 	// If so - we should try to query the status of the Dynatrace Problem that triggered this evaluation
-	problemId := getDynatraceProblemContext(eventData)
-	if problemId != "" {
-		problemIndicator := PROBLEM_OPEN_SLI
+	problemID := getDynatraceProblemContext(eventData)
+	if problemID != "" {
+		problemIndicator := ProblemOpenSLI
 		openProblemValue := 0.0
 		success := false
 		message := ""
 
 		// lets query the status of this problem and add it to the SLI Result
-		dynatraceProblem, err := dynatraceHandler.ExecuteGetDynatraceProblemById(problemId)
+		dynatraceProblem, err := dynatraceHandler.ExecuteGetDynatraceProblemById(problemID)
 		if err != nil {
 			message = err.Error()
 		}
