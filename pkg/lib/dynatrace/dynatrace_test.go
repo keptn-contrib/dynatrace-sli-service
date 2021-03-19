@@ -1,6 +1,8 @@
 package dynatrace
 
 import (
+	"fmt"
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -48,13 +50,17 @@ func testingDynatraceHTTPClient() (*http.Client, string, func()) {
 			"/api/v2/metrics/builtin:host.mem.usage":                         "./testfiles/test_get_metrics_hostmemusage.json",
 			"/api/v2/metrics/builtin:host.disk.queueLength":                  "./testfiles/test_get_metrics_hostdiskqueue.json",
 			"/api/v2/metrics/builtin:service.nonDbChildCallCount":            "./testfiles/test_get_metrics_nondbcallcount.json",
+			"/api/v2/metrics/jmeter.usermetrics.transaction.meantime":        "./testfiles/test_get_metrics_jmeter_usermetrics_transaction_meantime.json",
 		}
 
 		log.Println("Mock for: " + r.URL.Path)
 
 		// we handle these if the URL "starts with"
 		startsWithUrlToResponseFileMap := map[string]string{
-			"/api/v2/metrics/query": "./testfiles/test_get_metrics_query.json",
+			"/api/v2/metrics/query":    "./testfiles/test_get_metrics_query.json",
+			"/api/v2/slo":              "./testfiles/test_get_slo_id.json",
+			"/api/v2/problems":         "./testfiles/test_get_problems.json",
+			"/api/v2/securityProblems": "./testfiles/test_get_securityproblems.json",
 		}
 
 		for url, file := range completeUrlMatchToResponseFileMap {
@@ -311,20 +317,22 @@ func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
 		t.Errorf("No Dashboard JSON returned")
 	}
 
+	expectedSLOs := 14
+
 	// validate the SLIs - there should be 9 SLIs coming back
 	if dashboardSLI == nil {
 		t.Errorf("No SLI returned")
 	}
-	if len(dashboardSLI.Indicators) != 9 {
-		t.Errorf("Excepted 9 SLIs to come back. Only got %d", len(dashboardSLI.Indicators))
+	if len(dashboardSLI.Indicators) != expectedSLOs {
+		t.Errorf("Excepted %d SLIs to come back but got %d", expectedSLOs, len(dashboardSLI.Indicators))
 	}
 
 	// validate the SLOs
 	if dashboardSLO == nil {
 		t.Errorf("No SLO return")
 	}
-	if len(dashboardSLO.Objectives) != 9 {
-		t.Errorf("Excepted 9 SLOs to come back. Only got %d", len(dashboardSLO.Objectives))
+	if len(dashboardSLO.Objectives) != expectedSLOs {
+		t.Errorf("Excepted %d SLOs to come back but got %d", expectedSLOs, len(dashboardSLO.Objectives))
 	}
 	if dashboardSLO.TotalScore.Pass != "90%" || dashboardSLO.TotalScore.Warning != "70%" {
 		t.Errorf("Total Warning and Pass Scores not as expected. Got %s (pass) and %s (warning)", dashboardSLO.TotalScore.Pass, dashboardSLO.TotalScore.Warning)
@@ -337,9 +345,152 @@ func TestQueryDynatraceDashboardForSLIs(t *testing.T) {
 	if sliResults == nil {
 		t.Errorf("No SLI Results returned")
 	}
-	if len(sliResults) != 9 {
-		t.Errorf("Excepted 9 SLI Results to come back. Only got %d", len(sliResults))
+	if len(sliResults) != expectedSLOs {
+		t.Errorf("Excepted %d SLI Results to come back but got %d", expectedSLOs, len(sliResults))
 	}
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestExecuteGetDynatraceSLO(t *testing.T) {
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+	sloID := "524ca177-849b-3e8c-8175-42b93fbc33c5"
+	sloResult, err := dh.ExecuteGetDynatraceSLO(sloID, startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if sloResult == nil {
+		t.Errorf("No SLO Result returned for " + sloID)
+	}
+
+	if sloResult.EvaluatedPercentage != 95.66405076939219 {
+		t.Error("Not returning expected value for SLO")
+	}
+}
+
+func TestGetSLIValueWithSLOPrefix(t *testing.T) {
+
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	dh.CustomQueries = make(map[string]string)
+	dh.CustomQueries["RT_faster_500ms"] = "SLO;524ca177-849b-3e8c-8175-42b93fbc33c5"
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+
+	_, err := dh.GetSLIValue("RT_faster_500ms", startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestGetCustomQueries(t *testing.T) {
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	keptncommon.NewLogger("test-context", "test-event", "dynatrace-sli-service-testing")
+
+	common.RunLocal = true
+
+	customQueries, err := common.GetCustomQueries(keptnEvent, nil)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	for k, v := range customQueries {
+		fmt.Printf("%s: %s\n", k, v)
+	}
+}
+
+func TestExecuteGetDynatraceProblems(t *testing.T) {
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+	problemQuery := "problemEntity=status(open)"
+	problemResult, err := dh.ExecuteGetDynatraceProblems(problemQuery, startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if problemResult == nil {
+		t.Errorf("No Problem Result returned for " + problemQuery)
+	}
+
+	if problemResult.TotalCount != 1 {
+		t.Error("Not returning expected value for Problem Query")
+	}
+}
+
+func TestExecuteGetDynatraceSecurityProblems(t *testing.T) {
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+	problemQuery := "problemEntity=status(OPEN)"
+	problemResult, err := dh.ExecuteGetDynatraceSecurityProblems(problemQuery, startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if problemResult == nil {
+		t.Errorf("No Problem Result returned for " + problemQuery)
+	}
+
+	if problemResult.TotalCount != 0 {
+		t.Error("Not returning expected value for Problem Query")
+	}
+}
+
+func TestGetSLIValueWithPV2Prefix(t *testing.T) {
+
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	dh.CustomQueries = make(map[string]string)
+	dh.CustomQueries["problems"] = "PV2;problemEntity=status(open)"
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+
+	_, err := dh.GetSLIValue("problems", startTime, endTime)
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestGetSLIValueWithSECPV2Prefix(t *testing.T) {
+
+	keptnEvent := testingGetKeptnEvent(QUALITYGATE_PROJECT, QUALITYGATE_STAGE, QUALTIYGATE_SERVICE, "", "")
+	dh, _, _, teardown := testingGetDynatraceHandler(keptnEvent)
+	defer teardown()
+
+	dh.CustomQueries = make(map[string]string)
+	dh.CustomQueries["security_problems"] = "SECPV2;problemEntity=status(open)"
+
+	startTime := time.Unix(1571649084, 0).UTC()
+	endTime := time.Unix(1571649085, 0).UTC()
+
+	_, err := dh.GetSLIValue("security_problems", startTime, endTime)
 
 	if err != nil {
 		t.Error(err)
@@ -383,7 +534,7 @@ func TestGetTimeseriesUnsupportedSLI(t *testing.T) {
 		t.Errorf("dh.getTimeseriesConfig() returned (\"%s\"), expected(\"\")", got)
 	}
 
-	expected := "unsupported SLI metric foobar"
+	expected := "Unsupported SLI metric foobar"
 
 	if err == nil {
 		t.Errorf("dh.getTimeseriesConfig() did not return an error")
@@ -505,7 +656,7 @@ func TestParsePassAndWarningFromString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, got2, got3, got4 := ParsePassAndWarningFromString(tt.args.customName, []string{}, []string{})
+			got, got1, got2, got3, got4 := common.ParsePassAndWarningFromString(tt.args.customName, []string{}, []string{})
 			if got != tt.want {
 				t.Errorf("ParsePassAndWarningFromString() got = %v, want %v", got, tt.want)
 			}
@@ -534,7 +685,7 @@ func TestParseMarkdownConfiguration(t *testing.T) {
 	}
 
 	// first run - single result
-	ParseMarkdownConfiguration("KQG.Total.Pass=90%;KQG.Total.Warning=70%;KQG.Compare.WithScore=pass;KQG.Compare.Results=1;KQG.Compare.Function=avg", dashboardSLO1)
+	common.ParseMarkdownConfiguration("KQG.Total.Pass=90%;KQG.Total.Warning=70%;KQG.Compare.WithScore=pass;KQG.Compare.Results=1;KQG.Compare.Function=avg", dashboardSLO1)
 
 	if dashboardSLO1.TotalScore.Pass != "90%" {
 		t.Errorf("Total Pass not 90% - is " + dashboardSLO1.TotalScore.Pass)
@@ -561,7 +712,7 @@ func TestParseMarkdownConfiguration(t *testing.T) {
 		TotalScore: &keptn.SLOScore{Pass: "", Warning: ""},
 		Comparison: &keptn.SLOComparison{CompareWith: "", IncludeResultWithScore: "", NumberOfComparisonResults: 0, AggregateFunction: ""},
 	}
-	ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=p50", dashboardSLO2)
+	common.ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=p50", dashboardSLO2)
 
 	if dashboardSLO2.TotalScore.Pass != "50%" {
 		t.Errorf("Total Pass not 50% - is " + dashboardSLO2.TotalScore.Pass)
@@ -588,7 +739,7 @@ func TestParseMarkdownConfiguration(t *testing.T) {
 		TotalScore: &keptn.SLOScore{Pass: "", Warning: ""},
 		Comparison: &keptn.SLOComparison{CompareWith: "", IncludeResultWithScore: "", NumberOfComparisonResults: 0, AggregateFunction: ""},
 	}
-	ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=INVALID", dashboardSLO3)
+	common.ParseMarkdownConfiguration("KQG.Total.Pass=50%;KQG.Total.Warning=40%;KQG.Compare.WithScore=pass;KQG.Compare.Results=3;KQG.Compare.Function=INVALID", dashboardSLO3)
 
 	if dashboardSLO3.TotalScore.Pass != "50%" {
 		t.Errorf("Total Pass not 50% - is " + dashboardSLO3.TotalScore.Pass)
