@@ -16,11 +16,8 @@ import (
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
 
-	// keptnevents "github.com/keptn/go-utils/pkg/events"
-	// keptnutils "github.com/keptn/go-utils/pkg/utils"
-
 	keptncommon "github.com/keptn/go-utils/pkg/lib"
-	keptn "github.com/keptn/go-utils/pkg/lib/keptn"
+	"github.com/keptn/go-utils/pkg/lib/keptn"
 )
 
 const Throughput = "throughput"
