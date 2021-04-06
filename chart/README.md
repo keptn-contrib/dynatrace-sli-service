@@ -1,5 +1,5 @@
 
-Helm-service
+Dynatrace-sli-service
 ===========
 
 Helm Chart for the keptn-contrib dynatrace-sli-service
