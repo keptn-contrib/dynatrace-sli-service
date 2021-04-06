@@ -215,3 +215,29 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           path: docker_build_report_final.txt
           recreate: true
+
+  store-output-in-build-config:
+    name: "Store output of last step in build-config.env"
+    needs: prepare_ci_run
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Create build config file
+        env:
+          BRANCH: ${{ needs.prepare_ci_run.outputs.BRANCH }}
+          BRANCH_SLUG: ${{ needs.prepare_ci_run.outputs.BRANCH_SLUG }}
+          VERSION: ${{ needs.prepare_ci_run.outputs.VERSION }}
+          DATETIME: ${{ needs.prepare_ci_run.outputs.DATE }}${{ needs.prepare_ci_run.outputs.TIME }}
+          GIT_SHA: ${{ needs.prepare_ci_run.outputs.GIT_SHA }}
+        run: |
+          echo "BRANCH=${BRANCH}" >> build-config.env
+          echo "BRANCH_SLUG=${BRANCH_SLUG}" >> build-config.env
+          echo "VERSION=${VERSION}" >> build-config.env
+          echo "DATETIME=${DATETIME}" >> build-config.env
+          echo "GIT_SHA=${GIT_SHA}" >> build-config.env
+
+      - name: Upload build config as artifact
+        id: upload_build_config
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-config
+          path: build-config.env
