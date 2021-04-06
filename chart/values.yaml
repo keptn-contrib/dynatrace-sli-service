@@ -5,6 +5,8 @@ dynatraceSliService:
     tag: ""                                  # Container Tag
   service:
     enabled: true                            # Creates a Kubernetes Service for the dynatrace-sli-service
+  config:
+    httpSSLVerify: true
 
 distributor:
   stageFilter: ""                            # Sets the stage this dynatrace-sli-service belongs to

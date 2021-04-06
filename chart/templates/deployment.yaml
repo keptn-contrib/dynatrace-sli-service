@@ -48,7 +48,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: HTTP_SSL_VERIFY
-              value: 'true'
+              value: "{{ .Values.dynatraceSliService.config.httpSSLVerify }}"
           livenessProbe:
             httpGet:
               path: /health

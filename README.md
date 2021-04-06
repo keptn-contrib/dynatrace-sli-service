@@ -61,13 +61,13 @@ As any Keptn Service the *dynatrace-sli-service* needs to be installed on the k8
 
 * The `dynatrace-sli-service` by default validates the SSL certificate of the Dynatrace API.
   If your Dynatrace API only has a self-signed certificate, you can disable the SSL certificate check
-  by setting the environment variable `HTTP_SSL_VERIFY` (default `true`) specified in the manifest available under `deploy/service.yaml` to `false`.
+  by setting the environment variable `dynatraceSliService.config.httpSSLVerify` (default `true`) specified in the `chart/values.yml` file to `false`.
 
-* To deploy the current version of the *dynatrace-sli-service* in your Kubernetes cluster, use the `deploy/service.yaml` file from this repository and apply it.
+* To deploy the current version of the *dynatrace-sli-service* in your Kubernetes cluster, use the helm chart located in the `chart` directory.
 Please use the same namespace for the *dynatrace-sli-service* as you are using for Keptn, e.g: keptn.
 
     ```console
-    kubectl apply -f deploy/service.yaml -n keptn
+    helm upgrade --install  dynatrace-sli-service -n keptn http://0.0.0.0:8000/dynatrace-sli-service.tgz 
     ```
 
 * This installs the *dynatrace-sli-service* into the `keptn` namespace, which you can verify using:
@@ -77,20 +77,12 @@ Please use the same namespace for the *dynatrace-sli-service* as you are using f
     kubectl -n keptn get pods -l run=dynatrace-sli-service
     ```
 
-### Up- or Downgrading
-
-Adapt and use the following command in case you want to up- or downgrade your installed version (specified by the `$VERSION` placeholder):
-
-```console
-kubectl -n keptn set image deployment/dynatrace-sli-service dynatrace-sli-service=keptncontrib/dynatrace-sli-service:$VERSION --record
-```
-
 ### Uninstall
 
-To delete a deployed *dynatrace-sli-service*, use the file `deploy/*.yaml` files from this repository and delete the Kubernetes resources:
+To delete a deployed *dynatrace-sli-service*, use the `helm` CLI to uninstall the installed release of the service:
 
 ```console
-kubectl delete -f deploy/service.yaml -n keptn
+helm delete -n keptn dynatrace-sli-service
 ```
 
 ## Pre-Requisites: Dynatrace Tenant URL & API Token
