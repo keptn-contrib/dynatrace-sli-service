@@ -134,10 +134,7 @@ jobs:
       - name: Create a Release message
         env:
           RELEASENOTES_FILENAME: ${{ steps.get_releasenotes.outputs.RELEASENOTES_FILENAME }}
-          RESOURCE_LIMITS_FILENAME: "final-resource-limits.txt"
         run: |
-          # print release notes
-          cat $RELEASENOTES_FILENAME > release-notes.txt
           # print CI information
           echo ""  >> release-notes.txt
           echo "<details><summary>CI Information</summary>"  >> release-notes.txt
