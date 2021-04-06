@@ -38,7 +38,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-mv "helm-service-${VERSION}.tgz" "installer/${IMAGE}-${VERSION}.tgz"
+mv "${IMAGE}-${VERSION}.tgz" "installer/${IMAGE}-${VERSION}.tgz"
 
 #verify the chart
 helm template --debug "installer/${IMAGE}-${VERSION}.tgz"
