@@ -152,7 +152,7 @@ jobs:
         id: upload_helm_chart
         uses: actions/upload-artifact@v2
         with:
-          name: ${env.IMAGE}-installer
+          name: installer
           path: installer/*.tgz
 
 
