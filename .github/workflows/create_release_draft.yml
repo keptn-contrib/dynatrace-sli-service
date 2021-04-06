@@ -41,7 +41,7 @@ jobs:
         run: |
           if [[ "${{ github.event.inputs.branch }}" != "" ]]; then
             BRANCH=${{ github.event.inputs.branch }}
-            echo "Using $BRANCH as target branch for integration tests"
+            echo "Using $BRANCH as target branch for release draft"
           else
             echo "Determining branch based on what triggered this workflow"
 
@@ -67,10 +67,10 @@ jobs:
   #######################################################################
   publish-draft-release:
     name: Publish Draft release
-    needs: integration-test
+    needs: prepare-release
     runs-on: ubuntu-20.04
     env:
-      BRANCH: ${{ needs.integration-test.outputs.BRANCH }}
+      BRANCH: ${{ needs.prepare-release.outputs.BRANCH }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
