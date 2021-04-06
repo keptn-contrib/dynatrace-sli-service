@@ -33,7 +33,7 @@ spec:
           {{- if .Values.image }}
           image: {{ .Values.image }} # use image from .Values.image (e.g., when starting via skaffold)
           {{- else }}
-          image: "{{ .Values.dynatraceSliService.image.repository }}:{{ .Values.dynatrace-sli-service.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.dynatraceSliService.image.repository }}:{{ .Values.dynatraceSliService.image.tag | default .Chart.AppVersion }}"
           {{ end }}
           imagePullPolicy: {{ .Values.dynatraceSliService.image.pullPolicy }}
           ports:
