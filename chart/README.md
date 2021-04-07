@@ -15,6 +15,7 @@ The following table lists the configurable parameters of the dynatrace-sli-servi
 | `dynatraceSliService.image.pullPolicy` | Kubernetes image pull policy | `"IfNotPresent"` |
 | `dynatraceSliService.image.tag` | Container tag | `""` |
 | `dynatraceSliService.service.enabled` | Creates a kubernetes service for the dynatrace-sli-service | `true` |
+| `dynatraceSliService.config.httpSSLVerify` | Enable or disable verification of HTTPS endpoint certificates | `true` |
 | `distributor.stageFilter` | Sets the stage this dynatrace-sli-service belongs to | `""` |
 | `distributor.serviceFilter` | Sets the service this dynatrace-sli-service belongs to | `""` |
 | `distributor.projectFilter` | Sets the project this dynatrace-sli-service belongs to | `""` |

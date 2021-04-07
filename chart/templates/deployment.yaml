@@ -39,10 +39,6 @@ spec:
           ports:
             - containerPort: 80
           env:
-            - name: CONFIGURATION_SERVICE
-              value: 'http://configuration-service:8080'
-            - name: EVENTBROKER
-              value: 'http://event-broker/keptn'
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
