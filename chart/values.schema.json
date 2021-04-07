@@ -73,6 +73,13 @@
               "type": "boolean"
             }
           }
+        },
+        "config": {
+          "properties": {
+            "httpSSLVerify": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },
