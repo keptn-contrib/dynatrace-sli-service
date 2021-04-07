@@ -67,7 +67,7 @@ As any Keptn Service the *dynatrace-sli-service* needs to be installed on the k8
 Please use the same namespace for the *dynatrace-sli-service* as you are using for Keptn, e.g: keptn.
 
     ```console
-    helm upgrade --install  dynatrace-sli-service -n keptn http://0.0.0.0:8000/dynatrace-sli-service.tgz 
+    helm upgrade --install  dynatrace-sli-service -n keptn http://https://github.com/keptn-contrib/dynatrace-sli-service/releases/download/0.10.0/dynatrace-sli-service.tgz
     ```
 
 * This installs the *dynatrace-sli-service* into the `keptn` namespace, which you can verify using:
