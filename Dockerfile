@@ -57,4 +57,7 @@ ENV GOTRACEBACK=all
 #build-uncomment COPY entrypoint.sh /
 #build-uncomment ENTRYPOINT ["/entrypoint.sh"]
 
+RUN adduser -D nonroot -u 65532
+USER nonroot
+
 CMD ["/dynatrace-sli-service"]
