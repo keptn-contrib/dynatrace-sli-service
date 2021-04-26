@@ -53,6 +53,7 @@ metric in Dynatrace: Application, Service, Process executes your queryGroups, Ho
 | 0.8.0, 0.8.1	| keptncontrib/dynatrace-sli-service:0.9.0 |
 | 0.8.0-0.8.2	| keptncontrib/dynatrace-sli-service:0.10.0 |
 | 0.8.0-0.8.2	| keptncontrib/dynatrace-sli-service:0.10.1 |
+| 0.8.0-0.8.2	| keptncontrib/dynatrace-sli-service:0.10.2 |
 
 
 ## Installation
