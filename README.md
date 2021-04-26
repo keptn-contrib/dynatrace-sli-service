@@ -51,6 +51,8 @@ metric in Dynatrace: Application, Service, Process executes your queryGroups, Ho
 |   0.7.3    | keptncontrib/dynatrace-sli-service:0.7.3 |
 | 0.8.0-alpha	| keptncontrib/dynatrace-sli-service:0.8.0-alpha |
 | 0.8.0, 0.8.1	| keptncontrib/dynatrace-sli-service:0.9.0 |
+| 0.8.0-0.8.2	| keptncontrib/dynatrace-sli-service:0.10.0 |
+| 0.8.0-0.8.2	| keptncontrib/dynatrace-sli-service:0.10.1 |
 
 
 ## Installation
@@ -67,7 +69,7 @@ As any Keptn Service the *dynatrace-sli-service* needs to be installed on the k8
 Please use the same namespace for the *dynatrace-sli-service* as you are using for Keptn, e.g: keptn.
 
     ```console
-    helm upgrade --install  dynatrace-sli-service -n keptn http://https://github.com/keptn-contrib/dynatrace-sli-service/releases/download/0.10.0/dynatrace-sli-service.tgz
+    helm upgrade --install  dynatrace-sli-service -n keptn http://https://github.com/keptn-contrib/dynatrace-sli-service/releases/download/0.10.1/dynatrace-sli-service.tgz
     ```
 
 * This installs the *dynatrace-sli-service* into the `keptn` namespace, which you can verify using:
