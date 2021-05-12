@@ -74,7 +74,22 @@ func gotEvent(ctx context.Context, event cloudevents.Event) error {
 
 	switch event.Type() {
 	case keptnv2.GetTriggeredEventType(keptnv2.GetSLITaskName):
-		return retrieveMetrics(event)
+		// prepare event
+		eventData := &keptnv2.GetSLITriggeredEventData{}
+		err := event.DataAs(eventData)
+		if err != nil {
+			return err
+		}
+
+		//
+		// do not continue if SLIProvider is not dynatrace
+		if eventData.GetSLI.SLIProvider != "dynatrace" {
+			return nil
+		}
+
+		go retrieveMetrics(event, eventData)
+
+		return nil
 	default:
 		return errors.New("received unknown event type")
 	}
@@ -269,20 +284,10 @@ func getDynatraceProblemContext(eventData *keptnv2.GetSLITriggeredEventData) str
  * First tries to find a Dynatrace dashboard and then parses it for SLIs and SLOs
  * Second will go to parse the SLI.yaml and returns the SLI as passed in by the event
  */
-func retrieveMetrics(event cloudevents.Event) error {
+func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData) error {
+	// extract keptn context id
 	var shkeptncontext string
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
-	eventData := &keptnv2.GetSLITriggeredEventData{}
-	err := event.DataAs(eventData)
-	if err != nil {
-		return err
-	}
-
-	//
-	// do not continue if SLIProvider is not dynatrace
-	if eventData.GetSLI.SLIProvider != "dynatrace" {
-		return nil
-	}
 
 	// send get-sli.started event
 	if err := sendGetSLIStartedEvent(event, eventData); err != nil {
