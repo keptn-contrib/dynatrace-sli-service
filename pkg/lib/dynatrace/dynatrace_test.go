@@ -1,15 +1,18 @@
 package dynatrace
 
 import (
+	"bytes"
 	"fmt"
-	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	"io"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 
 	"crypto/tls"
 	"crypto/x509"
@@ -20,6 +23,7 @@ import (
 
 	_ "github.com/keptn/go-utils/pkg/lib"
 	keptn "github.com/keptn/go-utils/pkg/lib"
+	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
 	"golang.org/x/net/context"
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
@@ -519,6 +523,121 @@ func TestCreateNewDynatraceHandler(t *testing.T) {
 	}
 	if dh.KeptnEvent.DeploymentStrategy != "direct" {
 		t.Errorf("dh.Deployment=%s; want direct", dh.KeptnEvent.DeploymentStrategy)
+	}
+}
+
+func TestNewDynatraceHandlerProxy(t *testing.T) {
+
+	mockTenant := "https://mySampleEnv.live.dynatrace.com"
+	mockReq, err := http.NewRequest("GET", mockTenant+"/api/v1/config/clusterversion", bytes.NewReader(make([]byte, 100)))
+	if err != nil {
+		t.Errorf("TestDynatrace_NewDynatraceHandler(): unable to make mock request: error = %v", err)
+		return
+	}
+
+	mockProxy := "https://proxy:8080"
+	_ = mockProxy
+
+	type proxyEnvVars struct {
+		httpProxy  string
+		httpsProxy string
+		noProxy    string
+	}
+
+	type args struct {
+		apiURL        string // this is really the tenant
+		keptnEvent    *common.BaseKeptnEvent
+		headers       map[string]string
+		customFilters []*keptnv2.SLIFilter
+		keptnContext  string
+		eventID       string
+	}
+
+	// only one test can be run in a single test run due to the ProxyConfig environment being cached
+	// see envProxyFunc() in transport.go for details
+	tests := []struct {
+		name         string
+		proxyEnvVars proxyEnvVars
+		args         args
+		request      *http.Request
+		wantProxy    string
+	}{
+		{
+			name: "testWithProxy",
+			proxyEnvVars: proxyEnvVars{
+				httpProxy:  mockProxy,
+				httpsProxy: mockProxy,
+				noProxy:    "localhost",
+			},
+			args: args{
+				apiURL:        mockTenant,
+				keptnEvent:    nil,
+				headers:       nil,
+				customFilters: nil,
+				keptnContext:  "",
+				eventID:       "",
+			},
+			request:   mockReq,
+			wantProxy: mockProxy,
+		},
+		/*
+			{
+				naFme: "testWithNoProxy",
+				args: args{
+					apiURL:        mockTenant,
+					keptnEvent:    nil,
+					headers:       nil,
+					customFilters: nil,
+					keptnContext:  "",
+					eventID:       "",
+				},
+				request:   mockReq,
+				wantProxy: "",
+			},
+		*/
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			os.Setenv("HTTP_PROXY", tt.proxyEnvVars.httpProxy)
+			os.Setenv("HTTPS_PROXY", tt.proxyEnvVars.httpsProxy)
+			os.Setenv("NO_PROXY", tt.proxyEnvVars.noProxy)
+
+			defer func() {
+				os.Unsetenv("HTTP_PROXY")
+				os.Unsetenv("HTTPS_PROXY")
+				os.Unsetenv("NO_PROXY")
+			}()
+
+			gotHandler := NewDynatraceHandler(
+				tt.args.apiURL,
+				tt.args.keptnEvent,
+				tt.args.headers,
+				tt.args.customFilters,
+				tt.args.keptnContext,
+				tt.args.eventID)
+
+			gotTransport := gotHandler.HTTPClient.Transport.(*http.Transport)
+			gotProxyURL, err := gotTransport.Proxy(tt.request)
+			if err != nil {
+				t.Fatalf("error = %v", err)
+			}
+
+			if gotProxyURL == nil {
+				if tt.wantProxy != "" {
+					t.Errorf("got proxy = nil, wanted = %v", tt.wantProxy)
+				}
+			} else {
+				gotProxy := gotProxyURL.String()
+				if tt.wantProxy == "" {
+					t.Errorf("got proxy = %v, wanted nil", gotProxy)
+				} else if gotProxy != tt.wantProxy {
+					t.Errorf("got proxy = %v, wanted = %v", gotProxy, tt.wantProxy)
+				}
+			}
+
+		})
 	}
 }
 

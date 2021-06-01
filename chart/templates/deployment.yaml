@@ -45,6 +45,12 @@ spec:
                   fieldPath: metadata.namespace
             - name: HTTP_SSL_VERIFY
               value: "{{ .Values.dynatraceSliService.config.httpSSLVerify }}"
+            - name: HTTP_PROXY
+              value: '{{ .Values.dynatraceSliService.config.httpProxy }}'
+            - name: HTTPS_PROXY
+              value: '{{ .Values.dynatraceSliService.config.httpsProxy }}'
+            - name: NO_PROXY
+              value: '127.0.0.1'
           livenessProbe:
             httpGet:
               path: /health

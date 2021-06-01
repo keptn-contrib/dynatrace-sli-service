@@ -78,6 +78,12 @@
           "properties": {
             "httpSSLVerify": {
               "type": "boolean"
+            },
+            "httpProxy": {
+              "type": "string"
+            },
+            "httpsProxy": {
+              "type": "string"
             }
           }
         }
