@@ -16,6 +16,8 @@ The following table lists the configurable parameters of the dynatrace-sli-servi
 | `dynatraceSliService.image.tag` | Container tag | `""` |
 | `dynatraceSliService.service.enabled` | Creates a kubernetes service for the dynatrace-sli-service | `true` |
 | `dynatraceSliService.config.httpSSLVerify` | Enable or disable verification of HTTPS endpoint certificates | `true` |
+| `dynatraceSliService.config.httpProxy` | Proxy for HTTP requests | `""` |
+| `dynatraceSliService.config.httpsProxy` | Proxy for HTTPS requests | `""` |
 | `distributor.stageFilter` | Sets the stage this dynatrace-sli-service belongs to | `""` |
 | `distributor.serviceFilter` | Sets the service this dynatrace-sli-service belongs to | `""` |
 | `distributor.projectFilter` | Sets the project this dynatrace-sli-service belongs to | `""` |
