@@ -619,17 +619,17 @@ func TestNewDynatraceHandlerProxy(t *testing.T) {
 				tt.args.eventID)
 
 			gotTransport := gotHandler.HTTPClient.Transport.(*http.Transport)
-			gotProxyUrl, err := gotTransport.Proxy(tt.request)
+			gotProxyURL, err := gotTransport.Proxy(tt.request)
 			if err != nil {
 				t.Fatalf("error = %v", err)
 			}
 
-			if gotProxyUrl == nil {
+			if gotProxyURL == nil {
 				if tt.wantProxy != "" {
 					t.Errorf("got proxy = nil, wanted = %v", tt.wantProxy)
 				}
 			} else {
-				gotProxy := gotProxyUrl.String()
+				gotProxy := gotProxyURL.String()
 				if tt.wantProxy == "" {
 					t.Errorf("got proxy = %v, wanted nil", gotProxy)
 				} else if gotProxy != tt.wantProxy {
