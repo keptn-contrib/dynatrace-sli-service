@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	keptncommon "github.com/keptn/go-utils/pkg/lib"
 	"log"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	keptncommon "github.com/keptn/go-utils/pkg/lib"
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/lib/dynatrace"
@@ -299,8 +300,6 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 	stdLogger := keptn.NewLogger(shkeptncontext, event.Context.GetID(), "dynatrace-sli-service")
 	stdLogger.Info(fmt.Sprintf("Processing sh.keptn.internal.event.get-sli for %s.%s.%s", eventData.Project, eventData.Stage, eventData.Service))
 
-	//
-	// see if there is a dynatrace.conf.yaml
 	keptnEvent := &common.BaseKeptnEvent{}
 	keptnEvent.Project = eventData.Project
 	keptnEvent.Stage = eventData.Stage
@@ -308,34 +307,16 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 	keptnEvent.Labels = eventData.Labels
 	keptnEvent.Deployment = eventData.Deployment
 	keptnEvent.Context = shkeptncontext
-	dynatraceConfigFile, _ := common.GetDynatraceConfig(keptnEvent, stdLogger)
 
-	dtCreds := ""
-	if dynatraceConfigFile != nil {
-		// implementing https://github.com/keptn-contrib/dynatrace-sli-service/issues/90
-		dtCreds = common.ReplaceKeptnPlaceholders(dynatraceConfigFile.DtCreds, keptnEvent)
-		stdLogger.Debug("Found dynatrace.conf.yaml with DTCreds: " + dtCreds)
-	} else {
-		stdLogger.Debug("Using default DTCreds: dynatrace as no custom dynatrace.conf.yaml was found!")
-		dynatraceConfigFile = &common.DynatraceConfigFile{}
-		dynatraceConfigFile.Dashboard = ""
-		dynatraceConfigFile.DtCreds = "dynatrace"
-	}
+	dynatraceConfigFile := common.GetDynatraceConfig(keptnEvent, stdLogger)
 
-	//
 	// Adding DtCreds as a label so users know which DtCreds was used
 	if eventData.Labels == nil {
 		eventData.Labels = make(map[string]string)
 	}
+	eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
 
-	if dynatraceConfigFile.DtCreds == "" {
-		eventData.Labels["DtCreds"] = "dynatrace" // thats the default credential
-	} else {
-		eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
-	}
-
-	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
-
+	dtCredentials, err := getDynatraceCredentials(dynatraceConfigFile.DtCreds, eventData.Project, stdLogger)
 	if err != nil {
 		stdLogger.Error("Failed to fetch Dynatrace credentials: " + err.Error())
 		// Implementing: https://github.com/keptn-contrib/dynatrace-sli-service/issues/49
