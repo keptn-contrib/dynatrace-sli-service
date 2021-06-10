@@ -45,8 +45,8 @@ const DynatraceConfigDashboardQUERY = "query"
 
 type DynatraceConfigFile struct {
 	SpecVersion string `json:"spec_version" yaml:"spec_version"`
-	DtCreds     string `json:"dtCreds",omitempty yaml:"dtCreds",omitempty`
-	Dashboard   string `json:"dashboard",omitempty yaml:"dashboard",omitempty`
+	DtCreds     string `json:"dtCreds,omitempty" yaml:"dtCreds,omitempty"`
+	Dashboard   string `json:"dashboard,omitempty" yaml:"dashboard,omitempty"`
 }
 
 type DTCredentials struct {
