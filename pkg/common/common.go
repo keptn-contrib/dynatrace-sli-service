@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/ghodss/yaml"
+	log "github.com/sirupsen/logrus"
 
 	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
 	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
@@ -147,7 +148,7 @@ func GetConfigurationServiceURL() string {
 // Downloads a resource from the Keptn Configuration Repo based on the level (Project, Stage, Service)
 // In RunLocal mode it gets it from the local disk
 //
-func GetKeptnResourceOnConfigLevel(keptnEvent *BaseKeptnEvent, resourceURI string, level string, logger *keptn.Logger) (string, error) {
+func GetKeptnResourceOnConfigLevel(keptnEvent *BaseKeptnEvent, resourceURI string, level string) (string, error) {
 
 	// if we run in a runlocal mode we are just getting the file from the local disk
 	var fileContent string
@@ -155,11 +156,16 @@ func GetKeptnResourceOnConfigLevel(keptnEvent *BaseKeptnEvent, resourceURI strin
 		resourceURI = strings.ToLower(strings.ReplaceAll(resourceURI, "dynatrace/", "../../../dynatrace/"+level+"_"))
 		localFileContent, err := ioutil.ReadFile(resourceURI)
 		if err != nil {
-			logMessage := fmt.Sprintf("No %s file found LOCALLY for service %s in stage %s in project %s", resourceURI, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project)
-			logger.Info(logMessage)
+			log.WithFields(
+				log.Fields{
+					"resourceURI": resourceURI,
+					"service":     keptnEvent.Service,
+					"stage":       keptnEvent.Stage,
+					"project":     keptnEvent.Project,
+				}).Info("File not found locally")
 			return "", nil
 		}
-		logger.Info("Loaded LOCAL file " + resourceURI)
+		log.WithField("resourceURI", resourceURI).Info("Loaded LOCAL file")
 		fileContent = string(localFileContent)
 	} else {
 		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
@@ -195,18 +201,23 @@ func GetKeptnResourceOnConfigLevel(keptnEvent *BaseKeptnEvent, resourceURI strin
 // In RunLocal mode it gets it from the local disk
 // In normal mode it first tries to find it on service level, then stage and then project level
 //
-func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *keptn.Logger) (string, error) {
+func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string) (string, error) {
 
 	// if we run in a runlocal mode we are just getting the file from the local disk
 	var fileContent string
 	if RunLocal {
 		localFileContent, err := ioutil.ReadFile(resourceURI)
 		if err != nil {
-			logMessage := fmt.Sprintf("No %s file found LOCALLY for service %s in stage %s in project %s", resourceURI, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project)
-			logger.Info(logMessage)
+			log.WithFields(
+				log.Fields{
+					"resourceURI": resourceURI,
+					"service":     keptnEvent.Service,
+					"stage":       keptnEvent.Stage,
+					"project":     keptnEvent.Project,
+				}).Info("File not found locally")
 			return "", nil
 		}
-		logger.Info("Loaded LOCAL file " + resourceURI)
+		log.WithField("resourceURI", resourceURI).Info("Loaded LOCAL file")
 		fileContent = string(localFileContent)
 	} else {
 		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
@@ -220,16 +231,28 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 				// Lets search on PROJECT-LEVEL
 				keptnResourceContent, err = resourceHandler.GetProjectResource(keptnEvent.Project, resourceURI)
 				if err != nil || keptnResourceContent == nil || keptnResourceContent.ResourceContent == "" {
-					// logger.Debug(fmt.Sprintf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI, err))
+					// log.Debugf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI, err)
 					return "", err
 				}
 
-				logger.Debug("Found " + resourceURI + " on project level: " + keptnEvent.Project)
+				log.WithFields(
+					log.Fields{
+						"resourceURI": resourceURI,
+						"project":     keptnEvent.Project,
+					}).Debug("Found resource on project level")
 			} else {
-				logger.Debug("Found " + resourceURI + " on stage level: " + keptnEvent.Stage)
+				log.WithFields(
+					log.Fields{
+						"resourceURI": resourceURI,
+						"stage":       keptnEvent.Stage,
+					}).Debug("Found resource on stage level")
 			}
 		} else {
-			logger.Debug("Found " + resourceURI + " on service level: " + keptnEvent.Service)
+			log.WithFields(
+				log.Fields{
+					"resourceURI": resourceURI,
+					"service":     keptnEvent.Service,
+				}).Debug("Found resource on service level")
 		}
 		fileContent = keptnResourceContent.ResourceContent
 	}
@@ -240,16 +263,15 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 /**
  * Loads SLIs from a local file and adds it to the SLI map
  */
-func AddResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliFileContent string, logger *keptn.Logger) (map[string]string, error) {
+func AddResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliFileContent string) (map[string]string, error) {
 
 	if sliFilePath != "" {
 		localFileContent, err := ioutil.ReadFile(sliFilePath)
 		if err != nil {
-			logMessage := fmt.Sprintf("Couldn't load file content from %s", sliFilePath)
-			logger.Info(logMessage)
+			log.WithField("sliFilePath", sliFilePath).Info("Could not load file")
 			return nil, nil
 		}
-		logger.Info("Loaded LOCAL file " + sliFilePath)
+		log.WithField("sliFilePath", sliFilePath).Info("Loaded LOCAL file")
 		sliFileContent = string(localFileContent)
 	}
 
@@ -271,10 +293,10 @@ func AddResourceContentToSLIMap(SLIs map[string]string, sliFilePath string, sliF
  * getCustomQueries loads custom SLIs from dynatrace/sli.yaml
  * if there is no sli.yaml it will just return an empty map
  */
-func GetCustomQueries(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (map[string]string, error) {
+func GetCustomQueries(keptnEvent *BaseKeptnEvent) (map[string]string, error) {
 	var sliMap = map[string]string{}
 	/*if common.RunLocal || common.RunLocalTest {
-		sliMap, _ = AddResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "", logger)
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "dynatrace/sli.yaml", "")
 		return sliMap, nil
 	}*/
 
@@ -283,40 +305,52 @@ func GetCustomQueries(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (map[str
 
 	// Step 1: Load Project Level
 	foundLocation := ""
-	sliContent, err := GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelProject, logger)
+	sliContent, err := GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelProject)
 	if err == nil && sliContent != "" {
-		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent)
 		foundLocation = "project,"
 	}
 
 	// Step 2: Load Stage Level
-	sliContent, err = GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelStage, logger)
+	sliContent, err = GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelStage)
 	if err == nil && sliContent != "" {
-		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent)
 		foundLocation = foundLocation + "stage,"
 	}
 
 	// Step 3: Load Service Level
-	sliContent, err = GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelService, logger)
+	sliContent, err = GetKeptnResourceOnConfigLevel(keptnEvent, DynatraceSLIFilename, ConfigLevelService)
 	if err == nil && sliContent != "" {
-		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent, logger)
+		sliMap, _ = AddResourceContentToSLIMap(sliMap, "", sliContent)
 		foundLocation = foundLocation + "service"
 	}
 
 	// couldnt load any SLIs
 	if len(sliMap) == 0 {
-		logger.Info(fmt.Sprintf("No custom SLI queries for project=%s,stage=%s,service=%s found as no dynatrace/sli.yaml in repo. Going with default!", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
+		log.WithFields(
+			log.Fields{
+				"project": keptnEvent.Project,
+				"stage":   keptnEvent.Stage,
+				"service": keptnEvent.Service,
+			}).Info("No custom SLI queries found as no dynatrace/sli.yaml in repo, using defaults")
 	} else {
-		logger.Info(fmt.Sprintf("Found a total of %d SLI queries for project=%s,stage=%s,service=%s in dynatrace/sli.yaml in locations: %s", len(sliMap), keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, foundLocation))
+		log.WithFields(
+			log.Fields{
+				"project":   keptnEvent.Project,
+				"stage":     keptnEvent.Stage,
+				"service":   keptnEvent.Service,
+				"count":     len(sliMap),
+				"locations": foundLocation,
+			}).Info("Found SLI queries in dynatrace/sli.yaml")
 	}
 
 	return sliMap, nil
 }
 
 // GetDynatraceConfig loads dynatrace.conf for the current service
-func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*DynatraceConfigFile, error) {
+func GetDynatraceConfig(keptnEvent *BaseKeptnEvent) (*DynatraceConfigFile, error) {
 
-	dynatraceConfFileContent, err := GetKeptnResource(keptnEvent, DynatraceConfigFilename, logger)
+	dynatraceConfFileContent, err := GetKeptnResource(keptnEvent, DynatraceConfigFilename)
 
 	if err != nil {
 		return nil, err
@@ -324,24 +358,29 @@ func GetDynatraceConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*Dyna
 
 	if dynatraceConfFileContent == "" {
 		// loaded an empty file
-		logger.Debug("Content of dynatrace.conf.yaml is empty!")
+		log.Debug("Contents of dynatrace.conf.yaml is empty")
 		return nil, nil
 	}
 
 	// unmarshal the file
 	dynatraceConfFile, err := parseDynatraceConfigFile([]byte(dynatraceConfFileContent))
-
 	if err != nil {
-		logMessage := fmt.Sprintf("Couldn't parse %s file found for service %s in stage %s in project %s. Error: %s; Content: %s", DynatraceConfigFilename, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project, err.Error(), dynatraceConfFileContent)
-		logger.Error(logMessage)
-		return nil, errors.New(logMessage)
+		log.WithError(err).WithFields(
+			log.Fields{
+				"project":  keptnEvent.Project,
+				"stage":    keptnEvent.Stage,
+				"service":  keptnEvent.Service,
+				"filename": DynatraceConfigFilename,
+				"contents": dynatraceConfFileContent,
+			}).Error("parseDynatraceConfigFile failed")
+		return nil, fmt.Errorf("Could not parse Dynatrace config file %w", err)
 	}
 
 	return dynatraceConfFile, nil
 }
 
 // UploadKeptnResource uploads a file to the Keptn Configuration Service
-func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent, logger *keptn.Logger) error {
+func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent) error {
 
 	// if we run in a runlocal mode we are just getting the file from the local disk
 	if RunLocal || RunLocalTest {
@@ -349,7 +388,7 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 		if err != nil {
 			return fmt.Errorf("Couldnt write local file %s: %v", remoteResourceURI, err)
 		}
-		logger.Info("Local file written " + remoteResourceURI)
+		log.WithField("remoteResourceURI", remoteResourceURI).Info("Local file written")
 	} else {
 		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
 
@@ -360,7 +399,7 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 			return fmt.Errorf("Couldnt upload remote resource %s: %s", remoteResourceURI, *err.Message)
 		}
 
-		logger.Info(fmt.Sprintf("Uploaded file %s", remoteResourceURI))
+		log.WithField("remoteResourceURI", remoteResourceURI).Info("Uploaded file")
 	}
 
 	return nil
