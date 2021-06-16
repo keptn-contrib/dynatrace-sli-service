@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	keptncommon "github.com/keptn/go-utils/pkg/lib"
-	"log"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	keptncommon "github.com/keptn/go-utils/pkg/lib"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/lib/dynatrace"
@@ -40,7 +41,7 @@ type envConfig struct {
 func main() {
 	var env envConfig
 	if err := envconfig.Process("", &env); err != nil {
-		log.Fatalf("Failed to process env var: %s", err)
+		log.WithError(err).Fatal("Failed to process env var")
 	}
 
 	if common.RunLocal || common.RunLocalTest {
@@ -57,13 +58,15 @@ func _main(args []string, env envConfig) int {
 
 	p, err := cloudevents.NewHTTP(cloudevents.WithPath(env.Path), cloudevents.WithPort(env.Port))
 	if err != nil {
-		log.Fatalf("failed to create client, %v", err)
+		log.WithError(err).Fatal("Failed to create cloudevents HTTP")
 	}
 	c, err := cloudevents.NewClient(p)
 	if err != nil {
-		log.Fatalf("failed to create client, %v", err)
+		log.WithError(err).Fatal("Failed to create cloudevents client")
 	}
-	log.Fatal(c.StartReceiver(ctx, gotEvent))
+
+	err = c.StartReceiver(ctx, gotEvent)
+	log.WithError(err).Fatal("Cloudevents StartReceiver failed")
 	return 0
 }
 
@@ -101,7 +104,7 @@ func gotEvent(ctx context.Context, event cloudevents.Event) error {
  *              to circumvent this issue I am changing the check to also allow a time difference of up to 2 minutes (120 seconds). This shouldnt be a problem as our SLI Service retries the DYnatrace API anyway
  * Here is the issue: https://github.com/keptn-contrib/dynatrace-sli-service/issues/55
  */
-func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterface) (time.Time, time.Time, error) {
+func ensureRightTimestamps(start string, end string) (time.Time, time.Time, error) {
 
 	startUnix, err := common.ParseUnixTimestamp(start)
 	if err != nil {
@@ -138,12 +141,12 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
 
 	// log output while we are waiting
 	if time.Now().Sub(endUnix).Seconds() < waitForSeconds {
-		logger.Debug(fmt.Sprintf("As the end date is too close to Now() we are going to wait to make sure we have all the data for the requested timeframe(start-end)\n"))
+		log.Debug("As the end date is too close to Now() we are going to wait to make sure we have all the data for the requested timeframe(start-end)")
 	}
 
 	// make sure the end timestamp is at least waitForSeconds seconds in the past such that dynatrace metrics API has processed data
 	for time.Now().Sub(endUnix).Seconds() < waitForSeconds {
-		logger.Debug(fmt.Sprintf("Sleeping for %d seconds... (waiting for Dynatrace Metrics API)\n", int(waitForSeconds-time.Now().Sub(endUnix).Seconds())))
+		log.WithField("sleepSeconds", int(waitForSeconds-time.Now().Sub(endUnix).Seconds())).Debug("Sleeping while waiting for Dynatrace Metrics API")
 		time.Sleep(10 * time.Second)
 	}
 
@@ -153,7 +156,7 @@ func ensureRightTimestamps(start string, end string, logger keptn.LoggerInterfac
 /**
  * Adds an SLO Entry to the SLO.yaml
  */
-func addSLO(keptnEvent *common.BaseKeptnEvent, newSLO *keptncommon.SLO, logger *keptn.Logger) error {
+func addSLO(keptnEvent *common.BaseKeptnEvent, newSLO *keptncommon.SLO) error {
 
 	// this is the default SLO in case none has yet been uploaded
 	dashboardSLO := &keptncommon.ServiceLevelObjectives{
@@ -163,7 +166,7 @@ func addSLO(keptnEvent *common.BaseKeptnEvent, newSLO *keptncommon.SLO, logger *
 	}
 
 	// first - lets load the SLO.yaml from the config repo
-	sloContent, err := common.GetKeptnResource(keptnEvent, common.KeptnSLOFilename, logger)
+	sloContent, err := common.GetKeptnResource(keptnEvent, common.KeptnSLOFilename)
 	if err == nil && sloContent != "" {
 		err := json.Unmarshal([]byte(sloContent), dashboardSLO)
 		if err != nil {
@@ -185,7 +188,7 @@ func addSLO(keptnEvent *common.BaseKeptnEvent, newSLO *keptncommon.SLO, logger *
 	if dashboardSLO != nil {
 		yamlAsByteArray, _ := yaml.Marshal(dashboardSLO)
 
-		err := common.UploadKeptnResource(yamlAsByteArray, common.KeptnSLOFilename, keptnEvent, logger)
+		err := common.UploadKeptnResource(yamlAsByteArray, common.KeptnSLOFilename, keptnEvent)
 		if err != nil {
 			return fmt.Errorf("could not store %s : %v", common.KeptnSLOFilename, err)
 		}
@@ -212,7 +215,7 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	if dashboardJSON != nil {
 		jsonAsByteArray, _ := json.MarshalIndent(dashboardJSON, "", "  ")
 
-		err := common.UploadKeptnResource(jsonAsByteArray, common.DynatraceDashboardFilename, keptnEvent, dynatraceHandler.Logger)
+		err := common.UploadKeptnResource(jsonAsByteArray, common.DynatraceDashboardFilename, keptnEvent)
 		if err != nil {
 			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store %s : %v", common.DynatraceDashboardFilename, err)
 		}
@@ -222,7 +225,7 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	if dashboardSLI != nil {
 		yamlAsByteArray, _ := yaml.Marshal(dashboardSLI)
 
-		err := common.UploadKeptnResource(yamlAsByteArray, common.DynatraceSLIFilename, keptnEvent, dynatraceHandler.Logger)
+		err := common.UploadKeptnResource(yamlAsByteArray, common.DynatraceSLIFilename, keptnEvent)
 		if err != nil {
 			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store %s : %v", common.DynatraceSLIFilename, err)
 		}
@@ -232,7 +235,7 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	if dashboardSLO != nil {
 		yamlAsByteArray, _ := yaml.Marshal(dashboardSLO)
 
-		err := common.UploadKeptnResource(yamlAsByteArray, common.KeptnSLOFilename, keptnEvent, dynatraceHandler.Logger)
+		err := common.UploadKeptnResource(yamlAsByteArray, common.KeptnSLOFilename, keptnEvent)
 		if err != nil {
 			return dashboardLinkAsLabel, sliResults, fmt.Errorf("could not store %s : %v", common.KeptnSLOFilename, err)
 		}
@@ -241,10 +244,10 @@ func getDataFromDynatraceDashboard(dynatraceHandler *dynatrace.Handler, keptnEve
 	// lets also write the result to a local file in local test mode
 	if sliResults != nil {
 		if common.RunLocal || common.RunLocalTest {
-			dynatraceHandler.Logger.Info("(RunLocal Output) Write SLIResult to sliresult.json")
+			log.Info("(RunLocal Output) Write SLIResult to sliresult.json")
 			jsonAsByteArray, _ := json.MarshalIndent(sliResults, "", "  ")
 
-			common.UploadKeptnResource(jsonAsByteArray, "sliresult.json", keptnEvent, dynatraceHandler.Logger)
+			common.UploadKeptnResource(jsonAsByteArray, "sliresult.json", keptnEvent)
 		}
 	}
 
@@ -294,10 +297,12 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 		return sendGetSLIFinishedEvent(event, eventData, nil, err)
 	}
 
-	//
-	// Lets get a Logger
-	stdLogger := keptn.NewLogger(shkeptncontext, event.Context.GetID(), "dynatrace-sli-service")
-	stdLogger.Info(fmt.Sprintf("Processing sh.keptn.internal.event.get-sli for %s.%s.%s", eventData.Project, eventData.Stage, eventData.Service))
+	log.WithFields(
+		log.Fields{
+			"project": eventData.Project,
+			"stage":   eventData.Stage,
+			"service": eventData.Service,
+		}).Info("Processing sh.keptn.internal.event.get-sli")
 
 	//
 	// see if there is a dynatrace.conf.yaml
@@ -308,15 +313,15 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 	keptnEvent.Labels = eventData.Labels
 	keptnEvent.Deployment = eventData.Deployment
 	keptnEvent.Context = shkeptncontext
-	dynatraceConfigFile, _ := common.GetDynatraceConfig(keptnEvent, stdLogger)
+	dynatraceConfigFile, _ := common.GetDynatraceConfig(keptnEvent)
 
 	dtCreds := ""
 	if dynatraceConfigFile != nil {
 		// implementing https://github.com/keptn-contrib/dynatrace-sli-service/issues/90
 		dtCreds = common.ReplaceKeptnPlaceholders(dynatraceConfigFile.DtCreds, keptnEvent)
-		stdLogger.Debug("Found dynatrace.conf.yaml with DTCreds: " + dtCreds)
+		log.WithField("dtCreds", dtCreds).Debug("Found dynatrace.conf.yaml")
 	} else {
-		stdLogger.Debug("Using default DTCreds: dynatrace as no custom dynatrace.conf.yaml was found!")
+		log.Debug("Using default DTCreds: dynatrace as no custom dynatrace.conf.yaml was found!")
 		dynatraceConfigFile = &common.DynatraceConfigFile{}
 		dynatraceConfigFile.Dashboard = ""
 		dynatraceConfigFile.DtCreds = "dynatrace"
@@ -334,10 +339,10 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 		eventData.Labels["DtCreds"] = dynatraceConfigFile.DtCreds
 	}
 
-	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project, stdLogger)
+	dtCredentials, err := getDynatraceCredentials(dtCreds, eventData.Project)
 
 	if err != nil {
-		stdLogger.Error("Failed to fetch Dynatrace credentials: " + err.Error())
+		log.WithError(err).Error("Failed to fetch Dynatrace credentials")
 		// Implementing: https://github.com/keptn-contrib/dynatrace-sli-service/issues/49
 		return sendGetSLIFinishedEvent(event, eventData, nil, err)
 	}
@@ -355,9 +360,9 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 
 	//
 	// parse start and end (which are datetime strings) and convert them into unix timestamps
-	startUnix, endUnix, err := ensureRightTimestamps(eventData.GetSLI.Start, eventData.GetSLI.End, stdLogger)
+	startUnix, endUnix, err := ensureRightTimestamps(eventData.GetSLI.Start, eventData.GetSLI.End)
 	if err != nil {
-		stdLogger.Error(err.Error())
+		log.WithError(err).Error("ensureRightTimestamps failed")
 		return sendGetSLIFinishedEvent(event, eventData, nil, err)
 	}
 
@@ -371,7 +376,7 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 	dashboardLinkAsLabel, sliResults, err := getDataFromDynatraceDashboard(dynatraceHandler, keptnEvent, startUnix, endUnix, dynatraceConfigFile.Dashboard)
 	if err != nil {
 		// log the error, but continue with loading sli.yaml
-		stdLogger.Error(err.Error())
+		log.WithError(err).Error("getDataFromDynatraceDashboard failed")
 	}
 
 	// add link to dynatrace dashboard to labels
@@ -386,7 +391,7 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 	// Option 2: If we have not received any data via a Dynatrace Dashboard lets query the SLIs based on the SLI.yaml definition
 	if sliResults == nil {
 		// get custom metrics for project if they exist
-		projectCustomQueries, _ := common.GetCustomQueries(keptnEvent, stdLogger)
+		projectCustomQueries, _ := common.GetCustomQueries(keptnEvent)
 
 		// set our list of queries on the handler
 		if projectCustomQueries != nil {
@@ -396,12 +401,12 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 		// query all indicators
 		for _, indicator := range eventData.GetSLI.Indicators {
 			if strings.Compare(indicator, ProblemOpenSLI) == 0 {
-				stdLogger.Info("Skip " + indicator + " as it is handled later!")
+				log.WithField("indicator", indicator).Info("Skipping indicator as it is handled later")
 			} else {
-				stdLogger.Info("Fetching indicator: " + indicator)
+				log.WithField("indicator", indicator).Info("Fetching indicator")
 				sliValue, err := dynatraceHandler.GetSLIValue(indicator, startUnix, endUnix)
 				if err != nil {
-					stdLogger.Error(err.Error())
+					log.WithError(err).Error("GetSLIValue failed")
 					// failed to fetch metric
 					sliResults = append(sliResults, &keptnv2.SLIResult{
 						Metric:  indicator,
@@ -421,10 +426,7 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 		}
 
 		if common.RunLocal || common.RunLocalTest {
-			log.Println("(RunLocal Output) Here are the results:")
-			for _, v := range sliResults {
-				log.Println(fmt.Sprintf("%s:%.2f - Success: %t - Error: %s", v.Metric, v.Value, v.Success, v.Message))
-			}
+			log.WithField("sliResults", sliResults).Print("(RunLocal Output) sliResults")
 			return nil
 		}
 	}
@@ -471,7 +473,7 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 			Pass:    passSLOs,
 			Warning: warningSLOs,
 		}
-		addSLO(keptnEvent, sloDefinition, dynatraceHandler.Logger)
+		addSLO(keptnEvent, sloDefinition)
 	}
 
 	// now - lets see if we have captured any result values - if not - return send an error
@@ -480,7 +482,7 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 		err = errors.New("Couldn't retrieve any SLI Results")
 	}
 
-	stdLogger.Info("Finished fetching metrics; Sending SLIDone event now ...")
+	log.Info("Finished fetching metrics; Sending SLIDone event now ...")
 
 	return sendGetSLIFinishedEvent(event, eventData, sliResults, err)
 }
@@ -489,7 +491,7 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
  * returns the DTCredentials
  * First looks at the passed secretName. If null, validates if there is a dynatrace-credentials-%PROJECT% - if not - defaults to "dynatrace" global secret
  */
-func getDynatraceCredentials(secretName string, project string, logger *keptn.Logger) (*common.DTCredentials, error) {
+func getDynatraceCredentials(secretName string, project string) (*common.DTCredentials, error) {
 
 	secretNames := []string{secretName, fmt.Sprintf("dynatrace-credentials-%s", project), "dynatrace-credentials", "dynatrace"}
 
@@ -499,10 +501,13 @@ func getDynatraceCredentials(secretName string, project string, logger *keptn.Lo
 		}
 
 		dtCredentials, err := common.GetDTCredentials(secret)
-
 		if err == nil && dtCredentials != nil {
-			// lets validate if the tenant URL is
-			logger.Info(fmt.Sprintf("Secret '%s' with credentials found, returning (%s) ...", secret, dtCredentials.Tenant))
+
+			log.WithFields(
+				log.Fields{
+					"secret": secret,
+					"tenant": dtCredentials.Tenant,
+				}).Info("Found secret with credentials")
 			return dtCredentials, nil
 		}
 	}

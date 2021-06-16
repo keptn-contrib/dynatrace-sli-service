@@ -406,7 +406,7 @@ func TestGetCustomQueries(t *testing.T) {
 
 	common.RunLocal = true
 
-	customQueries, err := common.GetCustomQueries(keptnEvent, nil)
+	customQueries, err := common.GetCustomQueries(keptnEvent)
 
 	if err != nil {
 		t.Error(err)
