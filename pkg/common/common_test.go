@@ -20,7 +20,8 @@ func Test_parseDynatraceConfigFile(t *testing.T) {
 		},
 		{
 			name: "valid yaml no dashboard",
-			yamlString: `spec_version: '0.1.0'
+			yamlString: `
+spec_version: '0.1.0'
 dtCreds: dyna`,
 			want: DynatraceConfigFile{
 				SpecVersion: "0.1.0",
@@ -29,7 +30,8 @@ dtCreds: dyna`,
 		},
 		{
 			name: "valid yaml with dashboard",
-			yamlString: `spec_version: '0.1.0'
+			yamlString: `
+spec_version: '0.1.0'
 dtCreds: dyna
 dashboard: dash`,
 			want: DynatraceConfigFile{
@@ -40,7 +42,8 @@ dashboard: dash`,
 		},
 		{
 			name: "invalid yaml",
-			yamlString: `spec_version: '0.1.0'
+			yamlString: `
+spec_version: '0.1.0'
 dtCreds: dyna,
 dashboard: ****`,
 			want:    DynatraceConfigFile{},

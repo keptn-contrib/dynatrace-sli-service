@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 
 	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
