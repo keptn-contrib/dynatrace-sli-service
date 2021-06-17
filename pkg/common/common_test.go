@@ -25,7 +25,8 @@ spec_version: '0.1.0'
 dtCreds: dyna`,
 			want: DynatraceConfigFile{
 				SpecVersion: "0.1.0",
-				DtCreds:     "dyna"},
+				DtCreds:     "dyna",
+			},
 			wantErr: false,
 		},
 		{
@@ -37,17 +38,31 @@ dashboard: dash`,
 			want: DynatraceConfigFile{
 				SpecVersion: "0.1.0",
 				DtCreds:     "dyna",
-				Dashboard:   "dash"},
+				Dashboard:   "dash",
+			},
 			wantErr: false,
 		},
 		{
 			name: "invalid yaml",
 			yamlString: `
 spec_version: '0.1.0'
-dtCreds: dyna,
+dtCreds: dyna
 dashboard: ****`,
 			want:    DynatraceConfigFile{},
 			wantErr: true,
+		},
+		{
+			name: "yaml with special characters",
+			yamlString: `
+spec_version: '0.1.0'
+dtCreds: dyna
+dashboard: '****'`,
+			want: DynatraceConfigFile{
+				SpecVersion: "0.1.0",
+				DtCreds:     "dyna",
+				Dashboard:   "****",
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
