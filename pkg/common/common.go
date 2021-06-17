@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -437,7 +438,7 @@ func GetDTCredentials(dynatraceSecretName string) (*DTCredentials, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error retrieving Dynatrace credentials: could not initialize Kubernetes client: %v", err)
 		}
-		secret, err := kubeAPI.CoreV1().Secrets(namespace).Get(dynatraceSecretName, metav1.GetOptions{})
+		secret, err := kubeAPI.CoreV1().Secrets(namespace).Get(context.TODO(), dynatraceSecretName, metav1.GetOptions{})
 
 		if err != nil {
 			return nil, fmt.Errorf("error retrieving Dynatrace credentials: could not retrieve secret %s.%s: %v", namespace, dynatraceSecretName, err)
