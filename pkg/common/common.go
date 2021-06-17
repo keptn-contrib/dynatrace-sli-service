@@ -244,6 +244,7 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string) (string, e
 				log.WithFields(
 					log.Fields{
 						"resourceURI": resourceURI,
+						"project":     keptnEvent.Project,
 						"stage":       keptnEvent.Stage,
 					}).Debug("Found resource on stage level")
 			}
@@ -251,6 +252,8 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string) (string, e
 			log.WithFields(
 				log.Fields{
 					"resourceURI": resourceURI,
+					"project":     keptnEvent.Project,
+					"stage":       keptnEvent.Stage,
 					"service":     keptnEvent.Service,
 				}).Debug("Found resource on service level")
 		}
@@ -369,12 +372,23 @@ func getBaseDynatraceConfig(keptnEvent *BaseKeptnEvent) DynatraceConfigFile {
 
 	yamlString, err := GetKeptnResource(keptnEvent, DynatraceConfigFilename)
 	if err != nil {
-		log.WithError(err).Debug("Error getting keptn resource")
+		log.WithError(err).WithFields(
+			log.Fields{
+				"service": keptnEvent.Service,
+				"stage":   keptnEvent.Stage,
+				"project": keptnEvent.Project,
+			}).Debug("Error getting keptn resource")
 		return defaultDynatraceConfigFile
 	}
 	dynatraceConfFile, err := parseDynatraceConfigFile(yamlString)
 	if err != nil {
-		log.WithError(err).WithField("yaml", yamlString).Error("Error parsing DynatraceConfigFile, using default configuration")
+		log.WithError(err).WithFields(
+			log.Fields{
+				"yaml":    yamlString,
+				"service": keptnEvent.Service,
+				"stage":   keptnEvent.Stage,
+				"project": keptnEvent.Project,
+			}).Error("Error parsing DynatraceConfigFile, using default configuration")
 		return defaultDynatraceConfigFile
 	}
 	return dynatraceConfFile
