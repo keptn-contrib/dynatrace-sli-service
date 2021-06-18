@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 
 	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
@@ -47,8 +47,8 @@ const DynatraceConfigDashboardQUERY = "query"
 
 type DynatraceConfigFile struct {
 	SpecVersion string `json:"spec_version" yaml:"spec_version"`
-	DtCreds     string `json:"dtCreds",omitempty yaml:"dtCreds",omitempty`
-	Dashboard   string `json:"dashboard",omitempty yaml:"dashboard",omitempty`
+	DtCreds     string `json:"dtCreds,omitempty" yaml:"dtCreds,omitempty"`
+	Dashboard   string `json:"dashboard,omitempty" yaml:"dashboard,omitempty"`
 }
 
 type DTCredentials struct {
@@ -245,6 +245,7 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string) (string, e
 				log.WithFields(
 					log.Fields{
 						"resourceURI": resourceURI,
+						"project":     keptnEvent.Project,
 						"stage":       keptnEvent.Stage,
 					}).Debug("Found resource on stage level")
 			}
@@ -252,6 +253,8 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string) (string, e
 			log.WithFields(
 				log.Fields{
 					"resourceURI": resourceURI,
+					"project":     keptnEvent.Project,
+					"stage":       keptnEvent.Stage,
 					"service":     keptnEvent.Service,
 				}).Debug("Found resource on service level")
 		}
@@ -348,36 +351,48 @@ func GetCustomQueries(keptnEvent *BaseKeptnEvent) (map[string]string, error) {
 	return sliMap, nil
 }
 
-// GetDynatraceConfig loads dynatrace.conf for the current service
-func GetDynatraceConfig(keptnEvent *BaseKeptnEvent) (*DynatraceConfigFile, error) {
+// GetDynatraceConfig loads dynatrace.conf for the current service.
+// If none is found, it returns a default configuration.
+func GetDynatraceConfig(keptnEvent *BaseKeptnEvent) DynatraceConfigFile {
+	dynatraceConfFile := getBaseDynatraceConfig(keptnEvent)
+	if dynatraceConfFile.DtCreds == "" {
+		dynatraceConfFile.DtCreds = "dynatrace"
+	}
+	// implementing https://github.com/keptn-contrib/dynatrace-sli-service/issues/90
+	dynatraceConfFile.DtCreds = ReplaceKeptnPlaceholders(dynatraceConfFile.DtCreds, keptnEvent)
+	return dynatraceConfFile
+}
 
-	dynatraceConfFileContent, err := GetKeptnResource(keptnEvent, DynatraceConfigFilename)
+func getBaseDynatraceConfig(keptnEvent *BaseKeptnEvent) DynatraceConfigFile {
 
-	if err != nil {
-		return nil, err
+	var defaultDynatraceConfigFile = DynatraceConfigFile{
+		SpecVersion: "0.1.0",
+		DtCreds:     "dynatrace",
+		Dashboard:   "",
 	}
 
-	if dynatraceConfFileContent == "" {
-		// loaded an empty file
-		log.Debug("Contents of dynatrace.conf.yaml is empty")
-		return nil, nil
-	}
-
-	// unmarshal the file
-	dynatraceConfFile, err := parseDynatraceConfigFile([]byte(dynatraceConfFileContent))
+	yamlString, err := GetKeptnResource(keptnEvent, DynatraceConfigFilename)
 	if err != nil {
 		log.WithError(err).WithFields(
 			log.Fields{
-				"project":  keptnEvent.Project,
-				"stage":    keptnEvent.Stage,
-				"service":  keptnEvent.Service,
-				"filename": DynatraceConfigFilename,
-				"contents": dynatraceConfFileContent,
-			}).Error("parseDynatraceConfigFile failed")
-		return nil, fmt.Errorf("Could not parse Dynatrace config file %w", err)
+				"service": keptnEvent.Service,
+				"stage":   keptnEvent.Stage,
+				"project": keptnEvent.Project,
+			}).Debug("Error getting keptn resource")
+		return defaultDynatraceConfigFile
 	}
-
-	return dynatraceConfFile, nil
+	dynatraceConfFile, err := parseDynatraceConfigFile(yamlString)
+	if err != nil {
+		log.WithError(err).WithFields(
+			log.Fields{
+				"yaml":    yamlString,
+				"service": keptnEvent.Service,
+				"stage":   keptnEvent.Stage,
+				"project": keptnEvent.Project,
+			}).Error("Error parsing DynatraceConfigFile, using default configuration")
+		return defaultDynatraceConfigFile
+	}
+	return dynatraceConfFile
 }
 
 // UploadKeptnResource uploads a file to the Keptn Configuration Service
@@ -409,15 +424,10 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 /**
  * parses the dynatrace.conf.yaml file that is passed as parameter
  */
-func parseDynatraceConfigFile(input []byte) (*DynatraceConfigFile, error) {
-	dynatraceConfFile := &DynatraceConfigFile{}
-	err := yaml.Unmarshal([]byte(input), &dynatraceConfFile)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return dynatraceConfFile, nil
+func parseDynatraceConfigFile(yamlString string) (DynatraceConfigFile, error) {
+	dynatraceConfFile := DynatraceConfigFile{}
+	err := yaml.Unmarshal([]byte(yamlString), &dynatraceConfFile)
+	return dynatraceConfFile, err
 }
 
 /**
