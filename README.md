@@ -88,6 +88,10 @@ To delete a deployed *dynatrace-sli-service*, use the `helm` CLI to uninstall th
 helm delete -n keptn dynatrace-sli-service
 ```
 
+## Debugging
+
+Remote debugging is supported using [Skaffold](https://skaffold.dev/) via `skaffold debug`, which starts a [Delve](https://github.com/go-delve/delve) instance prior to running the service.
+
 ## Pre-Requisites: Dynatrace Tenant URL & API Token
 
 In order for the *dynatrace-sli-service* to connect to Dynatrace you need to provide a Dynatrace Tenant URL and a Dynatrace API Token. In our examples below we use the best practice to export these values in the environment variables `DT_TENANT` and `DT_API_TOKEN` as explained in the [Keptn documentation for Dynatrace](https://keptn.sh/docs/0.8.x/monitoring/dynatrace/install/)

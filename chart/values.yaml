@@ -2,7 +2,7 @@ dynatraceSliService:
   image:
     repository: docker.io/keptncontrib/dynatrace-sli-service # Container Image Name
     pullPolicy: IfNotPresent                 # Kubernetes Image Pull Policy
-    tag: "0.10.3"                            # Container Tag
+    tag: ""                                  # Container Tag
   service:
     enabled: true                            # Creates a Kubernetes Service for the dynatrace-sli-service
   config:
