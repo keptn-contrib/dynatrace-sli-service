@@ -1,4 +1,4 @@
-# Release Notes 0.12.0
+# Release Notes 0.12.1
 
 ## New Features
 
