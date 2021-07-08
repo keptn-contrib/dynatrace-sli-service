@@ -32,26 +32,27 @@ As highlighted above, the *dynatrace-sli-service* also provides the following ca
 
 ## Compatibility Matrix
 
-| Keptn Version    | [Dynatrace-SLI-Service Service Image](https://hub.docker.com/r/keptncontrib/dynatrace-sli-service/tags) |
-|:----------------:|:----------------------------------------:|
-|       0.6.0      | keptncontrib/dynatrace-sli-service:0.3.0 |
-|       0.6.1      | keptncontrib/dynatrace-sli-service:0.3.1 |
-|   0.6.1,0.6.2    | keptncontrib/dynatrace-sli-service:0.4.1 |
-|   0.6.1,0.6.2    | keptncontrib/dynatrace-sli-service:0.4.2 |
-|   0.7.0          | keptncontrib/dynatrace-sli-service:0.5.0 |
-|   0.7.1          | keptncontrib/dynatrace-sli-service:0.6.0 |
-|   0.7.2          | keptncontrib/dynatrace-sli-service:0.7.0 |
-|   0.7.2+         | keptncontrib/dynatrace-sli-service:0.7.1 |
-|   0.7.3          | keptncontrib/dynatrace-sli-service:0.7.2 |
-|   0.7.3          | keptncontrib/dynatrace-sli-service:0.7.3 |
-| 0.8.0-alpha	     | keptncontrib/dynatrace-sli-service:0.8.0-alpha |
-| 0.8.0, 0.8.1	   | keptncontrib/dynatrace-sli-service:0.9.0 |
-| 0.8.0-0.8.3	     | keptncontrib/dynatrace-sli-service:0.10.0 |
-| 0.8.0-0.8.3	     | keptncontrib/dynatrace-sli-service:0.10.1 |
-| 0.8.0-0.8.3	     | keptncontrib/dynatrace-sli-service:0.10.2 |
-| 0.8.0-0.8.3	     | keptncontrib/dynatrace-sli-service:0.10.3 |
-| 0.8.0-0.8.3	     | keptncontrib/dynatrace-sli-service:0.11.0 |
-|   0.8.4          | keptncontrib/dynatrace-sli-service:0.12.0 |
+| Keptn Version      | [Dynatrace-SLI-Service Service Image](https://hub.docker.com/r/keptncontrib/dynatrace-sli-service/tags) |
+|:------------------:|:----------------------------------------------:|
+|       0.6.0        | keptncontrib/dynatrace-sli-service:0.3.0       |
+|       0.6.1        | keptncontrib/dynatrace-sli-service:0.3.1       |
+|   0.6.1, 0.6.2     | keptncontrib/dynatrace-sli-service:0.4.1       |
+|   0.6.1, 0.6.2     | keptncontrib/dynatrace-sli-service:0.4.2       |
+|   0.7.0            | keptncontrib/dynatrace-sli-service:0.5.0       |
+|   0.7.1            | keptncontrib/dynatrace-sli-service:0.6.0       |
+|   0.7.2            | keptncontrib/dynatrace-sli-service:0.7.0       |
+|   0.7.2+           | keptncontrib/dynatrace-sli-service:0.7.1       |
+|   0.7.3            | keptncontrib/dynatrace-sli-service:0.7.2       |
+|   0.7.3            | keptncontrib/dynatrace-sli-service:0.7.3       |
+| 0.8.0-alpha	       | keptncontrib/dynatrace-sli-service:0.8.0-alpha |
+| 0.8.0, 0.8.1	     | keptncontrib/dynatrace-sli-service:0.9.0       |
+| 0.8.0 - 0.8.3	     | keptncontrib/dynatrace-sli-service:0.10.0      |
+| 0.8.0 - 0.8.3	     | keptncontrib/dynatrace-sli-service:0.10.1      |
+| 0.8.0 - 0.8.3	     | keptncontrib/dynatrace-sli-service:0.10.2      |
+| 0.8.0 - 0.8.3	     | keptncontrib/dynatrace-sli-service:0.10.3      |
+| 0.8.0 - 0.8.3	     | keptncontrib/dynatrace-sli-service:0.11.0      |  
+| 0.8.4 - 0.8.6      | keptncontrib/dynatrace-sli-service:0.12.0      |
+| 0.8.4 - 0.8.6      | keptncontrib/dynatrace-sli-service:0.12.1      |
 
 ## Installation
 
@@ -71,7 +72,7 @@ Please use the same namespace for the *dynatrace-sli-service* as you are using f
     ```console
     helm upgrade --install  dynatrace-sli-service -n keptn https://github.com/keptn-contrib/dynatrace-sli-service/releases/download/$VERSION/dynatrace-sli-service-$VERSION.tgz
     ```
-    **Note**: Replace `$VERSION` with the desired version number (e.g. 0.12.0) you want to install.
+    **Note**: Replace `$VERSION` with the desired version number (e.g. 0.12.1) you want to install.
 
 * This installs the *dynatrace-sli-service* into the `keptn` namespace, which you can verify using:
 
