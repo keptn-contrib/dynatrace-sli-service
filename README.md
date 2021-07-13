@@ -1,7 +1,10 @@
-# Dynatrace SLI Service
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/keptn-contrib/dynatrace-sli-service)
-[![Build Status](https://travis-ci.org/keptn-contrib/dynatrace-sli-service.svg?branch=master)](https://travis-ci.org/keptn-contrib/dynatrace-sli-service)
-[![Go Report Card](https://goreportcard.com/badge/github.com/keptn-contrib/dynatrace-sli-service)](https://goreportcard.com/report/github.com/keptn-contrib/dynatrace-sli-service)
+# Deprecated: Dynatrace SLI Service
+
+## Important information
+This repository has been archived as the functionality has been moved to the [dynatrace-service](https://github.com/keptn-contrib/dynatrace-service).
+
+---
+
 
 The *dynatrace-sli-service* is a [Keptn](https://keptn.sh) service that is responsible for retrieving the values of SLIs from your Dynatrace Tenant via the Dynatrace Metrics v2 API endpoint. For that it handles the Keptn Event *sh.keptn.internal.event.get-sli* which gets executed as part of a quality gate evaluation!
 
